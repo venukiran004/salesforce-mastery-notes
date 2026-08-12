@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LWC Core | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>UI</span> › <span>LWC Core</span></div>
+  <h1>Lightning Web Components — Core</h1>
+  <p class="lede">Component anatomy, decorators, reactivity, getters and setters, conditional rendering, lists,
+     lifecycle hooks and the Shadow DOM.</p>
+</header>
+
+<!-- ============================================ -->
+<h2 id="anatomy">Component anatomy</h2>
+<p>LWC is built on modern web standards (ES modules, custom elements, Shadow DOM) with a thin Salesforce layer on top.
+   A component is a <strong>folder</strong> whose files share the folder's name.</p>
+
+<div class="dgm">
+  <div class="dgm-title">The component bundle</div>
+  <svg viewBox="0 0 780 260" role="img" aria-label="LWC component bundle files">
+    <rect class="s-box-v" x="270" y="10" width="240" height="42" rx="9"/>
+    <text class="s-t anchor-mid" x="390" y="31">📁 accountList/</text>
+    <path class="s-line" d="M390 52 V72 M110 72 H670 M110 72 V96 M300 72 V96 M480 72 V96 M670 72 V96"/>
+
+    <rect class="s-box-b" x="20" y="96" width="180" height="84" rx="9"/>
+    <text class="s-t s-t-b anchor-mid" x="110" y="118">accountList.html</text>
+    <text class="s-t-sm anchor-mid" x="110" y="142">The template</text>
+    <text class="s-t-sm anchor-mid" x="110" y="160">Required</text>
+
+    <rect class="s-box-a" x="210" y="96" width="180" height="84" rx="9"/>
+    <text class="s-t s-t-a anchor-mid" x="300" y="118">accountList.js</text>
+    <text class="s-t-sm anchor-mid" x="300" y="142">The controller class</text>
+    <text class="s-t-sm anchor-mid" x="300" y="160">Required</text>
+
+    <rect class="s-box-t" x="400" y="96" width="180" height="84" rx="9"/>
+    <text class="s-t s-t-t anchor-mid" x="490" y="114">accountList.js-meta.xml</text>
+    <text class="s-t-sm anchor-mid" x="490" y="138">Where it can be used</text>
+    <text class="s-t-sm anchor-mid" x="490" y="158">Required to deploy</text>
+
+    <rect class="s-box-g" x="590" y="96" width="170" height="84" rx="9"/>
+    <text class="s-t s-t-g anchor-mid" x="675" y="118">accountList.css</text>
+    <text class="s-t-sm anchor-mid" x="675" y="142">Scoped styles</text>
+    <text class="s-t-sm anchor-mid" x="675" y="160">Optional</text>
+
+    <text class="s-t-sm anchor-mid" x="390" y="216">Also optional: __tests__/ (Jest) · accountList.svg (custom icon) · other .js modules to import</text>
+    <text class="s-t-sm s-t-r anchor-mid" x="390" y="242">Folder name must be camelCase; referenced in markup as &lt;c-account-list&gt; (kebab-case)</text>
+  </svg>
+</div>
+
+<div class="tabs">
+  <div class="tab-btns">
+    <button class="tab-btn active">HTML</button>
+    <button class="tab-btn">JavaScript</button>
+    <button class="tab-btn">Meta XML</button>
+    <button class="tab-btn">CSS</button>
+  </div>
+  <div class="tab-panel active">
+<pre data-file="accountList.html"><code class="language-html">&lt;template&gt;
+    &lt;lightning-card title="Accounts" icon-name="standard:account"&gt;
+        &lt;div class="slds-var-m-around_medium"&gt;
+
+            &lt;lightning-input
+                label="Search"
+                value={searchTerm}
+                onchange={handleSearchChange}&gt;
+            &lt;/lightning-input&gt;
+
+            &lt;template lwc:if={hasAccounts}&gt;
+                &lt;ul&gt;
+                    &lt;template for:each={accounts} for:item="acc"&gt;
+                        &lt;li key={acc.Id} class="slds-var-p-vertical_xx-small"&gt;
+                            {acc.Name} — {acc.Industry}
+                        &lt;/li&gt;
+                    &lt;/template&gt;
+                &lt;/ul&gt;
+            &lt;/template&gt;
+            &lt;template lwc:else&gt;
+                &lt;p class="slds-text-color_weak"&gt;No accounts found.&lt;/p&gt;
+            &lt;/template&gt;
+
+        &lt;/div&gt;
+    &lt;/lightning-card&gt;
+&lt;/template&gt;</code></pre>
+  </div>
+  <div class="tab-panel">
+<pre data-file="accountList.js"><code class="language-js">import { LightningElement, api, wire } from 'lwc';
+import getAccounts from '@salesforce/apex/AccountController.getAccounts';
+
+export default class AccountList extends LightningElement {
+    @api recordId;                 // public — set by the parent or the record page
+    searchTerm = '';               // private, but still reactive
+    accounts = [];
+    error;
+
+    @wire(getAccounts, { searchKey: '$searchTerm' })
+    wiredAccounts({ data, error }) {
+        if (data)  { this.accounts = data;  this.error = undefined; }
+        if (error) { this.error = error;    this.accounts = []; }
+    }
+
+    get hasAccounts() {
+        return this.accounts &amp;&amp; this.accounts.length &gt; 0;
+    }
+
+    handleSearchChange(event) {
+        this.searchTerm = event.target.value;
+    }
+}</code></pre>
+  </div>
+  <div class="tab-panel">
+<pre data-file="accountList.js-meta.xml"><code class="language-xml">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata"&gt;
+    &lt;apiVersion&gt;62.0&lt;/apiVersion&gt;
+    &lt;isExposed&gt;true&lt;/isExposed&gt;
+    &lt;masterLabel&gt;Account List&lt;/masterLabel&gt;
+    &lt;targets&gt;
+        &lt;target&gt;lightning__AppPage&lt;/target&gt;
+        &lt;target&gt;lightning__RecordPage&lt;/target&gt;
+        &lt;target&gt;lightning__HomePage&lt;/target&gt;
+        &lt;target&gt;lightningCommunity__Page&lt;/target&gt;
+        &lt;target&gt;lightning__Tab&lt;/target&gt;
+    &lt;/targets&gt;
+    &lt;targetConfigs&gt;
+        &lt;targetConfig targets="lightning__RecordPage"&gt;
+            &lt;property name="maxRows" type="Integer" default="10" label="Max rows"/&gt;
+            &lt;objects&gt;
+                &lt;object&gt;Account&lt;/object&gt;
+            &lt;/objects&gt;
+        &lt;/targetConfig&gt;
+    &lt;/targetConfigs&gt;
+&lt;/LightningComponentBundle&gt;</code></pre>
+    <p><code>isExposed=false</code> means the component can only be used <em>inside</em> other components — a common
+       gotcha when your component doesn't appear in App Builder.</p>
+  </div>
+  <div class="tab-panel">
+<pre data-file="accountList.css"><code class="language-css">/* Styles are SCOPED to this component by the Shadow DOM */
+.highlight {
+    background-color: var(--lwc-colorBackgroundHighlight, #f3f3f3);
+    border-left: 3px solid var(--lwc-colorBrand, #0176d3);
+}
+
+/* :host targets the component element itself */
+:host {
+    display: block;
+}
+
+/* Styling a slotted child from the parent */
+::slotted(p) {
+    margin: 0;
+}</code></pre>
+  </div>
+</div>
+
+<div class="callout note">
+  <span class="c-ico">📛</span>
+  <div class="c-body"><span class="c-title">Naming rules</span>
+    Folder/file: <code>camelCase</code>. In markup: <code>&lt;c-account-list&gt;</code> — the namespace prefix
+    <code>c-</code> plus kebab-case. Attributes in markup are kebab-case
+    (<code>record-id</code>) but camelCase in JS (<code>recordId</code>). The class must be the
+    <strong>default export</strong> and extend <code>LightningElement</code>.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="properties-data-binding">Properties &amp; data binding</h2>
+<p>LWC uses <strong>one-way data binding</strong>: the template reads from the JS class. To change data you handle an
+   event and assign in JavaScript — the template then re-renders automatically.</p>
+
+<pre data-file="binding.html"><code class="language-html">&lt;template&gt;
+    &lt;!-- Text interpolation --&gt;
+    &lt;p&gt;Hello {greeting}&lt;/p&gt;
+
+    &lt;!-- Attribute binding --&gt;
+    &lt;lightning-input value={greeting} onchange={handleChange}&gt;&lt;/lightning-input&gt;
+    &lt;img src={imageUrl} alt={altText} /&gt;
+
+    &lt;!-- Nested property access IS allowed --&gt;
+    &lt;p&gt;{account.Name}&lt;/p&gt;
+
+    &lt;!-- ❌ NOT allowed: expressions, function calls, operators --&gt;
+    &lt;!-- {count + 1}  {items.length}  {getName()}  {a &amp;&amp; b} --&gt;
+    &lt;!-- ✅ Use a getter instead --&gt;
+    &lt;p&gt;{itemCount}&lt;/p&gt;
+&lt;/template&gt;</code></pre>
+
+<pre data-file="binding.js"><code class="language-js">import { LightningElement } from 'lwc';
+
+export default class Binding extends LightningElement {
+    greeting = 'World';
+    items = ['a', 'b', 'c'];
+    account = { Name: 'Acme' };
+
+    get itemCount() {
+        return this.items.length;     // computed values live in getters
+    }
+
+    handleChange(event) {
+        this.greeting = event.target.value;   // assignment triggers re-render
+    }
+}</code></pre>
+
+<h3>Reactivity — the rule that catches everyone</h3>
+<div class="dgm">
+  <div class="dgm-title">What actually triggers a re-render</div>
+  <svg viewBox="0 0 780 250" role="img" aria-label="Reactivity rules for primitives and objects in LWC">
+    <rect class="s-box-g" x="20" y="20" width="350" height="98" rx="10"/>
+    <text class="s-t s-t-g" x="40" y="44">✅ Re-renders</text>
+    <text class="s-t-mono" x="40" y="68">this.name = 'new';</text>
+    <text class="s-t-mono" x="40" y="88">this.items = [...this.items, item];</text>
+    <text class="s-t-mono" x="40" y="108">this.obj = { ...this.obj, x: 1 };</text>
+
+    <rect class="s-box-r" x="410" y="20" width="350" height="98" rx="10"/>
+    <text class="s-t s-t-r" x="430" y="44">❌ Does NOT re-render</text>
+    <text class="s-t-mono" x="430" y="68">this.items.push(item);</text>
+    <text class="s-t-mono" x="430" y="88">this.obj.x = 1;</text>
+    <text class="s-t-mono" x="430" y="108">this.items[0].name = 'x';</text>
+
+    <rect class="s-box-b" x="120" y="150" width="540" height="80" rx="10"/>
+    <text class="s-t s-t-b anchor-mid" x="390" y="176">The rule</text>
+    <text class="s-t-sm anchor-mid" x="390" y="200">Fields are reactive when <tspan class="s-t-mono">reassigned</tspan>. Mutating <tspan class="s-t-mono">inside</tspan> an object or array is not detected —</text>
+    <text class="s-t-sm anchor-mid" x="390" y="220">unless the field is decorated with <tspan class="s-t-mono">@track</tspan>, which makes it deeply reactive.</text>
+  </svg>
+</div>
+
+<pre data-file="reactivity.js"><code class="language-js">import { LightningElement, track } from 'lwc';
+
+export default class Reactivity extends LightningElement {
+    // Reassignment is reactive without any decorator (since Spring '20)
+    count = 0;
+    items = [];
+
+    // @track makes the INSIDE of an object/array reactive too
+    @track state = { filters: { status: 'Open' }, page: 1 };
+
+    addWrong(item) {
+        this.items.push(item);                 // ❌ template won't update
+    }
+    addRight(item) {
+        this.items = [...this.items, item];    // ✅ new array reference
+    }
+    updateNested() {
+        this.state.filters.status = 'Closed';  // ✅ works because of @track
+    }
+}</code></pre>
+
+<!-- ============================================ -->
+<h2 id="decorators">Decorators</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Decorator</th><th>Import from</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><code>@api</code></td><td><code>lwc</code></td><td>Makes a property or method <strong>public</strong> — settable by a parent or by App Builder</td></tr>
+    <tr><td><code>@track</code></td><td><code>lwc</code></td><td>Makes object/array internals deeply reactive. Rarely needed now</td></tr>
+    <tr><td><code>@wire</code></td><td><code>lwc</code></td><td>Reads Salesforce data reactively — see <a href="lwc-advanced.html#wire-service">Wire service</a></td></tr>
+  </tbody>
+</table>
+</div>
+
+<pre data-file="child.js"><code class="language-js">import { LightningElement, api } from 'lwc';
+
+export default class Child extends LightningElement {
+    // Public PROPERTY — parent sets &lt;c-child record-id={id}&gt;
+    @api recordId;
+    @api title = 'Default title';
+
+    // Public METHOD — parent calls childCmp.refresh()
+    @api
+    refresh() {
+        this.loadData();
+    }
+
+    // Public GETTER/SETTER pair — react to a value being set
+    @api
+    get selectedIds() {
+        return this._selectedIds;
+    }
+    set selectedIds(value) {
+        this._selectedIds = value ? [...value] : [];
+        this.recalculate();
+    }
+    _selectedIds = [];
+}</code></pre>
+
+<div class="callout danger">
+  <span class="c-ico">🚫</span>
+  <div class="c-body"><span class="c-title">Never mutate an @api property inside the child</span>
+    Data flows down. If the child changes its own <code>@api</code> value, LWC throws
+    <em>"Invalid mutation: Cannot set … on … "</em> in strict cases and the parent's state gets out of sync.
+    Copy it into a private field first, and notify the parent with a custom event.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="getters-setters">Getters &amp; setters</h2>
+<p>Getters replace the template expressions LWC doesn't allow. Setters let you react to incoming values.</p>
+
+<pre data-file="getters.js"><code class="language-js">import { LightningElement, api } from 'lwc';
+
+export default class ContactCard extends LightningElement {
+    contacts = [];
+    _filter = 'all';
+
+    /* ---------- GETTERS: computed values for the template ---------- */
+    get hasContacts()  { return this.contacts.length &gt; 0; }
+    get contactCount() { return this.contacts.length; }
+    get cardTitle()    { return `Contacts (${this.contacts.length})`; }
+
+    get filteredContacts() {
+        if (this._filter === 'all') return this.contacts;
+        return this.contacts.filter(c =&gt; c.Status__c === this._filter);
+    }
+
+    // Dynamic CSS classes — a very common getter use
+    get containerClass() {
+        return this.hasContacts
+            ? 'slds-box slds-theme_success'
+            : 'slds-box slds-theme_shade';
+    }
+
+    // Formatting for display
+    get formattedRevenue() {
+        return new Intl.NumberFormat('en-IN', {
+            style: 'currency', currency: 'INR'
+        }).format(this.revenue || 0);
+    }
+
+    /* ---------- SETTER: run logic when a parent sets a value ---------- */
+    @api
+    get filter() { return this._filter; }
+    set filter(value) {
+        this._filter = value || 'all';
+        this.applyFilter();          // side effect on every set
+    }
+}</code></pre>
+
+<div class="callout warn">
+  <span class="c-ico">⚡</span>
+  <div class="c-body"><span class="c-title">Getter performance</span>
+    A getter runs on <strong>every re-render</strong>. Keep it cheap — no loops over thousands of items, no
+    <code>JSON.parse</code>, never a server call. If the computation is expensive, compute it once in
+    <code>connectedCallback</code> or in the setter and store the result in a field.</div>
+</div>
+<div class="callout note">
+  <span class="c-ico">🔗</span>
+  <div class="c-body"><span class="c-title">The setter + @api ordering rule</span>
+    When you use <code>@api</code> with a getter/setter pair, put the decorator on the <strong>getter</strong>.
+    Also note: the setter fires <em>before</em> <code>connectedCallback</code>, so don't rely on the DOM being ready inside it.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="conditional-rendering">Conditional rendering</h2>
+
+<pre data-file="conditional.html"><code class="language-html">&lt;template&gt;
+    &lt;!-- ✅ MODERN (API 58+, Spring '23) --&gt;
+    &lt;template lwc:if={isLoading}&gt;
+        &lt;lightning-spinner alternative-text="Loading"&gt;&lt;/lightning-spinner&gt;
+    &lt;/template&gt;
+    &lt;template lwc:elseif={hasError}&gt;
+        &lt;p class="slds-text-color_error"&gt;{errorMessage}&lt;/p&gt;
+    &lt;/template&gt;
+    &lt;template lwc:elseif={hasData}&gt;
+        &lt;c-data-table records={records}&gt;&lt;/c-data-table&gt;
+    &lt;/template&gt;
+    &lt;template lwc:else&gt;
+        &lt;p&gt;No results.&lt;/p&gt;
+    &lt;/template&gt;
+
+    &lt;!-- ⚠️ LEGACY (still works, no else-if chain) --&gt;
+    &lt;template if:true={isLoading}&gt;…&lt;/template&gt;
+    &lt;template if:false={isLoading}&gt;…&lt;/template&gt;
+
+    &lt;!-- You can also put the directive on a real element --&gt;
+    &lt;div lwc:if={showPanel} class="slds-box"&gt;Panel content&lt;/div&gt;
+&lt;/template&gt;</code></pre>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th><code>lwc:if / lwc:elseif / lwc:else</code></th><th><code>if:true / if:false</code></th></tr></thead>
+  <tbody>
+    <tr><td>API version</td><td>58+ (Spring '23)</td><td>All</td></tr>
+    <tr><td>else-if chains</td><td>✅</td><td>❌ (needs nesting or duplicate getters)</td></tr>
+    <tr><td>Performance</td><td>Faster — the branches are evaluated together</td><td>Each directive evaluated separately</td></tr>
+    <tr><td>Recommendation</td><td><strong>Use this</strong></td><td>Legacy only</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout warn">
+  <span class="c-ico">👻</span>
+  <div class="c-body"><span class="c-title">Conditional rendering removes the element from the DOM</span>
+    It is not CSS hiding. That means <code>this.template.querySelector()</code> returns <code>null</code> for hidden
+    branches, and child components are <strong>destroyed and recreated</strong> (losing their state) when the condition
+    flips. Use CSS <code>slds-hide</code> if you need to preserve state.</div>
+</div>
+
+<h3>Rendering lists</h3>
+<pre data-file="lists.html"><code class="language-html">&lt;template&gt;
+    &lt;!-- for:each — the standard loop --&gt;
+    &lt;template for:each={contacts} for:item="contact" for:index="idx"&gt;
+        &lt;div key={contact.Id} class="slds-box"&gt;
+            {idx}: {contact.Name} — {contact.Email}
+            &lt;lightning-button
+                label="Delete"
+                data-id={contact.Id}
+                onclick={handleDelete}&gt;
+            &lt;/lightning-button&gt;
+        &lt;/div&gt;
+    &lt;/template&gt;
+
+    &lt;!-- iterator — when you need first/last flags --&gt;
+    &lt;template iterator:it={contacts}&gt;
+        &lt;li key={it.value.Id}
+            class={it.first ? 'first-item' : ''}&gt;
+            {it.value.Name}
+            &lt;template lwc:if={it.last}&gt;&lt;hr /&gt;&lt;/template&gt;
+        &lt;/li&gt;
+    &lt;/template&gt;
+&lt;/template&gt;</code></pre>
+<pre data-file="lists.js"><code class="language-js">handleDelete(event) {
+    // dataset is how you get the row identity back
+    const id = event.currentTarget.dataset.id;
+    this.contacts = this.contacts.filter(c =&gt; c.Id !== id);
+}</code></pre>
+<div class="callout danger">
+  <span class="c-ico">🔑</span>
+  <div class="c-body"><span class="c-title">The key attribute is mandatory</span>
+    <code>key</code> must be on the <strong>first element inside</strong> the loop and must be a unique
+    <em>primitive</em> (string/number) — never an object, and never the index if the list can be reordered.
+    Without a stable key, LWC re-uses the wrong DOM nodes and you get bizarre bugs.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="lifecycle-hooks">Lifecycle hooks</h2>
+
+<div class="dgm">
+  <div class="dgm-title">Lifecycle order — parent and child</div>
+  <svg viewBox="0 0 790 440" role="img" aria-label="LWC lifecycle hook sequence for parent and child components">
+    <text class="s-t s-t-b" x="30" y="20">PARENT</text>
+    <text class="s-t s-t-v" x="440" y="20">CHILD</text>
+    <path class="s-line s-dash" d="M410 10 V400"/>
+
+    <rect class="s-box-b" x="30" y="34" width="330" height="38" rx="8"/>
+    <text class="s-t-sm" x="46" y="53">1 · constructor()  — no DOM, no @api values yet</text>
+    <path class="s-line-b" d="M195 72 V92" marker-end="url(#l1)"/>
+
+    <rect class="s-box-b" x="30" y="92" width="330" height="38" rx="8"/>
+    <text class="s-t-sm" x="46" y="111">2 · connectedCallback()  — inserted into the DOM</text>
+    <path class="s-line-b" d="M195 130 V150" marker-end="url(#l1)"/>
+
+    <rect class="s-box-b" x="30" y="150" width="330" height="38" rx="8"/>
+    <text class="s-t-sm" x="46" y="169">3 · render()  — optional, choose a template</text>
+    <path class="s-line-b" d="M360 169 H440" marker-end="url(#l1)"/>
+
+    <rect class="s-box-v" x="440" y="150" width="330" height="38" rx="8"/>
+    <text class="s-t-sm" x="456" y="169">4 · child constructor()</text>
+    <path class="s-line-v" d="M605 188 V208" marker-end="url(#l1)"/>
+    <rect class="s-box-v" x="440" y="208" width="330" height="38" rx="8"/>
+    <text class="s-t-sm" x="456" y="227">5 · child connectedCallback()</text>
+    <path class="s-line-v" d="M605 246 V266" marker-end="url(#l1)"/>
+    <rect class="s-box-v" x="440" y="266" width="330" height="38" rx="8"/>
+    <text class="s-t-sm" x="456" y="285">6 · child render()</text>
+    <path class="s-line-v" d="M605 304 V324" marker-end="url(#l1)"/>
+    <rect class="s-box-g" x="440" y="324" width="330" height="38" rx="8"/>
+    <text class="s-t-sm" x="456" y="343">7 · child renderedCallback()  ← FIRST</text>
+
+    <path class="s-line-g" d="M440 380 H360" marker-end="url(#l1)"/>
+    <rect class="s-box-g" x="30" y="361" width="330" height="38" rx="8"/>
+    <text class="s-t-sm" x="46" y="380">8 · parent renderedCallback()  ← LAST</text>
+
+    <text class="s-t-sm s-t-r anchor-mid" x="395" y="424">Rendering goes parent → child; renderedCallback fires child → parent (bottom-up)</text>
+    <defs><marker id="l1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Hook</th><th>When</th><th>Use it for</th><th>Don't</th></tr></thead>
+  <tbody>
+    <tr><td><code>constructor()</code></td><td>Instance created</td><td>Initialise private fields</td><td>Touch the DOM, read <code>@api</code> values, or forget <code>super()</code> first</td></tr>
+    <tr><td><code>connectedCallback()</code></td><td>Inserted into the DOM</td><td>Fetch data, subscribe to LMS/EMP, read <code>@api</code> values, set up listeners</td><td>Query the DOM (not rendered yet)</td></tr>
+    <tr><td><code>render()</code></td><td>Before rendering</td><td>Return a different template conditionally</td><td>Side effects or state changes</td></tr>
+    <tr><td><code>renderedCallback()</code></td><td>After every render</td><td>DOM measurements, third-party library init, focus management</td><td>Change reactive state unguarded — <strong>infinite loop</strong></td></tr>
+    <tr><td><code>disconnectedCallback()</code></td><td>Removed from the DOM</td><td>Unsubscribe, clear intervals, remove listeners</td><td>Assume it always runs on page navigation</td></tr>
+    <tr><td><code>errorCallback(error, stack)</code></td><td>A descendant throws</td><td>Error boundary — show a friendly message, log it</td><td>Expect it to catch errors in <em>this</em> component</td></tr>
+  </tbody>
+</table>
+</div>
+
+<pre data-file="lifecycle.js"><code class="language-js">import { LightningElement, api } from 'lwc';
+import { subscribe, unsubscribe, MessageContext } from 'lightning/messageService';
+
+export default class LifecycleDemo extends LightningElement {
+    @api recordId;
+    subscription = null;
+    chartInitialised = false;
+    intervalId;
+
+    constructor() {
+        super();                       // MUST be first
+        this.internalState = {};       // @api values are NOT available yet
+    }
+
+    connectedCallback() {
+        // recordId IS available here
+        this.loadData(this.recordId);
+        this.subscription = subscribe(this.messageContext, MY_CHANNEL, (m) =&gt; this.handle(m));
+        this.intervalId = setInterval(() =&gt; this.poll(), 30000);
+    }
+
+    render() {
+        return this.isEditMode ? editTemplate : viewTemplate;
+    }
+
+    renderedCallback() {
+        // GUARD: this runs after EVERY render
+        if (this.chartInitialised) return;
+        const canvas = this.template.querySelector('canvas');
+        if (canvas) {
+            this.chartInitialised = true;
+            this.drawChart(canvas);
+        }
+    }
+
+    disconnectedCallback() {
+        unsubscribe(this.subscription);
+        this.subscription = null;
+        clearInterval(this.intervalId);       // prevent memory leaks
+    }
+
+    errorCallback(error, stack) {
+        this.hasError = true;
+        this.errorMessage = error.message;
+        console.error('Child component failed:', error, stack);
+    }
+}</code></pre>
+
+<div class="callout danger">
+  <span class="c-ico">♾️</span>
+  <div class="c-body"><span class="c-title">The classic renderedCallback bug</span>
+    Changing a reactive property inside <code>renderedCallback</code> triggers a re-render, which calls
+    <code>renderedCallback</code> again — an infinite loop that freezes the browser tab. Always guard with a boolean
+    flag, or do the work in <code>connectedCallback</code> instead.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="shadow-dom">Shadow DOM</h2>
+<p>Each LWC renders into its own <strong>shadow tree</strong> — an encapsulated DOM attached to the component's host
+   element. This is a browser standard, not a Salesforce invention.</p>
+
+<div class="dgm">
+  <div class="dgm-title">Encapsulation boundary</div>
+  <svg viewBox="0 0 780 330" role="img" aria-label="Shadow DOM boundary around a component's internal markup">
+    <rect class="s-box" x="20" y="20" width="740" height="290" rx="12"/>
+    <text class="s-t" x="40" y="44">Document (Light DOM)</text>
+    <text class="s-t-mono s-t-r" x="40" y="66">document.querySelector('.inner-btn')  →  null ❌</text>
+    <text class="s-t-mono s-t-r" x="40" y="86">Global CSS  .inner-btn { color: red }  →  no effect ❌</text>
+
+    <rect class="s-box-v" x="60" y="106" width="660" height="180" rx="10"/>
+    <text class="s-t s-t-v" x="80" y="130">&lt;c-my-component&gt;  ← the HOST element</text>
+
+    <rect class="s-box-b" x="90" y="146" width="600" height="122" rx="9"/>
+    <text class="s-t s-t-b" x="110" y="170">#shadow-root  (the boundary)</text>
+    <rect class="s-box-t" x="120" y="184" width="230" height="34" rx="7"/>
+    <text class="s-t-sm anchor-mid" x="235" y="201">&lt;button class="inner-btn"&gt;</text>
+    <rect class="s-box-t" x="366" y="184" width="230" height="34" rx="7"/>
+    <text class="s-t-sm anchor-mid" x="481" y="201">&lt;c-child-component&gt;</text>
+    <text class="s-t-mono s-t-g" x="120" y="242">this.template.querySelector('.inner-btn')  →  works ✅</text>
+    <text class="s-t-mono s-t-g" x="120" y="260">Component CSS is scoped here automatically ✅</text>
+
+    <text class="s-t-sm anchor-mid" x="390" y="302">Styles don't leak out; global styles don't leak in; events are retargeted at the boundary</text>
+  </svg>
+</div>
+
+<h3>Querying the DOM</h3>
+<pre data-file="dom.js"><code class="language-js">// ✅ Inside your own shadow tree
+const input  = this.template.querySelector('lightning-input');
+const rows   = this.template.querySelectorAll('.row');
+
+// ✅ Modern, faster and refactor-safe: lwc:ref (API 59+)
+//    &lt;lightning-input lwc:ref="nameInput"&gt;&lt;/lightning-input&gt;
+const nameInput = this.refs.nameInput;
+
+// ✅ Elements you passed into a SLOT live in the light DOM
+const slotted = this.querySelector('p');
+
+// ❌ Never reach into a child component's shadow tree
+// const childBtn = this.template.querySelector('c-child').shadowRoot.querySelector('button');
+
+// ⚠️ Only after render — null in connectedCallback
+renderedCallback() {
+    this.template.querySelector('lightning-input')?.focus();
+}</code></pre>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Consequence</th><th>What it means for you</th></tr></thead>
+  <tbody>
+    <tr><td><strong>CSS isolation</strong></td><td>Component styles never leak out or in. Use SLDS utility classes and CSS custom properties (<code>--lwc-*</code>) or <code>:host</code> for theming</td></tr>
+    <tr><td><strong>DOM isolation</strong></td><td><code>document.querySelector</code> can't see inside; use <code>this.template</code></td></tr>
+    <tr><td><strong>Event retargeting</strong></td><td>An event crossing the boundary reports the <em>host</em> as its target, hiding internals</td></tr>
+    <tr><td><strong>Third-party libraries</strong></td><td>Libraries that expect global DOM access (jQuery plugins, some chart libs) often need the element passed explicitly, or Light DOM</td></tr>
+    <tr><td><strong>Testing</strong></td><td>Jest tests query via <code>element.shadowRoot.querySelector()</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Synthetic vs native Shadow DOM</h3>
+<p>Salesforce originally polyfilled Shadow DOM ("synthetic shadow") for older browser support. Modern orgs can enable
+   <strong>native</strong> shadow via the <em>Lightning Web Security</em> setting. Native is stricter: some CSS and DOM
+   tricks that worked under synthetic will break, so test after switching.</p>
+
+<h3>Light DOM — opting out</h3>
+<pre data-file="lightdom.js"><code class="language-js">import { LightningElement } from 'lwc';
+
+export default class LightDomCmp extends LightningElement {
+    static renderMode = 'light';    // renders into the parent's DOM, no shadow root
+}
+// In the template: &lt;template lwc:render-mode="light"&gt; … &lt;/template&gt;
+// Query with this.querySelector() instead of this.template.querySelector()</code></pre>
+<p><strong>Use Light DOM for:</strong> global styling/theming requirements, third-party libraries that need DOM access,
+   and accessibility tools that struggle with shadow boundaries. <strong>Cost:</strong> you lose encapsulation.</p>
+
+<h3>Slots — letting a parent inject markup</h3>
+<pre data-file="slots.html"><code class="language-html">&lt;!-- child: c-panel --&gt;
+&lt;template&gt;
+    &lt;div class="slds-card"&gt;
+        &lt;header&gt;&lt;slot name="title"&gt;Default title&lt;/slot&gt;&lt;/header&gt;
+        &lt;div class="body"&gt;&lt;slot&gt;Default body&lt;/slot&gt;&lt;/div&gt;
+        &lt;footer&gt;&lt;slot name="actions"&gt;&lt;/slot&gt;&lt;/footer&gt;
+    &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;!-- parent --&gt;
+&lt;template&gt;
+    &lt;c-panel&gt;
+        &lt;h2 slot="title"&gt;Account Summary&lt;/h2&gt;
+        &lt;p&gt;This goes into the unnamed (default) slot.&lt;/p&gt;
+        &lt;lightning-button slot="actions" label="Save"&gt;&lt;/lightning-button&gt;
+    &lt;/c-panel&gt;
+&lt;/template&gt;</code></pre>
+
+<!-- ============================================ -->
+<h2 id="styling">Styling &amp; SLDS</h2>
+<ul>
+  <li>Use <strong>SLDS utility classes</strong> for spacing/layout: <code>slds-var-m-around_medium</code>,
+      <code>slds-grid</code>, <code>slds-col</code>, <code>slds-text-heading_small</code>.</li>
+  <li>Use <strong>base components</strong> (<code>lightning-card</code>, <code>lightning-input</code>,
+      <code>lightning-datatable</code>) — they're accessible, responsive and styled for you.</li>
+  <li>Theme with CSS custom properties: <code>var(--lwc-brandPrimary)</code>, or use <strong>SLDS Styling Hooks</strong>.</li>
+  <li>Static resources for images/fonts: <code>import LOGO from '@salesforce/resourceUrl/CompanyLogo';</code></li>
+  <li><code>:host</code> styles the component element; <code>::slotted()</code> styles slotted content.</li>
+</ul>
+
+<!-- ============================================ -->
+<h2 id="debugging">Debugging</h2>
+<ul>
+  <li>Enable <strong>Debug Mode</strong> for your user (Setup → Debug Mode) — unminified JS and better stack traces.</li>
+  <li>Browser DevTools: the shadow root is inspectable in Elements; set breakpoints in Sources.</li>
+  <li>Install the <strong>Salesforce Lightning Inspector</strong> Chrome extension to see the component tree and event log.</li>
+  <li><code>console.log(JSON.parse(JSON.stringify(obj)))</code> — wire results are read-only Proxies and log unhelpfully otherwise.</li>
+  <li>Write Jest tests with <code>sfdx-lwc-jest</code>; run <code>npm run test:unit</code>.</li>
+</ul>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Why is LWC faster than Aura?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Because it's built on <strong>web standards</strong> the browser implements natively — ES modules,
+custom elements, Shadow DOM, templates. Aura shipped its own component model, event system and rendering engine, all of
+which had to be downloaded and interpreted. LWC is a thin layer over the platform the browser already provides, so there
+is far less framework code between your markup and the DOM. Bonus answer: LWC also brings standard tooling — Jest,
+ES6+, npm — instead of framework-specific equivalents.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> Explain the LWC reactivity rules.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Fields are reactive on <strong>reassignment</strong>: <code>this.name = 'x'</code> and
+<code>this.items = [...this.items, item]</code> both re-render. <strong>Mutation is not tracked</strong> —
+<code>this.items.push(x)</code>, <code>this.obj.a = 1</code> and <code>this.items[0].name = 'x'</code> change nothing on
+screen because the reference is unchanged.</p>
+<p>Decorating the field with <code>@track</code> makes the object or array <em>deeply</em> reactive, which is the only
+reason <code>@track</code> still exists — since Spring '20 plain fields are reactive on reassignment without it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Give the lifecycle hooks in order for a parent containing a child.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Parent <code>constructor</code> → parent <code>connectedCallback</code> → parent <code>render</code>
+→ child <code>constructor</code> → child <code>connectedCallback</code> → child <code>render</code> →
+<strong>child <code>renderedCallback</code></strong> → <strong>parent <code>renderedCallback</code></strong>.</p>
+<p>The rule to state explicitly: <strong>rendering flows top-down, <code>renderedCallback</code> fires bottom-up</strong>.
+So a parent cannot rely on child DOM in its own <code>connectedCallback</code>, but can in its
+<code>renderedCallback</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Why is <code>@api recordId</code> undefined in the constructor?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Public properties are set by the framework <strong>after</strong> construction — the constructor runs
+before the element has been inserted or configured. The constructor is only for initialising private fields, and
+<code>super()</code> must be its first statement.</p>
+<p>Read <code>@api</code> values in <strong><code>connectedCallback</code></strong>, which runs once the element is in the
+DOM and the properties are populated. If you need to react every time the value changes, use an
+<code>@api</code> getter/setter pair instead.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> Why does the browser freeze when I set a property in <code>renderedCallback</code>?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Changing reactive state triggers a re-render, which calls <code>renderedCallback</code> again — an
+infinite loop. <code>renderedCallback</code> fires after <strong>every</strong> render, not once.</p>
+<p>Guard it with a boolean (<code>if (this.chartInitialised) return;</code>) for one-time DOM work such as initialising a
+third-party library, or move the logic to <code>connectedCallback</code> if it doesn't need the rendered DOM.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> What is Shadow DOM and name three practical consequences.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>An encapsulated DOM subtree attached to the component's host element — a browser standard, not a
+Salesforce invention.</p>
+<ol>
+  <li><strong>CSS isolation</strong> — your styles can't leak out and global CSS can't reach in. Theme with SLDS classes,
+      CSS custom properties, <code>:host</code> and <code>::slotted()</code>.</li>
+  <li><strong>DOM isolation</strong> — <code>document.querySelector</code> returns null; use
+      <code>this.template.querySelector()</code> or <code>lwc:ref</code>. Never reach into a child's
+      <code>shadowRoot</code>.</li>
+  <li><strong>Event retargeting</strong> — an event crossing the boundary reports the host as its target, hiding
+      internals.</li>
+</ol>
+<p>Escape hatch: <code>static renderMode = 'light'</code> for third-party libraries that need global DOM access — at the
+cost of encapsulation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> Why can't you write <code>{items.length}</code> or <code>{count + 1}</code> in a template?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>LWC templates deliberately allow only <strong>property access</strong>, including dotted paths like
+<code>{account.Name}</code> — no expressions, operators, function calls or method invocations. This keeps templates
+declarative and lets the engine track dependencies precisely for efficient re-rendering.</p>
+<p>Put the computation in a <strong>getter</strong>. Keep getters cheap: they run on every render, so no loops over
+thousands of items, no <code>JSON.parse</code>, and never a server call.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> What are the rules for <code>key</code> in <code>for:each</code>, and why does it matter?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It's mandatory, must sit on the <strong>first element inside</strong> the loop, and must be a unique
+<strong>primitive</strong> — a string or number, never an object. Avoid the array index if the list can reorder or have
+items removed.</p>
+<p>The key is how the diffing algorithm matches virtual nodes to real DOM nodes between renders. With an unstable key,
+LWC reuses the wrong element — you get checkboxes ticked on the wrong row, or input values jumping between items.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> <code>lwc:if</code> versus <code>if:true</code> — and what happens to hidden content?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>lwc:if / lwc:elseif / lwc:else</code> (API 58+) supports proper else-if chains and evaluates
+the branches together, so it's faster; <code>if:true / if:false</code> is the legacy form with no else-if.</p>
+<p>Crucially, both <strong>remove the element from the DOM</strong> — this is not CSS hiding. So
+<code>this.template.querySelector()</code> returns null for a hidden branch, and child components are
+<strong>destroyed and recreated</strong> (losing their internal state) when the condition flips. Use the SLDS
+<code>slds-hide</code> class when you need to preserve state.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. You do <code>this.items.push(newItem)</code> and the UI doesn't update. Why?</div>
+  <button class="opt">You forgot @track on every property</button>
+  <button class="opt" data-correct="1">Mutating an array doesn't change its reference — reassign with <code>this.items = [...this.items, newItem]</code></button>
+  <button class="opt">Arrays can't be rendered in LWC</button>
+  <div class="explain">Reactivity is reference-based for fields. Either reassign, or decorate the field with @track for deep reactivity.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. Where should you subscribe to a Lightning Message Service channel?</div>
+  <button class="opt">constructor()</button>
+  <button class="opt" data-correct="1">connectedCallback(), and unsubscribe in disconnectedCallback()</button>
+  <button class="opt">renderedCallback()</button>
+  <div class="explain">connectedCallback runs once when inserted into the DOM and @api values are available. renderedCallback runs on every render, so you'd subscribe repeatedly.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. <code>document.querySelector('.my-button')</code> returns null for a button inside your LWC. Why?</div>
+  <button class="opt">The button hasn't rendered</button>
+  <button class="opt" data-correct="1">Shadow DOM encapsulation — use <code>this.template.querySelector()</code></button>
+  <button class="opt">LWC doesn't support querySelector</button>
+  <div class="explain">The shadow boundary hides internal markup from the document. Query through <code>this.template</code>, or use <code>lwc:ref</code>.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · LWC Core</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

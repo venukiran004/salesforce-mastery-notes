@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reports &amp; Dashboards | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Admin</span> › <span>Reports &amp; Dashboards</span></div>
+  <h1>Reports &amp; Dashboards</h1>
+  <p class="lede">Report types decide what data you <em>can</em> see, formats decide how it's shaped, and dashboards
+     decide who sees whose numbers. Including the advanced features people rarely learn properly.</p>
+</header>
+
+<!-- ============================================ -->
+<h2 id="report-types">Report types — the foundation</h2>
+<p>A <strong>report type</strong> is a template that defines which objects and fields are available, and how related
+   objects are joined. If a field isn't in the report type, no report can ever show it.</p>
+
+<div class="dgm">
+  <div class="dgm-title">The two join behaviours</div>
+  <svg viewBox="0 0 760 260" role="img" aria-label="Difference between with and without related records report types">
+    <text class="s-t s-t-b" x="30" y="22">"A with B"  —  INNER JOIN</text>
+    <circle class="s-box-b" cx="130" cy="105" r="58"/>
+    <circle class="s-box-v" cx="210" cy="105" r="58"/>
+    <text class="s-t-sm anchor-mid" x="100" y="105">Accounts</text>
+    <text class="s-t-sm anchor-mid" x="240" y="105">Contacts</text>
+    <path class="s-line-g" d="M170 60 V150" opacity="0"/>
+    <text class="s-t-sm s-t-g anchor-mid" x="170" y="190">Only Accounts that HAVE Contacts</text>
+    <text class="s-t-sm anchor-mid" x="170" y="212">Childless accounts disappear</text>
+
+    <text class="s-t s-t-t" x="430" y="22">"A with or without B"  —  OUTER JOIN</text>
+    <circle class="s-box-t" cx="530" cy="105" r="58"/>
+    <circle class="s-box" cx="610" cy="105" r="58"/>
+    <text class="s-t-sm anchor-mid" x="500" y="105">Accounts</text>
+    <text class="s-t-sm anchor-mid" x="640" y="105">Contacts</text>
+    <text class="s-t-sm s-t-t anchor-mid" x="570" y="190">ALL Accounts, Contact fields blank if none</text>
+    <text class="s-t-sm anchor-mid" x="570" y="212">Use this to find gaps</text>
+  </svg>
+  <div class="dgm-cap">"Accounts with Opportunities" hides accounts that never bought. "Accounts with or without Opportunities" is how you find them.</div>
+</div>
+
+<div class="grid g2">
+  <div class="card"><h4>Standard report types</h4><p>Auto-created for every object and relationship. You can't edit them, and they always use "with" (inner join) semantics for the child.</p></div>
+  <div class="card accent-violet"><h4>Custom report types</h4>
+    <p>You define: a <strong>primary object</strong> plus up to <strong>3 related objects</strong> (4 total), each joined "with" or "with or without". You also choose which fields appear and can add fields via lookup.</p></div>
+</div>
+
+<div class="callout tip">
+  <span class="c-ico">🔎</span>
+  <div class="c-body"><span class="c-title">Classic scenario question</span>
+    "Show me all Accounts that have no Opportunities." → Create a custom report type
+    <em>Accounts with or without Opportunities</em>, then add the filter <code>Opportunity ID = ""</code> (equals blank).
+    This "cross-object gap analysis" pattern comes up constantly.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="reports">The four report formats</h2>
+
+<div class="dgm">
+  <div class="dgm-title">Tabular · Summary · Matrix · Joined</div>
+  <svg viewBox="0 0 780 300" role="img" aria-label="Visual comparison of the four report formats">
+    <!-- Tabular -->
+    <text class="s-t s-t-b" x="20" y="18">Tabular</text>
+    <rect class="s-box" x="20" y="30" width="150" height="100" rx="8"/>
+    <path class="s-line" d="M20 52 H170 M20 72 H170 M20 92 H170 M20 112 H170"/>
+    <path class="s-line s-dash" d="M70 30 V130 M120 30 V130"/>
+    <text class="s-t-sm anchor-mid" x="95" y="152">A simple list</text>
+    <text class="s-t-sm anchor-mid" x="95" y="170">No grouping</text>
+    <text class="s-t-sm anchor-mid" x="95" y="188">Fastest · can't chart</text>
+
+    <!-- Summary -->
+    <text class="s-t s-t-v" x="215" y="18">Summary</text>
+    <rect class="s-box-v" x="215" y="30" width="150" height="22" rx="5"/>
+    <text class="s-t-sm" x="223" y="42">▾ India (12)</text>
+    <rect class="s-box" x="230" y="56" width="135" height="16" rx="4"/>
+    <rect class="s-box" x="230" y="76" width="135" height="16" rx="4"/>
+    <rect class="s-box-v" x="215" y="98" width="150" height="22" rx="5"/>
+    <text class="s-t-sm" x="223" y="110">▾ USA (7)</text>
+    <rect class="s-box" x="230" y="124" width="135" height="16" rx="4"/>
+    <text class="s-t-sm anchor-mid" x="290" y="164">Rows grouped (up to 3)</text>
+    <text class="s-t-sm anchor-mid" x="290" y="182">Subtotals · charts · most used</text>
+
+    <!-- Matrix -->
+    <text class="s-t s-t-t" x="410" y="18">Matrix</text>
+    <rect class="s-box-t" x="450" y="30" width="60" height="20" rx="4"/><text class="s-t-sm anchor-mid" x="480" y="40">Q1</text>
+    <rect class="s-box-t" x="515" y="30" width="60" height="20" rx="4"/><text class="s-t-sm anchor-mid" x="545" y="40">Q2</text>
+    <rect class="s-box-t" x="410" y="55" width="35" height="24" rx="4"/><text class="s-t-sm anchor-mid" x="428" y="67">IN</text>
+    <rect class="s-box-t" x="410" y="84" width="35" height="24" rx="4"/><text class="s-t-sm anchor-mid" x="428" y="96">US</text>
+    <rect class="s-box" x="450" y="55" width="60" height="24" rx="4"/><text class="s-t-sm anchor-mid" x="480" y="67">120k</text>
+    <rect class="s-box" x="515" y="55" width="60" height="24" rx="4"/><text class="s-t-sm anchor-mid" x="545" y="67">98k</text>
+    <rect class="s-box" x="450" y="84" width="60" height="24" rx="4"/><text class="s-t-sm anchor-mid" x="480" y="96">210k</text>
+    <rect class="s-box" x="515" y="84" width="60" height="24" rx="4"/><text class="s-t-sm anchor-mid" x="545" y="96">175k</text>
+    <text class="s-t-sm anchor-mid" x="493" y="140">Grouped by rows AND columns</text>
+    <text class="s-t-sm anchor-mid" x="493" y="158">Pivot table · comparisons</text>
+
+    <!-- Joined -->
+    <text class="s-t s-t-a" x="620" y="18">Joined</text>
+    <rect class="s-box-a" x="620" y="30" width="70" height="100" rx="8"/>
+    <text class="s-t-sm anchor-mid" x="655" y="46">Block 1</text>
+    <text class="s-t-sm anchor-mid" x="655" y="70">Opps</text>
+    <rect class="s-box-r" x="698" y="30" width="70" height="100" rx="8"/>
+    <text class="s-t-sm anchor-mid" x="733" y="46">Block 2</text>
+    <text class="s-t-sm anchor-mid" x="733" y="70">Cases</text>
+    <text class="s-t-sm anchor-mid" x="694" y="152">Multiple report types</text>
+    <text class="s-t-sm anchor-mid" x="694" y="170">side by side</text>
+    <text class="s-t-sm anchor-mid" x="694" y="188">Common "Account" field</text>
+
+    <rect class="s-box" x="20" y="220" width="748" height="60" rx="9"/>
+    <text class="s-t-sm" x="36" y="242">Charts: Tabular ✘ (unless "Row limit + dashboard setting") · Summary ✔ · Matrix ✔ · Joined ✔ (chart per block or combined)</text>
+    <text class="s-t-sm" x="36" y="264">Bucket columns ✔ all · Row-level formulas ✔ all · Summary formulas need Summary/Matrix/Joined</text>
+  </svg>
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Format</th><th>Groupings</th><th>Charts</th><th>Best for</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Tabular</strong></td><td>None</td><td>❌ (needs row limit trick)</td><td>Exports, simple lists, mailing lists</td></tr>
+    <tr><td><strong>Summary</strong></td><td>Up to 3 row groupings</td><td>✅</td><td>The default choice — subtotals by category</td></tr>
+    <tr><td><strong>Matrix</strong></td><td>2 row + 2 column groupings</td><td>✅</td><td>Cross-tab comparisons (region × quarter)</td></tr>
+    <tr><td><strong>Joined</strong></td><td>Up to 5 blocks, different report types</td><td>✅</td><td>Side-by-side views of related data</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="filters">Filters</h2>
+<ul>
+  <li><strong>Standard filters</strong> — Show Me (My/All), date field + range.</li>
+  <li><strong>Field filters</strong> — up to 20, combined with <strong>filter logic</strong> like <code>(1 AND 2) OR 3</code>.</li>
+  <li><strong>Filter logic</strong> supports AND, OR, NOT and brackets. It can't be used with certain filters (e.g. some standard ones).</li>
+  <li><strong>Row limit</strong> (tabular only) — "Top 10 deals", which also unlocks charting for tabular reports.</li>
+  <li><strong>Cross filters</strong> — the advanced one, below.</li>
+</ul>
+
+<h3 id="advanced-reports">Advanced reporting features</h3>
+
+<div class="grid g2">
+  <div class="card accent-violet"><h4>🔗 Cross Filters</h4>
+    <p>Filter a parent by the existence of children <em>without</em> adding child columns.</p>
+    <p><code>Accounts <strong>with</strong> Opportunities</code> or <code>Accounts <strong>without</strong> Cases</code>,
+       plus up to 5 sub-filters on the child (e.g. "without Cases where Status = Open").</p>
+    <p><strong>Limit:</strong> 3 cross filters per report, 5 sub-filters each.</p>
+    <p><strong>Use case:</strong> "Customers with an open Opportunity but no Support Case in 90 days" — an upsell list.</p></div>
+
+  <div class="card accent-teal"><h4>🪣 Bucket Columns</h4>
+    <p>Categorise on the fly without creating a formula field.</p>
+    <p>Numeric: <em>Amount</em> → Small (&lt;10k) / Medium / Large. Picklist: group 12 industries into 3 sectors.
+       Text: group values into named buckets.</p>
+    <p><strong>Limit:</strong> 5 buckets per report, 20 values per bucket.</p>
+    <p><strong>Use case:</strong> deal-size analysis before the business agrees on a permanent field.</p></div>
+
+  <div class="card accent-amber"><h4>Σ Summary Formulas (PCF)</h4>
+    <p>Calculate on <em>grouped</em> values. Formula type: Percent/Currency/Number, then choose the grouping level
+       (Grand Summary, Group 1…).</p>
+    <pre style="font-size:12px;background:none;padding:0;color:var(--text-dim)">WON:SUM / CLOSED:SUM   → win rate %
+AMOUNT:SUM / RowCount  → average deal</pre>
+    <p><strong>Limit:</strong> 5 per report. Cannot be used in filters or grouped by.</p></div>
+
+  <div class="card accent-green"><h4>📏 Row-Level Formulas</h4>
+    <p>A formula evaluated per row, created inside the report — no schema change needed.</p>
+    <pre style="font-size:12px;background:none;padding:0;color:var(--text-dim)">TODAY() - DATEVALUE(CreatedDate)   → age in days</pre>
+    <p><strong>Limit:</strong> 1 per report, 3,900 characters. Can be filtered on and grouped in most cases.</p></div>
+
+  <div class="card accent-rose"><h4>📈 Historical Trend Reporting</h4>
+    <p>Compare a field's value today vs 5 snapshot dates back. Enabled per object (up to 3 objects, 8 fields each,
+       3 months of history).</p>
+    <p><strong>Use case:</strong> "Which deals slipped their Close Date since last month?"</p></div>
+
+  <div class="card"><h4>📸 Reporting Snapshots</h4>
+    <p>Schedule a report to write its rows into a <em>custom object</em> on a schedule — building your own history.</p>
+    <p>Source report must be tabular or summary; you map report columns → custom object fields.</p>
+    <p><strong>Use case:</strong> capture open pipeline every Friday to trend it over years.</p></div>
+</div>
+
+<div class="callout note">
+  <span class="c-ico">🆚</span>
+  <div class="c-body"><span class="c-title">Row-level formula vs Summary formula</span>
+    Row-level = one value <em>per record row</em> (like a formula field). Summary formula = one value
+    <em>per group/total</em>. If you need "days open" per case → row-level. If you need "% won by region" → summary.</div>
+</div>
+
+<h3>Other things to know</h3>
+<ul>
+  <li><strong>Conditional formatting</strong> — colour rules on summary values (up to 5 rules).</li>
+  <li><strong>Subscriptions</strong> — schedule a report to email you, or set conditions ("only email me if Amount &lt; target"). Up to 7 per user.</li>
+  <li><strong>Report folders</strong> — access is Viewer / Editor / Manager, shared with users, roles or public groups. This is how you secure reports.</li>
+  <li><strong>Field-level security still applies</strong> — a report can never expose a field the user can't see.</li>
+  <li><strong>Export</strong> — Formatted (keeps grouping, xlsx) vs Details Only (raw csv/xlsx).</li>
+  <li><strong>Report limits</strong>: 2,000 rows displayed in the browser, 20,000 in the printable view, 100,000 on export. Dashboards show the top 20 (chart) / 2,000 (table) values.</li>
+</ul>
+
+<!-- ============================================ -->
+<h2 id="dashboards">Dashboards</h2>
+<p>A dashboard is a visual layer over reports. Each component points at exactly one report.</p>
+
+<div class="grid g3">
+  <div class="card"><h4>Component types</h4><ul><li>Bar / Column (stacked, grouped)</li><li>Line</li><li>Donut / Pie / Funnel</li><li>Gauge (with breakpoints)</li><li>Metric (single number)</li><li>Table (with conditional formatting)</li><li>Scatter</li><li>Lightning table (multi-column, drill-down)</li></ul></div>
+  <div class="card accent-violet"><h4>Key settings</h4><ul><li>Up to <strong>20 components</strong> per dashboard</li><li>Up to <strong>3 filters</strong>, 50 values each</li><li>Refresh: manual, or scheduled (daily/weekly/monthly)</li><li>Subscribe to get it emailed</li><li>Themes and 12-column grid layout</li></ul></div>
+  <div class="card accent-teal"><h4>Placement</h4><ul><li>Dashboard tab</li><li>Embedded on a Lightning Home page</li><li>Embedded on a record page (filtered by that record)</li><li>Emailed as a subscription</li></ul></div>
+</div>
+
+<h3>Running User — the concept that trips everyone up</h3>
+<div class="dgm">
+  <div class="dgm-title">Whose data does the viewer see?</div>
+  <svg viewBox="0 0 780 300" role="img" aria-label="Comparison of static, dynamic and role-based dashboard running users">
+    <rect class="s-box-b" x="20" y="20" width="230" height="130" rx="10"/>
+    <text class="s-t s-t-b anchor-mid" x="135" y="44">Run as a specified user</text>
+    <text class="s-t-sm anchor-mid" x="135" y="70">Everyone sees the SAME data —</text>
+    <text class="s-t-sm anchor-mid" x="135" y="90">that user's data</text>
+    <text class="s-t-sm anchor-mid" x="135" y="118">✔ CEO dashboard for all</text>
+    <text class="s-t-sm anchor-mid" x="135" y="136">✘ Reps see other reps' deals</text>
+
+    <rect class="s-box-v" x="275" y="20" width="230" height="130" rx="10"/>
+    <text class="s-t s-t-v anchor-mid" x="390" y="44">Run as logged-in user</text>
+    <text class="s-t-sm anchor-mid" x="390" y="70">(Dynamic Dashboard)</text>
+    <text class="s-t-sm anchor-mid" x="390" y="90">Each viewer sees THEIR data</text>
+    <text class="s-t-sm anchor-mid" x="390" y="118">✔ One dashboard for 200 reps</text>
+    <text class="s-t-sm anchor-mid" x="390" y="136">✘ Cannot be scheduled/subscribed</text>
+
+    <rect class="s-box-t" x="530" y="20" width="230" height="130" rx="10"/>
+    <text class="s-t s-t-t anchor-mid" x="645" y="44">Let viewers choose</text>
+    <text class="s-t-sm anchor-mid" x="645" y="70">Viewer picks the running user</text>
+    <text class="s-t-sm anchor-mid" x="645" y="90">from those they can see</text>
+    <text class="s-t-sm anchor-mid" x="645" y="118">✔ Managers switch between reps</text>
+    <text class="s-t-sm anchor-mid" x="645" y="136">Needs "View My Team's Dashboards"</text>
+
+    <rect class="s-box-a" x="120" y="190" width="540" height="80" rx="10"/>
+    <text class="s-t s-t-a anchor-mid" x="390" y="214">Dynamic dashboard limits</text>
+    <text class="s-t-sm anchor-mid" x="390" y="238">Enterprise: 5 · Unlimited/Performance: 10 · Cannot be scheduled or followed</text>
+    <text class="s-t-sm anchor-mid" x="390" y="258">Dashboard access is controlled by the FOLDER, data by the running user</text>
+  </svg>
+</div>
+
+<div class="callout warn">
+  <span class="c-ico">⚠️</span>
+  <div class="c-body"><span class="c-title">Security implication</span>
+    A dashboard set to "Run as a specified user" can leak data: if the running user is a VP, every viewer sees VP-level
+    numbers regardless of their own sharing. This is intentional but must be a conscious decision.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="reporting-apex">Reporting from code &amp; SOQL</h2>
+<pre><code class="language-apex">// Run a report synchronously and read its summary values
+Report rpt = [SELECT Id, DeveloperName FROM Report WHERE DeveloperName = 'Pipeline_By_Stage' LIMIT 1];
+Reports.ReportResults results = Reports.ReportManager.runReport(rpt.Id, true);
+Reports.ReportFactWithDetails fact =
+    (Reports.ReportFactWithDetails) results.getFactMap().get('T!T');
+for (Reports.SummaryValue sv : fact.getAggregates()) {
+    System.debug(sv.getLabel());
+}
+
+// Aggregate SOQL — often simpler than a report for code
+List&lt;AggregateResult&gt; ars = [
+    SELECT StageName stage, SUM(Amount) total, COUNT(Id) cnt
+    FROM Opportunity
+    WHERE CloseDate = THIS_QUARTER
+    GROUP BY StageName
+    HAVING SUM(Amount) &gt; 100000
+    ORDER BY SUM(Amount) DESC
+];
+for (AggregateResult ar : ars) {
+    System.debug(ar.get('stage') + ': ' + ar.get('total'));
+}</code></pre>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> A field exists on the object but you can't add it to a report. Why?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Three possibilities, in order of likelihood: ① the field isn't included in the
+<strong>custom report type's</strong> selected field list — edit the report type and add it; ② <strong>field-level
+security</strong> hides it from your profile, and reports never bypass FLS; ③ the field lives on a related object that
+the report type doesn't include, or is beyond the 4-object limit of a custom report type.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> Explain "with" vs "with or without" in a custom report type.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>"A <strong>with</strong> B" is an <strong>inner join</strong> — only A records that have at least one B.
+"Accounts with Opportunities" silently hides every account that never bought.</p>
+<p>"A <strong>with or without</strong> B" is an <strong>outer join</strong> — all A records, with B fields blank where
+there's no child. This is how you find gaps: add the filter <code>Opportunity ID equals ""</code> to list accounts with
+no opportunities.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Row-level formula vs summary formula (PCF) — when do you use each?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Row-level formula</strong> produces one value <em>per record row</em>, like a formula field
+but scoped to the report — e.g. <code>TODAY() - DATEVALUE(CreatedDate)</code> for case age. Limit: 1 per report, and it
+can usually be filtered and grouped on.</p>
+<p><strong>Summary formula</strong> produces one value <em>per group or grand total</em> — e.g.
+<code>WON:SUM / CLOSED:SUM</code> for win rate. Limit: 5 per report; it cannot be used in filters or as a grouping.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> What is a cross filter and what problem does it solve?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It filters the primary object by the <strong>existence or absence of child records</strong> without
+adding child columns — "Accounts <em>with</em> Opportunities", "Accounts <em>without</em> open Cases". You can add up to
+5 sub-filters on the child object, and 3 cross filters per report.</p>
+<p>Typical use: an upsell list of "customers with an open Opportunity but no support Case in 90 days" — impossible with
+ordinary field filters.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> 200 reps must each see only their own numbers on one dashboard. How, and what's the catch?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Set the dashboard to run as the <strong>logged-in user</strong> — a <em>dynamic dashboard</em>.
+Each viewer sees data through their own sharing.</p>
+<p><strong>The catches:</strong> dynamic dashboards <strong>cannot be scheduled or subscribed to</strong>, and there's a
+cap per edition (5 in Enterprise, 10 in Unlimited/Performance). If the business needs a scheduled email, you need a
+static running user instead — which means everyone sees that user's numbers.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> The business wants to trend open pipeline over three years. What do you build?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Reports show current state, so you need to <em>capture</em> history. Use a <strong>Reporting
+Snapshot</strong>: a source report (tabular or summary) whose rows are written on a schedule into a custom object, with
+column-to-field mapping. Then report on that custom object over time.</p>
+<p><strong>Historical Trend Reporting</strong> is the lighter alternative but only keeps ~3 months across 3 objects and
+8 fields — good for "which deals slipped since last month", not multi-year trending.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> How do you secure reports and dashboards?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Through <strong>folders</strong>. A report/dashboard folder is shared with users, roles or public
+groups at Viewer, Editor or Manager level — that controls who can open or change it. Data visibility is separate: the
+report always respects the running user's sharing and FLS, except that a dashboard with a fixed running user shows
+<em>that user's</em> data to everyone who can open the folder. That combination is the usual source of accidental
+data exposure.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> Which report format supports a chart, and what's the tabular exception?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Summary, Matrix and Joined support charts because they have groupings to plot.
+<strong>Tabular can't</strong> — unless you set a <strong>row limit</strong> ("Top 10 deals"), which unlocks charting for
+use in a dashboard. Matrix is the only format with both row <em>and</em> column groupings (2 each); Summary allows up to
+3 row groupings; Joined allows up to 5 blocks from different report types.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. You need "Accounts with no Opportunities". What do you build?</div>
+  <button class="opt">Summary report on Opportunity grouped by Account</button>
+  <button class="opt" data-correct="1">Report on Accounts with a cross filter "without Opportunities" (or a "with or without" custom report type + blank filter)</button>
+  <button class="opt">Joined report with two blocks</button>
+  <div class="explain">Cross filters are built exactly for existence/non-existence questions. The "with or without" custom report type plus an <code>ID = ""</code> filter is the classic alternative.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. 200 reps each need to see only their own pipeline on the same dashboard. Setting?</div>
+  <button class="opt">Run as a specified user = Sales VP</button>
+  <button class="opt" data-correct="1">Run as logged-in user (dynamic dashboard)</button>
+  <button class="opt">Create 200 dashboards</button>
+  <div class="explain">Dynamic dashboards run in the viewer's context. Trade-off: they can't be scheduled or subscribed to.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. Which format supports both row <em>and</em> column groupings?</div>
+  <button class="opt">Summary</button>
+  <button class="opt" data-correct="1">Matrix</button>
+  <button class="opt">Tabular</button>
+  <div class="explain">Matrix = pivot table: 2 row groupings and 2 column groupings.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Reports &amp; Dashboards</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Governor Limits | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Apex</span> › <span>Governor Limits</span></div>
+  <h1>Governor Limits</h1>
+  <p class="lede">The complete cheat sheet — every limit that matters, why it exists, how to measure your usage,
+     and the concrete pattern that fixes each violation.</p>
+</header>
+
+<!-- ============================================ -->
+<h2 id="governor-limits">Why limits exist</h2>
+<p>Salesforce is <a href="fundamentals.html#multitenancy">multitenant</a>: your code runs on servers shared with
+   thousands of other companies. Governor limits are the platform's enforcement of fair resource use — a runaway loop
+   in your org must not slow down anyone else's.</p>
+
+<div class="dgm">
+  <div class="dgm-title">Limits are per-transaction, and a transaction is bigger than you think</div>
+  <svg viewBox="0 0 790 250" role="img" aria-label="A single transaction spanning trigger workflow and flow">
+    <rect class="s-box-b" x="20" y="90" width="120" height="60" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="80" y="112">User clicks</text>
+    <text class="s-t-sm anchor-mid" x="80" y="130">Save</text>
+
+    <rect class="s-box-a" x="170" y="40" width="500" height="170" rx="12"/>
+    <text class="s-t s-t-a anchor-mid" x="420" y="64">ONE TRANSACTION — one shared set of limits</text>
+
+    <rect class="s-box" x="190" y="82" width="105" height="48" rx="7"/><text class="s-t-sm anchor-mid" x="242" y="100">Validation</text><text class="s-t-sm anchor-mid" x="242" y="118">rules</text>
+    <rect class="s-box-v" x="305" y="82" width="105" height="48" rx="7"/><text class="s-t-sm anchor-mid" x="357" y="100">Your</text><text class="s-t-sm anchor-mid" x="357" y="118">trigger</text>
+    <rect class="s-box-t" x="420" y="82" width="105" height="48" rx="7"/><text class="s-t-sm anchor-mid" x="472" y="100">Flows</text>
+    <rect class="s-box-g" x="535" y="82" width="115" height="48" rx="7"/><text class="s-t-sm anchor-mid" x="592" y="100">Managed</text><text class="s-t-sm anchor-mid" x="592" y="118">package code</text>
+
+    <text class="s-t-sm s-t-r anchor-mid" x="420" y="156">All of these share the SAME 100 SOQL / 150 DML budget</text>
+    <text class="s-t-sm anchor-mid" x="420" y="180">A well-written trigger can still fail because a flow used 95 queries first</text>
+
+    <path class="s-line-b" d="M140 120 H170" marker-end="url(#g1)"/>
+    <path class="s-line-g" d="M670 120 H720" marker-end="url(#g1)"/>
+    <text class="s-t-sm anchor-mid" x="745" y="120">Commit</text>
+    <defs><marker id="g1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<!-- ============================================ -->
+<h2 id="per-transaction">Per-transaction limits</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Limit</th><th class="nowrap">Synchronous</th><th class="nowrap">Asynchronous</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><strong>SOQL queries</strong></td><td>100</td><td>200</td><td>The most commonly hit limit</td></tr>
+    <tr><td><strong>Query rows retrieved</strong></td><td colspan="2">50,000</td><td>Across all queries. Aggregates count their result rows</td></tr>
+    <tr><td><strong>SOSL searches</strong></td><td colspan="2">20</td><td>2,000 records returned per search</td></tr>
+    <tr><td><strong>DML statements</strong></td><td colspan="2">150</td><td>Each <code>insert</code>/<code>update</code>/<code>Database.x</code>/<code>setSavepoint</code> counts as one</td></tr>
+    <tr><td><strong>DML rows processed</strong></td><td colspan="2">10,000</td><td>Total records across all DML</td></tr>
+    <tr><td><strong>CPU time</strong></td><td>10,000 ms</td><td>60,000 ms</td><td>Excludes DB and callout wait time</td></tr>
+    <tr><td><strong>Heap size</strong></td><td>6 MB</td><td>12 MB</td><td>All objects held in memory</td></tr>
+    <tr><td><strong>Callouts</strong></td><td colspan="2">100</td><td>120 s cumulative timeout</td></tr>
+    <tr><td><strong>@future calls</strong></td><td colspan="2">50</td><td>Per transaction</td></tr>
+    <tr><td><strong>Queueable jobs enqueued</strong></td><td>50</td><td>1 (chained)</td><td>5 chained in DE/Trial orgs</td></tr>
+    <tr><td><strong>Apex jobs in flex queue</strong></td><td colspan="2">100 held / 5 concurrent batch</td><td>Applies org-wide</td></tr>
+    <tr><td><strong>Sendemail</strong></td><td colspan="2">10 method calls, 100 recipients each</td><td>Single emails to external addresses have a daily org cap</td></tr>
+    <tr><td><strong>describe calls</strong></td><td colspan="2">100</td><td><code>getGlobalDescribe</code> is expensive — cache it</td></tr>
+    <tr><td><strong>Records in a trigger invocation</strong></td><td colspan="2">200</td><td>Data Loader chunks 10,000 into 50 × 200</td></tr>
+    <tr><td><strong>Trigger/code depth</strong></td><td colspan="2">16</td><td>Recursive re-entry limit</td></tr>
+    <tr><td><strong>Apex classes in one transaction stack</strong></td><td colspan="2">1,000 (method call depth)</td><td>Guards infinite recursion</td></tr>
+    <tr><td><strong>Total Apex code size</strong></td><td colspan="2">6 MB org-wide</td><td>Test classes and managed packages excluded</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout tip">
+  <span class="c-ico">🔢</span>
+  <div class="c-body"><span class="c-title">The numbers to memorise for interviews</span>
+    <strong>100</strong> SOQL · <strong>150</strong> DML · <strong>50,000</strong> query rows ·
+    <strong>10,000</strong> DML rows · <strong>6 MB</strong> heap (12 async) · <strong>10 s</strong> CPU (60 async) ·
+    <strong>100</strong> callouts · <strong>200</strong> records per trigger invocation · <strong>50 M</strong> batch records.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="other-limits">Other limits worth knowing</h2>
+<div class="grid g2">
+  <div class="card accent-violet"><h4>Async &amp; scheduling</h4>
+    <ul><li>250,000 async executions per 24 h (or 200 × licences, whichever is greater)</li>
+        <li>100 scheduled Apex jobs</li>
+        <li>5 concurrent batch jobs; 100 in the flex queue</li>
+        <li>Batch: up to 50 M records via QueryLocator; scope 1–2,000</li>
+        <li>10 concurrent long-running (&gt;5 s) synchronous requests</li></ul></div>
+  <div class="card accent-teal"><h4>API &amp; integration</h4>
+    <ul><li>API calls per 24 h: 15,000 (Enterprise) + 1,000/licence, tiered by edition</li>
+        <li>Bulk API 2.0: 150 M records/24 h</li>
+        <li>Composite: 25 subrequests; Composite Graph: 500 nodes</li>
+        <li>Platform Events: publishing and delivery allocations per 24 h by edition</li>
+        <li>Callout endpoint must be in Remote Site Settings or a Named Credential</li></ul></div>
+  <div class="card accent-amber"><h4>Storage</h4>
+    <ul><li>Data storage: 2 KB per record (most objects)</li>
+        <li>File storage separate from data storage</li>
+        <li>Recycle Bin: 15 days, 25× your storage in records</li></ul></div>
+  <div class="card accent-rose"><h4>Email</h4>
+    <ul><li>Single emails to external addresses: 5,000/day (org)</li>
+        <li>Mass email: 5,000 external recipients/day</li>
+        <li>10 <code>Messaging.sendEmail</code> calls per transaction</li>
+        <li>Emails from tests are never actually sent</li></ul></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="measuring">Measuring your usage</h2>
+<pre><code class="language-apex">System.debug('SOQL   : ' + Limits.getQueries()       + '/' + Limits.getLimitQueries());
+System.debug('Rows   : ' + Limits.getQueryRows()     + '/' + Limits.getLimitQueryRows());
+System.debug('DML    : ' + Limits.getDmlStatements() + '/' + Limits.getLimitDmlStatements());
+System.debug('DMLRows: ' + Limits.getDmlRows()       + '/' + Limits.getLimitDmlRows());
+System.debug('CPU    : ' + Limits.getCpuTime()       + '/' + Limits.getLimitCpuTime());
+System.debug('Heap   : ' + Limits.getHeapSize()      + '/' + Limits.getLimitHeapSize());
+System.debug('Callout: ' + Limits.getCallouts()      + '/' + Limits.getLimitCallouts());
+System.debug('Async  : ' + Limits.getQueueableJobs() + '/' + Limits.getLimitQueueableJobs());
+
+// Defensive guard before an expensive operation
+if (Limits.getQueries() &gt;= Limits.getLimitQueries() - 10) {
+    // stop and hand off to an async job instead of blowing up
+    System.enqueueJob(new ContinueProcessingQueueable(remainingIds));
+    return;
+}</code></pre>
+<div class="callout warn">
+  <span class="c-ico">🚫</span>
+  <div class="c-body"><span class="c-title">You cannot catch a LimitException</span>
+    <code>System.LimitException</code> is deliberately uncatchable — the platform must be able to kill a runaway
+    transaction. Measure and prevent; you cannot recover.</div>
+</div>
+
+<h3>Reading the debug log</h3>
+<ul>
+  <li>Setup → Debug Logs → New, set the trace flag on your user, with Apex = FINEST.</li>
+  <li>At the bottom of every log, the <strong>CUMULATIVE_LIMIT_USAGE</strong> block lists final consumption of every limit.</li>
+  <li><code>LIMIT_USAGE_FOR_NS</code> shows usage per namespace — useful for blaming a managed package.</li>
+  <li>The Developer Console's <strong>Execution Overview → Limits</strong> tab shows the same data graphically.</li>
+  <li>Logs are capped at 20 MB and truncated; raise log levels selectively rather than everything at FINEST.</li>
+</ul>
+
+<!-- ============================================ -->
+<h2 id="fixes">Violation → cause → fix</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Error</th><th>Real cause</th><th>Fix</th></tr></thead>
+  <tbody>
+    <tr><td><code>Too many SOQL queries: 101</code></td><td>Query inside a loop</td><td>Query once with <code>WHERE Id IN :ids</code>, load into a Map, look up inside the loop</td></tr>
+    <tr><td><code>Too many DML statements: 151</code></td><td>DML inside a loop</td><td>Add to a <code>List</code>, one DML after the loop</td></tr>
+    <tr><td><code>Too many query rows: 50001</code></td><td>Unbounded query</td><td>Add filters + <code>LIMIT</code>; use a SOQL for loop; move to Batch Apex</td></tr>
+    <tr><td><code>Apex CPU time limit exceeded</code></td><td>Nested loops, <code>getGlobalDescribe</code>, heavy string/JSON work, too much automation stacked on one object</td><td>Replace nested loops with Maps, cache describes in statics, move work to async, consolidate triggers/flows</td></tr>
+    <tr><td><code>Apex heap size too large</code></td><td>Holding too many records or long text in memory</td><td>SOQL for loop, query fewer fields, null out variables, use Batch</td></tr>
+    <tr><td><code>Too many callouts: 101</code></td><td>Callout in a loop</td><td>Batch the payload into one request, or use Batch Apex with a small scope</td></tr>
+    <tr><td><code>You have uncommitted work pending</code></td><td>Callout after DML in the same transaction</td><td>Move the callout to <code>Queueable</code>/<code>@future(callout=true)</code></td></tr>
+    <tr><td><code>Maximum trigger depth exceeded</code></td><td>Recursion</td><td><a href="apex-triggers.html#recursion">Static guard or processed-Id set</a></td></tr>
+    <tr><td><code>Non-selective query against large object type</code></td><td>Filtering on an unindexed field on a 200k+ record object inside a trigger</td><td>Filter on indexed fields; request a custom index or skinny table</td></tr>
+    <tr><td><code>MIXED_DML_OPERATION</code></td><td>Setup + non-setup objects in one transaction</td><td>Split via <code>@future</code>, or <code>System.runAs</code> in tests</td></tr>
+    <tr><td><code>UNABLE_TO_LOCK_ROW</code></td><td>Two transactions updating the same parent (often parallel Data Loader batches)</td><td>Serialise the load, sort records by parent Id, reduce batch size, disable parallel processing</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="patterns">The four patterns that keep you safe</h2>
+
+<div class="grid g2">
+  <div class="card accent-green"><h4>1 · Query once, map it</h4>
+<pre style="font-size:12px;background:none;padding:0;color:var(--text-dim)">Map&lt;Id, Account&gt; parents = new Map&lt;Id, Account&gt;(
+  [SELECT Id, Tier__c FROM Account
+   WHERE Id IN :accountIds]);
+
+for (Contact c : Trigger.new) {
+  Account a = parents.get(c.AccountId);
+  if (a != null) c.Tier__c = a.Tier__c;
+}</pre></div>
+  <div class="card accent-teal"><h4>2 · Collect, then commit</h4>
+<pre style="font-size:12px;background:none;padding:0;color:var(--text-dim)">List&lt;Task&gt; toInsert = new List&lt;Task&gt;();
+for (Opportunity o : Trigger.new) {
+  if (o.Amount &gt; 100000) {
+    toInsert.add(new Task(WhatId = o.Id,
+      Subject = 'Review large deal'));
+  }
+}
+if (!toInsert.isEmpty()) insert toInsert;</pre></div>
+  <div class="card accent-violet"><h4>3 · Stream, don't load</h4>
+<pre style="font-size:12px;background:none;padding:0;color:var(--text-dim)">// heap-safe: 200 at a time
+for (List&lt;Account&gt; chunk :
+     [SELECT Id, Name FROM Account]) {
+  for (Account a : chunk) { /* ... */ }
+  update chunk;
+}</pre></div>
+  <div class="card accent-amber"><h4>4 · Escalate to async</h4>
+<pre style="font-size:12px;background:none;padding:0;color:var(--text-dim)">// &gt;10k records? Batch Apex.
+// Callout needed? Queueable.
+// Nightly? Schedulable.
+Database.executeBatch(new MyBatch(), 200);</pre></div>
+</div>
+
+<div class="callout note">
+  <span class="c-ico">🧮</span>
+  <div class="c-body"><span class="c-title">A sizing rule of thumb</span>
+    Under ~1,000 records: synchronous is fine. 1,000–10,000: Queueable, or synchronous with careful bulkification.
+    Over 10,000: Batch Apex. Over 1 M: Batch Apex with a tuned scope size and, if it must run regularly, off-peak scheduling.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Why do governor limits exist? (Don't say "to stop bad code".)<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Because the platform is <strong>multitenant</strong>. Your code runs on infrastructure shared with
+thousands of other companies, so a runaway loop in your org would degrade everyone else's. Limits are enforced fair
+resource sharing, not a code-quality tool. Every limit traces back to that single architectural fact — which is exactly
+the connection interviewers are listening for.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> List the limits you'd expect a developer to know from memory.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>100</strong> SOQL queries (200 async) · <strong>50,000</strong> query rows ·
+<strong>150</strong> DML statements · <strong>10,000</strong> DML rows · <strong>6 MB</strong> heap (12 MB async) ·
+<strong>10 s</strong> CPU (60 s async) · <strong>100</strong> callouts with a 120 s cumulative timeout ·
+<strong>200</strong> records per trigger invocation · <strong>50 M</strong> records in Batch Apex ·
+<strong>20</strong> SOSL searches · <strong>50</strong> future calls.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Your trigger is perfectly bulkified but still throws "Too many SOQL queries: 101". Explain.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Limits are <strong>per transaction</strong>, not per component. Everything in that save shares one
+budget: validation rules, <em>your</em> trigger, other triggers on the same object, record-triggered flows, managed
+package code, roll-up recalculations and any triggers those cascade into.</p>
+<p>So a flow that queried 95 times leaves you 5. The real fix is <strong>governance</strong>: consolidate to one trigger
+per object and one flow per timing, remove duplicated logic, and move non-urgent work async. Diagnose with the
+<code>CUMULATIVE_LIMIT_USAGE</code> and <code>LIMIT_USAGE_FOR_NS</code> blocks in the debug log, which attribute usage
+per namespace.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Which limits improve in asynchronous context, and which don't?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Improve:</strong> SOQL queries 100 → 200, heap 6 MB → 12 MB, CPU time 10 s → 60 s.</p>
+<p><strong>Unchanged:</strong> DML statements (150), DML rows (10,000), query rows (50,000), callouts (100).</p>
+<p>The genuinely different one is <strong>Batch Apex</strong>, where each 200-record chunk is its own transaction with a
+<em>completely fresh</em> set of limits — which is why it scales to 50 million records rather than just doubling your
+budget.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> How do you fix "Apex CPU time limit exceeded"? It's the hardest one.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>CPU time measures your own computation — it excludes database and callout waiting, so it's almost
+always <em>your loops</em>. Common causes and fixes:</p>
+<ul>
+  <li><strong>Nested loops</strong> (O(n²)) → replace the inner loop with a Map lookup.</li>
+  <li><strong>List.contains() in a loop</strong> → use a Set.</li>
+  <li><code>Schema.getGlobalDescribe()</code> called repeatedly → cache it in a static.</li>
+  <li>Heavy string concatenation or JSON in loops → use <code>String.join</code>, build once.</li>
+  <li><strong>Too much automation stacked</strong> on one object → consolidate, then move work async (60 s instead of 10 s).</li>
+</ul>
+<p>Measure with <code>Limits.getCpuTime()</code> checkpoints rather than guessing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> When do you move from synchronous to Batch Apex?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Rough sizing: under ~1,000 records synchronous is fine; 1,000–10,000 use Queueable or careful
+synchronous bulkification; <strong>over 10,000 use Batch Apex</strong>; over a million, tune the scope size and schedule
+it off-peak.</p>
+<p>The other trigger for Batch regardless of count is heap — if each record carries large text or you must hold a big
+Map, the fresh limits per chunk matter more than the record count.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> What causes UNABLE_TO_LOCK_ROW and how do you avoid it?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Two transactions trying to update the same record — most often the same <strong>parent</strong>.
+Inserting child records locks the parent for master-detail roll-ups, so parallel Data Loader batches containing children
+of the same account collide.</p>
+<p><strong>Fixes:</strong> sort the input file by parent Id so each batch touches distinct parents; switch Bulk API to
+<em>serial</em> mode; reduce batch size; avoid updating a shared "counter" record; and in Apex use
+<code>FOR UPDATE</code> deliberately rather than accidentally holding locks across a long transaction.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> How do you read limit usage from a debug log?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>At the bottom of every log the <strong><code>CUMULATIVE_LIMIT_USAGE</code></strong> block lists final
+consumption of every limit for the transaction, and <code>LIMIT_USAGE_FOR_NS</code> breaks it down per namespace — which
+is how you prove a managed package consumed your queries. The Developer Console's <strong>Execution Overview →
+Limits</strong> tab shows the same data graphically, and the Timeline tab shows where CPU went. Set the Apex log level
+to FINEST only for the class you're investigating, since logs cap at 20 MB and truncate.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. A well-bulkified trigger still fails with "Too many SOQL queries: 101". Most likely reason?</div>
+  <button class="opt">The trigger is badly written after all</button>
+  <button class="opt" data-correct="1">Other automation (flows, other triggers, managed packages) in the same transaction consumed the budget</button>
+  <button class="opt">The org needs more storage</button>
+  <div class="explain">Limits are per transaction, shared by everything that runs in it. Consolidating automation on the object is usually the real fix.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. Which limit is doubled in asynchronous context?</div>
+  <button class="opt">DML statements</button>
+  <button class="opt" data-correct="1">SOQL queries and heap size</button>
+  <button class="opt">Query rows</button>
+  <div class="explain">SOQL goes 100 → 200 and heap 6 MB → 12 MB (CPU goes 10 s → 60 s). DML statements and query rows stay the same.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. You must process 2 million records. What's the design?</div>
+  <button class="opt">A SOQL for loop in a trigger</button>
+  <button class="opt" data-correct="1">Batch Apex with Database.QueryLocator</button>
+  <button class="opt">A Queueable chain of 100 jobs</button>
+  <div class="explain">QueryLocator handles up to 50 M records and each chunk gets fresh limits. A SOQL for loop still caps at 50,000 rows per transaction.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Governor Limits</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

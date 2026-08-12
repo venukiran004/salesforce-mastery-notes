@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test Classes | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Apex</span> › <span>Testing</span></div>
+  <h1>Test Classes</h1>
+  <p class="lede">Coverage rules, test data factories, mocking callouts, <code>runAs</code>, bulk and negative tests —
+     how to write tests that actually catch bugs instead of just hitting 75%.</p>
+</header>
+
+<!-- ============================================ -->
+<h2 id="test-classes">Why and the rules</h2>
+<div class="grid g3">
+  <div class="card accent-rose"><h4>The deployment gate</h4>
+    <ul><li><strong>75% org-wide coverage</strong> to deploy to production</li>
+        <li><strong>Every trigger</strong> needs at least some coverage</li>
+        <li><strong>All tests must pass</strong></li>
+        <li>Coverage is calculated org-wide, not per class</li></ul></div>
+  <div class="card accent-green"><h4>What actually matters</h4>
+    <ul><li>Assertions, not line count</li><li>Bulk behaviour (200 records)</li><li>Negative paths and error handling</li><li>Different user profiles</li></ul></div>
+  <div class="card accent-violet"><h4>Test context rules</h4>
+    <ul><li>Tests see <strong>no org data</strong> by default</li><li>Data is rolled back after each test</li><li>Emails aren't sent</li><li>Callouts must be mocked</li><li>Async runs at <code>stopTest()</code></li></ul></div>
+</div>
+
+<div class="callout danger">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">Coverage is a side effect, not a goal</span>
+    <code>for (Integer i=0; i&lt;100; i++) myMethod();</code> with no assertions gives you 100% coverage and zero value.
+    A test's job is to fail when the behaviour breaks.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="anatomy">Anatomy of a test class</h2>
+
+<div class="dgm">
+  <div class="dgm-title">Test execution timeline — and what startTest/stopTest actually do</div>
+  <svg viewBox="0 0 790 330" role="img" aria-label="Test method execution timeline showing testSetup, startTest and stopTest">
+    <rect class="s-box-v" x="20" y="20" width="750" height="52" rx="10"/>
+    <text class="s-t s-t-v" x="40" y="40">@testSetup — runs ONCE per class</text>
+    <text class="s-t-sm" x="40" y="60">Creates shared data. Rolled back to this exact state before each test method.</text>
+    <path class="s-line-v" d="M395 72 V96" marker-end="url(#ts1)"/>
+
+    <rect class="s-box" x="20" y="96" width="750" height="176" rx="10"/>
+    <text class="s-t" x="40" y="118">One test method</text>
+
+    <rect class="s-box-b" x="40" y="130" width="210" height="58" rx="8"/>
+    <text class="s-t-sm anchor-mid" x="145" y="150">1 · ARRANGE</text>
+    <text class="s-t-sm anchor-mid" x="145" y="170">query setup data, set mocks</text>
+    <text class="s-t-sm s-t-a anchor-mid" x="145" y="204">uses limits</text>
+
+    <path class="s-line-b" d="M250 159 H278" marker-end="url(#ts1)"/>
+    <rect class="s-box-g" x="278" y="130" width="230" height="58" rx="8"/>
+    <text class="s-t-sm s-t-g anchor-mid" x="393" y="146">Test.startTest()</text>
+    <text class="s-t-sm anchor-mid" x="393" y="164">2 · ACT — call the code under test</text>
+    <text class="s-t-sm anchor-mid" x="393" y="180">Test.stopTest()</text>
+    <text class="s-t-sm s-t-g anchor-mid" x="393" y="204">FRESH set of governor limits</text>
+    <text class="s-t-sm s-t-g anchor-mid" x="393" y="222">async work runs at stopTest()</text>
+
+    <path class="s-line-g" d="M508 159 H536" marker-end="url(#ts1)"/>
+    <rect class="s-box-t" x="536" y="130" width="214" height="58" rx="8"/>
+    <text class="s-t-sm anchor-mid" x="643" y="150">3 · ASSERT</text>
+    <text class="s-t-sm anchor-mid" x="643" y="170">query results, Assert.areEqual</text>
+    <text class="s-t-sm s-t-r anchor-mid" x="643" y="204">must come AFTER stopTest()</text>
+
+    <text class="s-t-sm anchor-mid" x="395" y="250">Everything the test inserted is rolled back automatically when the method ends</text>
+
+    <rect class="s-box-a" x="120" y="284" width="550" height="34" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="395" y="301">No org data · no emails sent · no real callouts · SOSL returns nothing unless you fix the results</text>
+    <defs><marker id="ts1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+  <div class="dgm-cap">The Arrange–Act–Assert shape maps exactly onto startTest / stopTest — put only the code under test between them.</div>
+</div>
+
+<pre><code class="language-apex">@isTest
+private class OpportunityDiscountServiceTest {
+
+    /* ---------- Runs ONCE per test class, data shared by all methods ---------- */
+    @testSetup
+    static void makeData() {
+        Account acc = new Account(Name = 'Test Account', Tier__c = 'Gold');
+        insert acc;
+
+        List&lt;Opportunity&gt; opps = new List&lt;Opportunity&gt;();
+        for (Integer i = 0; i &lt; 200; i++) {
+            opps.add(new Opportunity(
+                Name        = 'Deal ' + i,
+                AccountId   = acc.Id,
+                StageName   = 'Prospecting',
+                CloseDate   = Date.today().addDays(30),
+                Amount      = 10000 + i));
+        }
+        insert opps;
+    }
+
+    /* ---------- Positive path ---------- */
+    @isTest
+    static void appliesTierCapToDiscount() {
+        List&lt;Opportunity&gt; opps = [SELECT Id, Amount FROM Opportunity LIMIT 200];
+
+        Test.startTest();
+        OpportunityDiscountService.applyDiscount(opps, 0.40);   // request 40%
+        Test.stopTest();
+
+        for (Opportunity o : [SELECT Discount__c FROM Opportunity]) {
+            Assert.areEqual(0.30, o.Discount__c,
+                'Gold tier should cap the discount at 30%');
+        }
+    }
+
+    /* ---------- Negative path: the exception IS the expected behaviour ---------- */
+    @isTest
+    static void rejectsNegativeDiscount() {
+        Boolean threw = false;
+        try {
+            OpportunityDiscountService.applyDiscount(new List&lt;Opportunity&gt;(), -0.1);
+            Assert.fail('Expected a DiscountException');
+        } catch (DiscountException e) {
+            threw = true;
+            Assert.isTrue(e.getMessage().contains('must be positive'),
+                'Message should explain the problem, got: ' + e.getMessage());
+        }
+        Assert.isTrue(threw);
+    }
+
+    /* ---------- Boundary/empty input ---------- */
+    @isTest
+    static void handlesEmptyListGracefully() {
+        Test.startTest();
+        OpportunityDiscountService.applyDiscount(new List&lt;Opportunity&gt;(), 0.10);
+        Test.stopTest();
+        Assert.areEqual(0, Limits.getDmlStatements(), 'No DML should run for an empty list');
+    }
+}</code></pre>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Annotation / method</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td><code>@isTest</code> on the class</td><td>Excludes it from the 6 MB code limit and from coverage calculations</td></tr>
+    <tr><td><code>@isTest</code> on a method</td><td>Marks a test method (or use <code>static testMethod void</code>, now deprecated)</td></tr>
+    <tr><td><code>@testSetup</code></td><td>Runs once before each test method; the data is rolled back to that state between methods. Max one per class</td></tr>
+    <tr><td><code>Test.startTest()</code></td><td><strong>Resets governor limits</strong> — put the code under test after it</td></tr>
+    <tr><td><code>Test.stopTest()</code></td><td>Restores limits and <strong>forces queued async work to run</strong></td></tr>
+    <tr><td><code>@isTest(SeeAllData=true)</code></td><td>Grants access to real org data. Avoid — makes tests environment-dependent</td></tr>
+    <tr><td><code>@isTest(isParallel=true)</code></td><td>Allows the test to run in parallel for faster test runs</td></tr>
+    <tr><td><code>@suppressWarnings</code></td><td>Silences PMD/compiler warnings</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="assertions">Assertions</h2>
+<pre><code class="language-apex">// Modern Assert class (API 55+) — preferred
+Assert.areEqual(expected, actual, 'message');
+Assert.areNotEqual(notExpected, actual, 'message');
+Assert.isTrue(condition, 'message');
+Assert.isFalse(condition, 'message');
+Assert.isNull(value, 'message');
+Assert.isNotNull(value, 'message');
+Assert.isInstanceOfType(obj, Account.class, 'message');
+Assert.fail('Should not reach here');
+
+// Legacy System methods (still everywhere in older code)
+System.assertEquals(expected, actual, 'message');
+System.assert(condition, 'message');</code></pre>
+<div class="callout tip">
+  <span class="c-ico">✍️</span>
+  <div class="c-body"><span class="c-title">Always pass the third argument</span>
+    <code>Assert.areEqual(5, count)</code> fails with "Expected 5, Actual 3" — useless at 2am.
+    <code>Assert.areEqual(5, count, 'Should create one task per open case')</code> tells you what broke.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="data-factory">Test data factory</h2>
+<p>Never copy-paste record creation. One reusable factory means a new required field is fixed in one place instead of
+   fifty test classes.</p>
+
+<pre><code class="language-apex">@isTest
+public class TestDataFactory {
+
+    public static Account createAccount(Boolean doInsert) {
+        Account a = new Account(
+            Name          = 'Test Account ' + generateUnique(),
+            Industry      = 'Technology',
+            BillingCity   = 'Bengaluru',
+            BillingCountry= 'India');
+        if (doInsert) insert a;
+        return a;
+    }
+
+    public static List&lt;Contact&gt; createContacts(Id accountId, Integer count, Boolean doInsert) {
+        List&lt;Contact&gt; cons = new List&lt;Contact&gt;();
+        for (Integer i = 0; i &lt; count; i++) {
+            cons.add(new Contact(
+                FirstName = 'Test',
+                LastName  = 'Contact ' + i,
+                Email     = 'test' + i + generateUnique() + '@example.com',
+                AccountId = accountId));
+        }
+        if (doInsert) insert cons;
+        return cons;
+    }
+
+    public static User createUser(String profileName, Boolean doInsert) {
+        Profile p = [SELECT Id FROM Profile WHERE Name = :profileName LIMIT 1];
+        String uid = generateUnique();
+        User u = new User(
+            FirstName = 'Test', LastName = 'User',
+            Alias = uid.substring(0, 8),
+            Email = uid + '@example.com',
+            Username = uid + '@example.com.test',
+            ProfileId = p.Id,
+            TimeZoneSidKey = 'Asia/Kolkata', LocaleSidKey = 'en_IN',
+            EmailEncodingKey = 'UTF-8', LanguageLocaleKey = 'en_US');
+        if (doInsert) insert u;
+        return u;
+    }
+
+    private static String generateUnique() {
+        return String.valueOf(Datetime.now().getTime()) + String.valueOf(Math.abs(Crypto.getRandomInteger()));
+    }
+}</code></pre>
+<div class="callout note">
+  <span class="c-ico">🏭</span>
+  <div class="c-body"><span class="c-title">Factory conventions</span>
+    ① Always offer a <code>doInsert</code> flag so tests can modify before saving.
+    ② Generate unique values for anything with a uniqueness constraint (Username, External Id).
+    ③ Mark the class <code>@isTest</code> so it doesn't count toward org code size.
+    ④ Consider a fluent builder for objects with many optional fields.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="runas">Testing security with System.runAs</h2>
+<pre><code class="language-apex">@isTest
+static void salesRepCannotSeeOtherRepsOpportunities() {
+    User rep1 = TestDataFactory.createUser('Standard User', true);
+    User rep2 = TestDataFactory.createUser('Standard User', true);
+
+    System.runAs(rep1) {
+        Account a = TestDataFactory.createAccount(true);
+        insert new Opportunity(Name='Rep1 Deal', AccountId=a.Id,
+                               StageName='Prospecting', CloseDate=Date.today());
+    }
+
+    System.runAs(rep2) {
+        List&lt;Opportunity&gt; visible = [SELECT Id FROM Opportunity];
+        Assert.areEqual(0, visible.size(),
+            'Rep2 must not see Rep1 opportunities under a Private OWD');
+    }
+}
+
+// runAs also solves MIXED_DML in tests
+@isTest
+static void createsUserAndAccount() {
+    System.runAs(new User(Id = UserInfo.getUserId())) {
+        insert TestDataFactory.createUser('System Administrator', false);
+    }
+    insert TestDataFactory.createAccount(false);     // no MIXED_DML error
+}</code></pre>
+<div class="callout warn">
+  <span class="c-ico">📌</span>
+  <div class="c-body"><span class="c-title">What runAs does and doesn't do</span>
+    It changes the <strong>user context for record sharing and FLS</strong>. It does <strong>not</strong> enforce
+    object-level CRUD in all cases, and it does not reset governor limits. It only works in test methods.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="mocking-callouts">Mocking callouts</h2>
+<p>Real callouts are blocked in tests. You must supply a mock, or you get
+   <em>"Methods defined as TestMethod do not support Web service callouts"</em>.</p>
+
+<div class="tabs">
+  <div class="tab-btns">
+    <button class="tab-btn active">HttpCalloutMock</button>
+    <button class="tab-btn">Multi-endpoint mock</button>
+    <button class="tab-btn">Static resource</button>
+    <button class="tab-btn">SOAP (WebServiceMock)</button>
+  </div>
+
+  <div class="tab-panel active">
+<pre><code class="language-apex">@isTest
+public class ErpCalloutMock implements HttpCalloutMock {
+    private Integer statusCode;
+    private String  body;
+
+    public ErpCalloutMock(Integer statusCode, String body) {
+        this.statusCode = statusCode;
+        this.body = body;
+    }
+
+    public HttpResponse respond(HttpRequest req) {
+        // You can assert on the OUTGOING request too — very valuable
+        Assert.isTrue(req.getEndpoint().contains('/api/invoices'), 'Wrong endpoint');
+        Assert.areEqual('POST', req.getMethod());
+
+        HttpResponse res = new HttpResponse();
+        res.setStatusCode(statusCode);
+        res.setHeader('Content-Type', 'application/json');
+        res.setBody(body);
+        return res;
+    }
+}
+
+@isTest
+static void syncsInvoiceSuccessfully() {
+    Test.setMock(HttpCalloutMock.class,
+        new ErpCalloutMock(201, '{"id":"ERP-9001","status":"created"}'));
+
+    Test.startTest();
+    InvoiceSyncService.sync(invoiceIds);
+    Test.stopTest();
+
+    Assert.areEqual('Synced', [SELECT Sync_Status__c FROM Invoice__c LIMIT 1].Sync_Status__c);
+}
+
+@isTest
+static void handlesServerError() {
+    Test.setMock(HttpCalloutMock.class, new ErpCalloutMock(500, '{"error":"down"}'));
+    Test.startTest();
+    InvoiceSyncService.sync(invoiceIds);
+    Test.stopTest();
+    Assert.areEqual('Failed', [SELECT Sync_Status__c FROM Invoice__c LIMIT 1].Sync_Status__c);
+}</code></pre>
+  </div>
+
+  <div class="tab-panel">
+<pre><code class="language-apex">// When one test hits several endpoints, route by URL
+@isTest
+public class MultiEndpointMock implements HttpCalloutMock {
+    private Map&lt;String, HttpResponse&gt; responses = new Map&lt;String, HttpResponse&gt;();
+
+    public MultiEndpointMock addResponse(String urlFragment, Integer code, String body) {
+        HttpResponse r = new HttpResponse();
+        r.setStatusCode(code);
+        r.setBody(body);
+        responses.put(urlFragment, r);
+        return this;                    // fluent
+    }
+
+    public HttpResponse respond(HttpRequest req) {
+        for (String fragment : responses.keySet()) {
+            if (req.getEndpoint().contains(fragment)) return responses.get(fragment);
+        }
+        HttpResponse notFound = new HttpResponse();
+        notFound.setStatusCode(404);
+        notFound.setBody('{"error":"no mock configured for ' + req.getEndpoint() + '"}');
+        return notFound;
+    }
+}
+
+// Usage
+Test.setMock(HttpCalloutMock.class, new MultiEndpointMock()
+    .addResponse('/oauth/token', 200, '{"access_token":"abc"}')
+    .addResponse('/api/invoices', 201, '{"id":"ERP-1"}'));</code></pre>
+  </div>
+
+  <div class="tab-panel">
+<pre><code class="language-apex">// Store a real captured response as a Static Resource named "ErpInvoiceResponse"
+StaticResourceCalloutMock mock = new StaticResourceCalloutMock();
+mock.setStaticResource('ErpInvoiceResponse');
+mock.setStatusCode(200);
+mock.setHeader('Content-Type', 'application/json');
+Test.setMock(HttpCalloutMock.class, mock);
+
+// Or combine several static resources by endpoint
+MultiStaticResourceCalloutMock multi = new MultiStaticResourceCalloutMock();
+multi.setStaticResource('https://erp.example.com/api/invoices', 'ErpInvoiceResponse');
+multi.setStaticResource('https://erp.example.com/api/customers', 'ErpCustomerResponse');
+multi.setStatusCode(200);
+Test.setMock(HttpCalloutMock.class, multi);</code></pre>
+    <p>Best when the real payload is large — paste the actual production response into a static resource and your test
+       stays faithful to reality.</p>
+  </div>
+
+  <div class="tab-panel">
+<pre><code class="language-apex">@isTest
+global class WeatherServiceMock implements WebServiceMock {
+    global void doInvoke(
+            Object stub, Object request, Map&lt;String, Object&gt; response,
+            String endpoint, String soapAction, String requestName,
+            String responseNS, String responseName, String responseType) {
+
+        WeatherService.GetWeatherResponse_element resp =
+            new WeatherService.GetWeatherResponse_element();
+        resp.temperature = 28;
+        resp.condition   = 'Sunny';
+        response.put('response_x', resp);
+    }
+}
+
+@isTest
+static void readsWeather() {
+    Test.setMock(WebServiceMock.class, new WeatherServiceMock());
+    Test.startTest();
+    Integer t = WeatherClient.getTemperature('Bengaluru');
+    Test.stopTest();
+    Assert.areEqual(28, t);
+}</code></pre>
+  </div>
+</div>
+
+<h3>Apex Stub API — mocking your own classes</h3>
+<pre><code class="language-apex">// Mock a Selector so the test never touches the database
+@isTest
+public class SelectorMock implements System.StubProvider {
+    private List&lt;Account&gt; toReturn;
+    public SelectorMock(List&lt;Account&gt; accounts) { this.toReturn = accounts; }
+
+    public Object handleMethodCall(Object stubbed, String methodName, Type returnType,
+                                   List&lt;Type&gt; paramTypes, List&lt;String&gt; paramNames,
+                                   List&lt;Object&gt; args) {
+        if (methodName == 'selectByIds') return toReturn;
+        return null;
+    }
+}
+
+@isTest
+static void serviceUsesSelectorResults() {
+    List&lt;Account&gt; fake = new List&lt;Account&gt;{ new Account(Id = TestUtil.fakeId(Account.SObjectType), Name = 'Fake') };
+    AccountSelector mockSelector = (AccountSelector) Test.createStub(
+        AccountSelector.class, new SelectorMock(fake));
+
+    AccountService svc = new AccountService(mockSelector);   // dependency injection
+    Assert.areEqual(1, svc.getActiveAccounts().size());
+}</code></pre>
+<div class="callout tip">
+  <span class="c-ico">⚡</span>
+  <div class="c-body"><span class="c-title">Why stubbing is worth it</span>
+    Tests that never insert records run in milliseconds instead of seconds, and they isolate the class under test from
+    triggers, validation rules and required fields. It requires designing for injection — pass dependencies into the
+    constructor rather than instantiating them inline.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="patterns">Test patterns cheat sheet</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>You're testing…</th><th>Pattern</th></tr></thead>
+  <tbody>
+    <tr><td>A trigger</td><td>Insert/update <strong>200 records</strong>, assert the outcome; then a single-record case; then a case that should <em>not</em> fire</td></tr>
+    <tr><td>Batch Apex</td><td>≤ 200 records, <code>Database.executeBatch</code> inside start/stopTest, assert after</td></tr>
+    <tr><td>Queueable</td><td><code>System.enqueueJob</code> inside start/stopTest; guard chaining with <code>Test.isRunningTest()</code></td></tr>
+    <tr><td>Scheduled Apex</td><td><code>System.schedule</code> with a far-future cron; assert <code>CronTrigger</code></td></tr>
+    <tr><td>A callout</td><td><code>Test.setMock</code>; test 200, 4xx and 5xx responses separately</td></tr>
+    <tr><td>An LWC's Apex controller</td><td>Call the <code>@AuraEnabled</code> method directly; assert the wrapper contents</td></tr>
+    <tr><td>Sharing / permissions</td><td><code>System.runAs</code> with a user on the relevant profile</td></tr>
+    <tr><td>A validation rule or <code>addError</code></td><td>Expect the DmlException and assert on its message</td></tr>
+    <tr><td>SOSL</td><td><code>Test.setFixedSearchResults(new List&lt;Id&gt;{...})</code> — the index doesn't exist in tests</td></tr>
+    <tr><td>A platform event</td><td>Publish inside start/stopTest; <code>Test.getEventBus().deliver()</code> to force delivery</td></tr>
+    <tr><td>Custom metadata-driven logic</td><td>Inject the config via a setter/test-visible variable — CMDT rows can't be inserted in tests</td></tr>
+  </tbody>
+</table>
+</div>
+
+<pre><code class="language-apex">// Generating a fake Id without inserting — handy for stubbed tests
+public static Id fakeId(Schema.SObjectType sot) {
+    String prefix = sot.getDescribe().getKeyPrefix();
+    return Id.valueOf(prefix + '0'.repeat(12 - String.valueOf(counter).length()) + counter++);
+}</code></pre>
+
+<!-- ============================================ -->
+<h2 id="best-practices">Testing best practices</h2>
+<div class="grid g2">
+  <div class="card accent-green"><h4>✅ Do</h4>
+    <ul><li>One logical assertion per test method — name the method after the behaviour</li>
+        <li>Test with 200 records for anything triggered by DML</li>
+        <li>Test negative paths: nulls, empty lists, invalid input, exceptions</li>
+        <li>Use <code>@testSetup</code> to keep tests fast</li>
+        <li>Use <code>Test.startTest()</code>/<code>stopTest()</code> around the code under test</li>
+        <li>Use a shared <code>TestDataFactory</code></li>
+        <li>Test as different users with <code>runAs</code></li>
+        <li>Mock every external dependency</li>
+        <li>Aim for 90%+ on business-critical classes</li></ul></div>
+  <div class="card accent-rose"><h4>❌ Don't</h4>
+    <ul><li><code>SeeAllData=true</code> (except for a handful of objects that genuinely require it, like Pricebook2 in some cases)</li>
+        <li>Hard-code Ids or query for real org records</li>
+        <li>Write assertion-free "coverage" tests</li>
+        <li>Depend on test execution order</li>
+        <li>Use <code>System.debug</code> instead of assertions</li>
+        <li>Create data in every method instead of <code>@testSetup</code></li>
+        <li>Ignore a failing test by commenting it out</li>
+        <li>Forget <code>Test.stopTest()</code> before asserting async results</li></ul></div>
+</div>
+
+<div class="callout note">
+  <span class="c-ico">💰</span>
+  <div class="c-body"><span class="c-title">The standard Pricebook exception</span>
+    Tests cannot see the standard Pricebook by default. Use
+    <code>Id pbId = Test.getStandardPricebookId();</code> then create your PricebookEntry against it —
+    this is the one case everyone hits when testing Opportunity Products.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> What exactly does the 75% rule require?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>To deploy to production you need <strong>75% coverage org-wide</strong> (not per class),
+<strong>every trigger</strong> must have at least some coverage, and <strong>all tests must pass</strong>. Coverage is
+recalculated on the classes in the deployment plus the org total.</p>
+<p>The follow-up they're really asking: coverage is a <em>gate</em>, not a quality measure. A loop calling a method 100
+times with no assertions gives you high coverage and zero confidence.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> What do <code>Test.startTest()</code> and <code>Test.stopTest()</code> actually do?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Two distinct things. <code>startTest()</code> gives you a <strong>fresh set of governor limits</strong>,
+so the data you set up beforehand doesn't consume the budget of the code under test. <code>stopTest()</code> restores
+the original limits <em>and</em> <strong>forces any queued asynchronous work to execute synchronously</strong> — which
+is why assertions on Batch/Queueable/@future results must come after it. You can use them only once per test method.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Why avoid <code>@isTest(SeeAllData=true)</code>?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>It makes the test depend on org data, so it passes in your sandbox and fails in production — or
+starts failing the day someone deletes a record. Tests should be self-contained and deterministic; build data with a
+<code>TestDataFactory</code>.</p>
+<p>The honest exception is a handful of objects tests can't create, most famously the standard Pricebook — and even
+there <code>Test.getStandardPricebookId()</code> is the correct answer rather than <code>SeeAllData</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> How do you test a method that makes an HTTP callout?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Real callouts are blocked in tests. Implement <code>HttpCalloutMock</code> (or use
+<code>StaticResourceCalloutMock</code> for large realistic payloads) and register it with
+<code>Test.setMock(HttpCalloutMock.class, new MyMock())</code> before invoking the code. For SOAP, implement
+<code>WebServiceMock</code>.</p>
+<p>The point worth making in an interview: mocks let you test the paths a real endpoint won't give you on demand —
+<strong>500s, 429s and malformed bodies</strong>. You can also assert on the <em>outgoing</em> request inside
+<code>respond()</code> to verify you built the right endpoint, method and payload.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> What does <code>System.runAs</code> do — and what does it not do?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It executes a block as another user, applying that user's <strong>record sharing and FLS</strong>, so
+you can prove a rep can't see another rep's opportunities. It also solves <strong>MIXED_DML</strong> in tests by letting
+you insert a User in a separate context.</p>
+<p>What it does <em>not</em> do: reset governor limits, and it doesn't enforce object CRUD in every case. It only works
+inside test methods.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> Describe a good test suite for a trigger.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><ol>
+  <li><strong>Bulk</strong> — insert/update <strong>200 records</strong> and assert the outcome. This is where triggers actually break.</li>
+  <li><strong>Single record</strong> — the happy path.</li>
+  <li><strong>Negative</strong> — data that should be rejected; assert the <code>DmlException</code> message from <code>addError()</code>.</li>
+  <li><strong>No-op</strong> — an update that shouldn't fire the logic, asserting nothing changed.</li>
+  <li><strong>Permissions</strong> — <code>runAs</code> a non-admin profile.</li>
+  <li><strong>Recursion</strong> — an update that cascades, asserting the work happened exactly once.</li>
+</ol></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> What is the Stub API and why would you use it?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><code>Test.createStub()</code> plus a class implementing <code>System.StubProvider</code> lets you
+<strong>mock your own Apex classes</strong> — typically a Selector — so the test never touches the database.</p>
+<p>Benefits: tests run in milliseconds instead of seconds, and the class under test is isolated from triggers,
+validation rules and required fields on unrelated objects. The prerequisite is designing for
+<strong>dependency injection</strong> — pass the Selector into the Service's constructor rather than instantiating it
+inline.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> Your test passes in the sandbox and fails in production. Name three likely causes.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><ol>
+  <li><strong>Data dependency</strong> — <code>SeeAllData</code> or a query assuming a record exists.</li>
+  <li><strong>Different automation</strong> — a validation rule, required field or active trigger that exists in
+      production but not the sandbox, so your test data no longer inserts.</li>
+  <li><strong>Org-wide limits</strong> — production has more automation stacked on the same object, so the transaction
+      hits a governor limit your sandbox never reached.</li>
+  <li>Also common: profile/permission differences under <code>runAs</code>, and a <code>Pricebook2</code> or
+      record-type Id that differs between orgs because it was hard-coded.</li>
+</ol></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. Where do you assert the results of a Batch job in a test?</div>
+  <button class="opt">Immediately after <code>Database.executeBatch</code></button>
+  <button class="opt" data-correct="1">After <code>Test.stopTest()</code></button>
+  <button class="opt">In the finish() method</button>
+  <div class="explain">Async work queued between startTest and stopTest is executed synchronously when stopTest() is called — assert after that line.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. Your test fails with "Methods defined as TestMethod do not support Web service callouts". Fix?</div>
+  <button class="opt">Add SeeAllData=true</button>
+  <button class="opt" data-correct="1">Implement HttpCalloutMock and call Test.setMock before the callout</button>
+  <button class="opt">Wrap the callout in try/catch</button>
+  <div class="explain">Real HTTP is never allowed in tests. A mock also lets you deliberately test 500s and timeouts, which real endpoints won't give you on demand.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. Which gives the most confidence for a trigger?</div>
+  <button class="opt">One record inserted, coverage 100%</button>
+  <button class="opt" data-correct="1">200 records inserted plus a negative case plus a no-op case, with assertions</button>
+  <button class="opt">SeeAllData=true against production-like data</button>
+  <div class="explain">Bulk behaviour is where triggers break. Coverage percentage tells you nothing about correctness.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Test Classes</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

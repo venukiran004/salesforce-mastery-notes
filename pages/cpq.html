@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CPQ &amp; Revenue Cloud | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Clouds</span> › <span>CPQ</span></div>
+  <h1>CPQ &amp; Revenue Cloud</h1>
+  <p class="lede">Configure, Price, Quote — the quote-to-cash layer that turns an Opportunity into a priced,
+     approved, contracted and renewable revenue stream.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">🧭</span>
+  <div class="c-body"><span class="c-title">Why this matters even if you're a developer</span>
+    CPQ is one of the highest-paid Salesforce specialisms and appears constantly in consulting work. It's also a
+    managed package with its own data model and its own performance traps — knowing that
+    <em>standard</em> Products/Price Books stop being enough is a genuine architectural judgement call.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="why">When standard pricing isn't enough</h2>
+<div class="vs">
+  <div class="card accent-blue"><h4>Standard Sales Cloud is fine when…</h4>
+    <ul><li>A flat list of products with one price each</li><li>Simple percentage discounts</li>
+        <li>No bundles or dependencies</li><li>No subscriptions or renewals</li>
+        <li>A Quote PDF from the standard template is acceptable</li></ul></div>
+  <div class="vs-mid">→</div>
+  <div class="card accent-violet"><h4>You need CPQ when…</h4>
+    <ul><li>Products are <strong>bundles</strong> with options and rules ("if you pick A, you must add B")</li>
+        <li>Pricing is tiered, volume-based, block-based or contracted</li>
+        <li><strong>Subscriptions</strong> with terms, proration, amendments and renewals</li>
+        <li>Multi-level, conditional discount approvals</li>
+        <li>Branded, complex quote documents</li>
+        <li>Sales reps configure incorrect combinations without guardrails</li></ul></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="data-model">The CPQ data model</h2>
+
+<div class="dgm">
+  <div class="dgm-title">Quote-to-cash object flow</div>
+  <svg viewBox="0 0 790 340" role="img" aria-label="CPQ object model from opportunity through quote to contract and renewal">
+    <rect class="s-box-b" x="20" y="24" width="140" height="44" rx="9"/>
+    <text class="s-t anchor-mid" x="90" y="46">Opportunity</text>
+    <path class="s-line-b" d="M160 46 H210" marker-end="url(#cpq1)"/>
+
+    <rect class="s-box-v" x="210" y="24" width="150" height="44" rx="9"/>
+    <text class="s-t anchor-mid" x="285" y="40">Quote</text>
+    <text class="s-t-sm anchor-mid" x="285" y="58">SBQQ__Quote__c</text>
+    <path class="s-line-v" d="M285 68 V104" marker-end="url(#cpq1)"/>
+
+    <rect class="s-box" x="190" y="104" width="190" height="44" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="285" y="120">Quote Line</text>
+    <text class="s-t-sm anchor-mid" x="285" y="138">SBQQ__QuoteLine__c</text>
+    <path class="s-line" d="M380 126 H430" marker-end="url(#cpq1)"/>
+
+    <rect class="s-box-t" x="430" y="104" width="180" height="44" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="520" y="120">Product · Option · Feature</text>
+    <text class="s-t-sm anchor-mid" x="520" y="138">the bundle definition</text>
+
+    <path class="s-line-v" d="M360 46 H430" marker-end="url(#cpq1)"/>
+    <rect class="s-box-a" x="430" y="24" width="180" height="44" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="520" y="40">Price Rules · Product Rules</text>
+    <text class="s-t-sm anchor-mid" x="520" y="58">Discount Schedules</text>
+
+    <path class="s-line-v" d="M285 148 V186" marker-end="url(#cpq1)"/>
+    <rect class="s-box-g" x="190" y="186" width="190" height="44" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="285" y="202">Quote Document (PDF)</text>
+    <text class="s-t-sm anchor-mid" x="285" y="220">→ e-signature</text>
+
+    <path class="s-line-g" d="M380 208 H430" marker-end="url(#cpq1)"/>
+    <rect class="s-box-g" x="430" y="186" width="150" height="44" rx="9"/>
+    <text class="s-t anchor-mid" x="505" y="208">Order</text>
+    <path class="s-line-g" d="M580 208 H630" marker-end="url(#cpq1)"/>
+    <rect class="s-box-b" x="630" y="186" width="140" height="44" rx="9"/>
+    <text class="s-t anchor-mid" x="700" y="208">Contract</text>
+
+    <path class="s-line-r" d="M700 230 V270" marker-end="url(#cpq1)"/>
+    <rect class="s-box-r" x="560" y="270" width="210" height="52" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="665" y="288">Subscriptions &amp; Assets</text>
+    <text class="s-t-sm anchor-mid" x="665" y="308">→ Amendment / Renewal quote</text>
+    <path class="s-line-r s-dash" d="M560 296 H285 V68" marker-end="url(#cpq1)"/>
+    <text class="s-t-sm s-t-r anchor-mid" x="400" y="288">the revenue loop</text>
+    <defs><marker id="cpq1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Object</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><code>SBQQ__Quote__c</code></td><td>The quote header — one Opportunity can have many, one is <strong>Primary</strong> and syncs back</td></tr>
+    <tr><td><code>SBQQ__QuoteLine__c</code></td><td>A configured, priced line. Holds the pricing waterfall fields</td></tr>
+    <tr><td><code>SBQQ__ProductOption__c</code></td><td>A product available inside a bundle</td></tr>
+    <tr><td><code>SBQQ__ProductFeature__c</code></td><td>Groups options within a bundle, with min/max selection rules</td></tr>
+    <tr><td><code>SBQQ__PriceRule__c</code> / <code>PriceCondition</code> / <code>PriceAction</code></td><td>Injects or calculates values during pricing</td></tr>
+    <tr><td><code>SBQQ__ProductRule__c</code></td><td>Validation, alert, selection or filter rules governing configuration</td></tr>
+    <tr><td><code>SBQQ__DiscountSchedule__c</code></td><td>Volume/tier-based discounting</td></tr>
+    <tr><td><code>SBQQ__Subscription__c</code></td><td>What the customer currently owns — the basis for amendments and renewals</td></tr>
+    <tr><td><code>SBQQ__QuoteDocument__c</code></td><td>The generated PDF, versioned</td></tr>
+    <tr><td><code>Contract</code> / <code>Asset</code></td><td>Standard objects CPQ writes into on order activation</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="pricing">The pricing waterfall</h2>
+<p>Every quote line's price is derived through a fixed sequence. Knowing the order is how you debug "why is this price wrong".</p>
+<div class="tl">
+  <div class="tl-item"><b>1 · List Price</b><span>From the Price Book Entry, or a contracted/negotiated price if one applies.</span></div>
+  <div class="tl-item"><b>2 · Special Price</b><span>Contracted price, subscription proration or a block price overrides list.</span></div>
+  <div class="tl-item"><b>3 · Prorated Price</b><span>Adjusted for a partial subscription term.</span></div>
+  <div class="tl-item"><b>4 · Regular Price</b><span>After option and bundle-level adjustments.</span></div>
+  <div class="tl-item"><b>5 · Customer Price</b><span>After Discount Schedules (volume/tier) and additional discounts.</span></div>
+  <div class="tl-item"><b>6 · Partner Price → Net Price</b><span>Partner and distributor discounts applied last.</span></div>
+  <div class="tl-item"><b>7 · Net Total</b><span>Net Price × Quantity × Term, rolled to the quote.</span></div>
+</div>
+<div class="callout tip">
+  <span class="c-ico">🔎</span>
+  <div class="c-body"><span class="c-title">Debugging a wrong price</span>
+    Work <em>down</em> the waterfall and find the first field that looks wrong — that isolates which rule caused it.
+    Check in this order: Price Book Entry → contracted price → Price Rules (and their evaluation event) → Discount
+    Schedule → manual discount. CPQ's own <strong>debug/Quote Calculator</strong> logs make this far quicker than
+    guessing.</div>
+</div>
+
+<h3>Price Rules</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Element</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Evaluation Event</strong></td><td><em>On Initialization</em>, <em>Before Calculate</em>, <em>On Calculate</em>, <em>After Calculate</em> — when in the pricing cycle the rule fires. Choosing wrong is the #1 cause of rules "not working"</td></tr>
+    <tr><td><strong>Conditions</strong></td><td>Tested against the quote or quote line; combined with AND/OR logic</td></tr>
+    <tr><td><strong>Actions</strong></td><td>Set a field to a value, a formula, or the result of a Lookup Table</td></tr>
+    <tr><td><strong>Lookup Objects</strong></td><td>A custom object acting as a rate/matrix table the rule reads from — keeps rates configurable without touching rules</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Product Rules</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Type</th><th>Does</th><th>Example</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Validation</strong></td><td>Blocks saving an invalid configuration</td><td>"Support plan required with any hardware"</td></tr>
+    <tr><td><strong>Alert</strong></td><td>Warns but allows</td><td>"Consider adding training"</td></tr>
+    <tr><td><strong>Selection</strong></td><td>Auto-adds, removes, enables or disables options</td><td>Selecting Enterprise auto-adds Premier Support</td></tr>
+    <tr><td><strong>Filter</strong></td><td>Restricts what appears in the product search</td><td>Only show products valid for this country</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="lifecycle">Amendments &amp; renewals — the real value</h2>
+<div class="grid g3">
+  <div class="card accent-blue"><h4>Initial sale</h4><p>Quote → Order → Contract, generating <strong>Subscriptions</strong> representing what the customer now owns.</p></div>
+  <div class="card accent-amber"><h4>Amendment</h4><p>Mid-term change: add seats, upgrade, cancel a line. CPQ creates an amendment quote pre-loaded with current subscriptions and <strong>prorates</strong> to the remaining term.</p></div>
+  <div class="card accent-green"><h4>Renewal</h4><p>CPQ can auto-generate a renewal Opportunity and quote ahead of contract end, carrying forward subscriptions with uplift.</p></div>
+</div>
+<p>This loop is why companies buy CPQ: without it, renewals and mid-term changes are manual spreadsheets and revenue
+   leaks. The <code>SBQQ__Subscription__c</code> record is the single source of truth for "what do they have right now".</p>
+
+<!-- ============================================ -->
+<h2 id="performance">Performance &amp; developer notes</h2>
+<div class="callout danger">
+  <span class="c-ico">🐌</span>
+  <div class="c-body"><span class="c-title">CPQ is a managed package sharing your governor limits</span>
+    The Quote Calculator does substantial work on every recalculation. Add your own triggers and flows on Quote or
+    Quote Line and you're competing for the <em>same</em> 100 SOQL and 150 DML budget. Large quotes (hundreds of lines)
+    routinely hit CPU limits.</div>
+</div>
+<ul>
+  <li><strong>Minimise custom automation</strong> on <code>SBQQ__QuoteLine__c</code>. Prefer Price Rules over triggers — they run inside the calculator, not on top of it.</li>
+  <li><strong>Use the Quote Calculator Plugin</strong> (a JavaScript or Apex extension point) when you must inject custom logic into pricing properly.</li>
+  <li><strong>Watch the line count.</strong> Agree a maximum quote size with the business; consider splitting very large quotes.</li>
+  <li><strong>Large Quote Experience</strong> and asynchronous calculation exist for high line counts — enable them deliberately.</li>
+  <li><strong>Test with realistic bundles</strong>, not one-line quotes. Most CPQ bugs only appear at scale.</li>
+  <li><strong>Deployment</strong>: CPQ config lives in <em>records</em> (rules, schedules, options), not metadata — so it needs a data migration tool (CPQ Data Migration Utility, Prodly, Gearset) rather than a change set.</li>
+</ul>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> When would you tell a client they don't need CPQ?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>When they sell a flat catalogue at list price with simple percentage discounts, no bundles, no
+subscriptions and no renewal motion — standard Products, Price Books and Quotes handle that, and CPQ would add licence
+cost, implementation time and a managed package competing for governor limits.</p>
+<p>Recommending <em>against</em> a product when it isn't needed is a strong signal in a consulting interview.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> A rep says the price is wrong. How do you debug it?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Walk the <strong>pricing waterfall</strong> in order — List → Special → Prorated → Regular → Customer
+→ Partner → Net — and find the first field that's already wrong. That tells you which stage caused it.</p>
+<p>Then check that stage's inputs: the Price Book Entry, any contracted price on the account, Price Rules (and crucially
+their <strong>Evaluation Event</strong>), Discount Schedules, and manual discounts. Use the CPQ calculator debug logs.
+The most common root cause is a Price Rule firing at the wrong evaluation event.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Explain the four Product Rule types.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Validation</strong> blocks an invalid configuration from saving. <strong>Alert</strong>
+warns but permits. <strong>Selection</strong> automatically adds, removes, enables or disables options — the one that
+drives guided selling. <strong>Filter</strong> restricts which products appear in search.</p>
+<p>Use Selection to make the right thing easy and Validation to make the wrong thing impossible; over-using Validation
+produces a frustrating configurator.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> How do amendments and renewals work, and why do they justify CPQ?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>On order activation CPQ creates <strong>Subscription</strong> records representing what the customer
+owns. An <strong>amendment</strong> quote is generated pre-loaded with those subscriptions, so a mid-term change (add
+seats, upgrade, cancel) is priced as a <strong>prorated delta</strong> for the remaining term, not a fresh sale.
+A <strong>renewal</strong> quote is auto-generated ahead of contract end, carrying the subscriptions forward with any
+uplift.</p>
+<p>That's the business case: without it, renewals and mid-term changes are spreadsheets, and revenue leaks through
+missed uplifts and un-invoiced additions.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> A 400-line quote times out. What do you do?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>First accept the cause: CPQ's calculator plus <em>your</em> triggers and flows share one
+transaction's governor limits, and CPU time is usually what blows.</p>
+<p>Actions: remove or consolidate custom automation on Quote and Quote Line; move logic into <strong>Price Rules</strong>
+or a <strong>Quote Calculator Plugin</strong> rather than triggers; enable the <strong>Large Quote Experience</strong>
+and asynchronous calculation; simplify bundles and rule counts; and agree a maximum quote size with the business,
+splitting genuinely huge deals across quotes.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> How do you deploy CPQ configuration between orgs?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>You can't use a change set for most of it, because CPQ configuration lives in <strong>records</strong>
+— Price Rules, Product Rules, Discount Schedules, Product Options, Lookup tables — not metadata.</p>
+<p>Use a data-migration approach: the CPQ Data Migration Utility, or a tool like Prodly or Gearset that understands the
+relationship graph and preserves external IDs. Treat CPQ config as <strong>reference data with its own release
+process</strong>, versioned and promoted alongside your metadata.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> What is a Quote Calculator Plugin?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>An official extension point — JavaScript (or Apex, depending on the plugin type) that runs
+<em>inside</em> CPQ's calculation lifecycle, with hooks such as <code>onInit</code>, <code>onBeforeCalculate</code>,
+<code>onBeforePriceRules</code>, <code>onAfterPriceRules</code> and <code>onAfterCalculate</code>.</p>
+<p>Use it when logic genuinely can't be expressed as a Price Rule. It's far safer than a trigger on Quote Line, because
+it participates in the calculation rather than firing after it and forcing a recalculation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> What's the relationship between a Quote and the Opportunity Amount?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>An Opportunity can have several quotes; exactly one is marked <strong>Primary</strong>. The primary
+quote's lines sync to Opportunity Products and its total drives the Opportunity <strong>Amount</strong>.</p>
+<p>Practical consequence: once syncing is in place, don't edit the Opportunity Amount directly — it's derived. And
+forecasting accuracy depends on reps remembering to mark the correct quote as primary, which is worth enforcing with
+validation or automation.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. A Price Rule isn't taking effect. Most likely cause?</div>
+  <button class="opt">The product is inactive</button>
+  <button class="opt" data-correct="1">The wrong Evaluation Event — it fires at the wrong point in the calculation cycle</button>
+  <button class="opt">The quote has too many lines</button>
+  <div class="explain">On Initialization / Before Calculate / On Calculate / After Calculate determine whether your rule's inputs even exist yet when it runs.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. Which record tells you what a customer currently owns?</div>
+  <button class="opt">Quote Line</button>
+  <button class="opt" data-correct="1">SBQQ__Subscription__c</button>
+  <button class="opt">Opportunity Product</button>
+  <div class="explain">Subscriptions are created on order activation and are the basis for prorated amendments and renewal quotes.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. How do you move Price Rules from sandbox to production?</div>
+  <button class="opt">A change set</button>
+  <button class="opt" data-correct="1">A data migration tool — CPQ config is records, not metadata</button>
+  <button class="opt">The Metadata API</button>
+  <div class="explain">Rules, schedules, options and lookup tables are all records, so they need a relationship-aware data deployment, not a metadata deployment.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · CPQ &amp; Revenue Cloud</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

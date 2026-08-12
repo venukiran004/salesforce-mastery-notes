@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apex Core &amp; SOQL/SOSL | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Apex</span> › <span>Core &amp; SOQL/SOSL</span></div>
+  <h1>Apex Core &amp; SOQL / SOSL</h1>
+  <p class="lede">The language itself: types, collections and OOP — then the two query languages and every way to
+     write data back, in the depth your notes asked for.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📖</span>
+  <div class="c-body"><span class="c-title">What Apex is</span>
+    A strongly-typed, object-oriented, <strong>case-insensitive</strong> language with Java-like syntax that runs
+    <strong>on Salesforce servers</strong>. It's compiled to bytecode, stored as metadata, multitenant-aware
+    (governor limits), and has SOQL/DML built directly into the language rather than bolted on as a library.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="data-types">Data types</h2>
+
+<div class="dgm">
+  <div class="dgm-title">The Apex type system</div>
+  <svg viewBox="0 0 780 320" role="img" aria-label="Apex data type categories">
+    <rect class="s-box-b" x="300" y="10" width="180" height="42" rx="9"/>
+    <text class="s-t anchor-mid" x="390" y="32">Apex Data Types</text>
+    <path class="s-line" d="M390 52 V74 M100 74 H680 M100 74 V100 M290 74 V100 M480 74 V100 M680 74 V100"/>
+
+    <rect class="s-box-v" x="20" y="100" width="160" height="42" rx="8"/>
+    <text class="s-t s-t-v anchor-mid" x="100" y="122">Primitives</text>
+    <text class="s-t-sm anchor-mid" x="100" y="164">Integer · Long</text>
+    <text class="s-t-sm anchor-mid" x="100" y="182">Decimal · Double</text>
+    <text class="s-t-sm anchor-mid" x="100" y="200">String · Boolean</text>
+    <text class="s-t-sm anchor-mid" x="100" y="218">Date · Time</text>
+    <text class="s-t-sm anchor-mid" x="100" y="236">Datetime · Id</text>
+    <text class="s-t-sm anchor-mid" x="100" y="254">Blob · Object</text>
+
+    <rect class="s-box-t" x="210" y="100" width="160" height="42" rx="8"/>
+    <text class="s-t s-t-t anchor-mid" x="290" y="122">sObjects</text>
+    <text class="s-t-sm anchor-mid" x="290" y="164">Account, Contact</text>
+    <text class="s-t-sm anchor-mid" x="290" y="182">Invoice__c</text>
+    <text class="s-t-sm anchor-mid" x="290" y="200">Generic: sObject</text>
+
+    <rect class="s-box-a" x="400" y="100" width="160" height="42" rx="8"/>
+    <text class="s-t s-t-a anchor-mid" x="480" y="122">Collections</text>
+    <text class="s-t-sm anchor-mid" x="480" y="164">List&lt;T&gt; — ordered</text>
+    <text class="s-t-sm anchor-mid" x="480" y="182">Set&lt;T&gt; — unique</text>
+    <text class="s-t-sm anchor-mid" x="480" y="200">Map&lt;K,V&gt; — keyed</text>
+
+    <rect class="s-box-g" x="600" y="100" width="160" height="42" rx="8"/>
+    <text class="s-t s-t-g anchor-mid" x="680" y="122">User-defined</text>
+    <text class="s-t-sm anchor-mid" x="680" y="164">Classes</text>
+    <text class="s-t-sm anchor-mid" x="680" y="182">Interfaces</text>
+    <text class="s-t-sm anchor-mid" x="680" y="200">Enums</text>
+
+    <rect class="s-box" x="150" y="278" width="480" height="34" rx="8"/>
+    <text class="s-t-sm anchor-mid" x="390" y="295">All types are nullable — even Integer and Boolean. Always null-check.</text>
+  </svg>
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Type</th><th>Range / notes</th><th>Example</th></tr></thead>
+  <tbody>
+    <tr><td><code>Integer</code></td><td>32-bit, −2,147,483,648 → 2,147,483,647</td><td><code>Integer i = 10;</code></td></tr>
+    <tr><td><code>Long</code></td><td>64-bit — use for large numbers/timestamps</td><td><code>Long l = 21474836470L;</code></td></tr>
+    <tr><td><code>Decimal</code></td><td>Arbitrary precision. <strong>Currency fields are Decimal.</strong> Use for money — never Double</td><td><code>Decimal d = 19.99;</code></td></tr>
+    <tr><td><code>Double</code></td><td>64-bit float, precision loss possible</td><td><code>Double dd = 3.14159;</code></td></tr>
+    <tr><td><code>String</code></td><td>No hard limit in Apex (heap-bound). Case-sensitive comparisons with <code>equals</code></td><td><code>String s = 'Hello';</code></td></tr>
+    <tr><td><code>Boolean</code></td><td>true / false / <strong>null</strong></td><td><code>Boolean b = true;</code></td></tr>
+    <tr><td><code>Date</code></td><td>Date only, no time</td><td><code>Date d = Date.newInstance(2026,8,12);</code></td></tr>
+    <tr><td><code>Time</code></td><td>Time only</td><td><code>Time t = Time.newInstance(14,30,0,0);</code></td></tr>
+    <tr><td><code>Datetime</code></td><td>Stored in <strong>GMT</strong>, displayed in user's timezone</td><td><code>Datetime.now();</code></td></tr>
+    <tr><td><code>Id</code></td><td>Validated 15/18-char record ID — assigning an invalid string throws</td><td><code>Id recId = '001xx…';</code></td></tr>
+    <tr><td><code>Blob</code></td><td>Binary. Convert with <code>Blob.valueOf()</code> / <code>toString()</code></td><td><code>Blob b = Blob.valueOf('x');</code></td></tr>
+    <tr><td><code>Object</code></td><td>The root type — everything can be cast to it</td><td><code>Object o = anything;</code></td></tr>
+    <tr><td><code>Enum</code></td><td>Fixed set of values</td><td><code>public enum Season {WINTER, SPRING}</code></td></tr>
+    <tr><td><code>sObject</code></td><td>Any Salesforce record</td><td><code>Account a = new Account();</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<pre><code class="language-apex">// Type conversion essentials
+Integer i    = Integer.valueOf('42');
+String  s    = String.valueOf(42);
+Decimal dec  = Decimal.valueOf('19.99');
+Date    d    = Date.valueOf('2026-08-12');
+Integer fromDec = (Integer) 19.99;          // truncates → 19
+
+// Decimal precision matters for money
+Decimal price = 10.005;
+System.debug(price.setScale(2, RoundingMode.HALF_UP));   // 10.01
+System.debug(price.round(RoundingMode.HALF_EVEN));       // 10
+
+// Safe navigation operator (?.) — avoids NullPointerException
+String city = opp.Account?.BillingCity;      // null instead of throwing
+
+// String essentials
+String.isBlank(s);        // null, '' or whitespace
+String.isEmpty(s);        // null or ''
+s.equalsIgnoreCase('x');
+String.join(myList, ', ');
+s.split(',');
+String.format('Hello {0}, you have {1} cases', new List&lt;String&gt;{'Priya', '3'});</code></pre>
+
+<div class="callout warn">
+  <span class="c-ico">🕳️</span>
+  <div class="c-body"><span class="c-title">The three classic type traps</span>
+    ① <code>Boolean b;</code> is <strong>null</strong>, not false — <code>if (b)</code> throws a NullPointerException.
+    ② Use <code>Decimal</code> for currency; <code>Double</code> loses cents.
+    ③ Datetime is stored in GMT — <code>dt.format()</code> uses the user's timezone, <code>dt.formatGMT()</code> doesn't.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="collections">Collections</h2>
+
+<div class="dgm">
+  <div class="dgm-title">List vs Set vs Map</div>
+  <svg viewBox="0 0 780 260" role="img" aria-label="Visual comparison of List, Set and Map collections">
+    <text class="s-t s-t-b" x="20" y="20">List&lt;String&gt; — ordered, duplicates allowed, index access</text>
+    <rect class="s-box-b" x="20"  y="32" width="70" height="36" rx="6"/><text class="s-t-sm anchor-mid" x="55"  y="50">'A'</text>
+    <rect class="s-box-b" x="95"  y="32" width="70" height="36" rx="6"/><text class="s-t-sm anchor-mid" x="130" y="50">'B'</text>
+    <rect class="s-box-b" x="170" y="32" width="70" height="36" rx="6"/><text class="s-t-sm anchor-mid" x="205" y="50">'A'</text>
+    <rect class="s-box-b" x="245" y="32" width="70" height="36" rx="6"/><text class="s-t-sm anchor-mid" x="280" y="50">'C'</text>
+    <text class="s-t-mono anchor-mid" x="55"  y="82">[0]</text><text class="s-t-mono anchor-mid" x="130" y="82">[1]</text>
+    <text class="s-t-mono anchor-mid" x="205" y="82">[2]</text><text class="s-t-mono anchor-mid" x="280" y="82">[3]</text>
+
+    <text class="s-t s-t-t" x="420" y="20">Set&lt;String&gt; — unordered, unique, fast contains()</text>
+    <rect class="s-box-t" x="420" y="32" width="70" height="36" rx="18"/><text class="s-t-sm anchor-mid" x="455" y="50">'A'</text>
+    <rect class="s-box-t" x="495" y="32" width="70" height="36" rx="18"/><text class="s-t-sm anchor-mid" x="530" y="50">'B'</text>
+    <rect class="s-box-t" x="570" y="32" width="70" height="36" rx="18"/><text class="s-t-sm anchor-mid" x="605" y="50">'C'</text>
+    <text class="s-t-sm s-t-r" x="650" y="50">duplicate 'A' dropped</text>
+
+    <text class="s-t s-t-v" x="20" y="126">Map&lt;Id, Account&gt; — key → value lookup in O(1)</text>
+    <rect class="s-box-v" x="20"  y="140" width="150" height="34" rx="6"/><text class="s-t-mono anchor-mid" x="95"  y="157">001…AAA</text>
+    <rect class="s-box"   x="180" y="140" width="180" height="34" rx="6"/><text class="s-t-sm anchor-mid" x="270" y="157">Account (Acme)</text>
+    <path class="s-line-v" d="M170 157 H180" marker-end="url(#c1)"/>
+    <rect class="s-box-v" x="20"  y="182" width="150" height="34" rx="6"/><text class="s-t-mono anchor-mid" x="95"  y="199">001…BBB</text>
+    <rect class="s-box"   x="180" y="182" width="180" height="34" rx="6"/><text class="s-t-sm anchor-mid" x="270" y="199">Account (Globex)</text>
+    <path class="s-line-v" d="M170 199 H180" marker-end="url(#c1)"/>
+
+    <rect class="s-box-a" x="420" y="126" width="340" height="96" rx="9"/>
+    <text class="s-t s-t-a anchor-mid" x="590" y="150">Why Maps matter</text>
+    <text class="s-t-sm anchor-mid" x="590" y="174">Looking up a parent inside a loop with a query = 200 SOQL</text>
+    <text class="s-t-sm anchor-mid" x="590" y="194">Query once into a Map, then map.get(id) = 1 SOQL</text>
+    <text class="s-t-sm s-t-g anchor-mid" x="590" y="214">This one idea is 80% of bulkification</text>
+    <defs><marker id="c1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<pre><code class="language-apex">// ---------- LIST : ordered, allows duplicates ----------
+List&lt;String&gt; names = new List&lt;String&gt;{'Asha', 'Ravi', 'Asha'};
+names.add('Meera');
+names.add(0, 'First');          // insert at index
+String n = names.get(1);        // or names[1]
+names.set(1, 'Changed');
+names.remove(0);
+System.debug(names.size() + ' ' + names.isEmpty() + ' ' + names.contains('Ravi'));
+names.sort();                   // natural order; custom order needs Comparable
+List&lt;String&gt; copy = names.clone();
+
+// ---------- SET : unique, unordered ----------
+Set&lt;Id&gt; accountIds = new Set&lt;Id&gt;();
+accountIds.add(a.Id);
+accountIds.addAll(otherIds);
+Boolean exists = accountIds.contains(a.Id);   // O(1) — use instead of list.contains in loops
+accountIds.retainAll(otherSet);               // intersection
+accountIds.removeAll(otherSet);               // difference
+
+// ---------- MAP : key → value ----------
+Map&lt;Id, Account&gt; accById = new Map&lt;Id, Account&gt;(
+    [SELECT Id, Name, OwnerId FROM Account LIMIT 100]   // auto-keys by Id!
+);
+Account acc = accById.get(someId);
+accById.put(someId, acc);
+Boolean has = accById.containsKey(someId);
+Set&lt;Id&gt;  keys   = accById.keySet();
+List&lt;Account&gt; vals = accById.values();
+
+// Map of Id → List (grouping — extremely common)
+Map&lt;Id, List&lt;Contact&gt;&gt; contactsByAccount = new Map&lt;Id, List&lt;Contact&gt;&gt;();
+for (Contact c : [SELECT Id, AccountId, LastName FROM Contact WHERE AccountId IN :accountIds]) {
+    if (!contactsByAccount.containsKey(c.AccountId)) {
+        contactsByAccount.put(c.AccountId, new List&lt;Contact&gt;());
+    }
+    contactsByAccount.get(c.AccountId).add(c);
+}
+
+// Nested collections are allowed
+Map&lt;String, Map&lt;String, Integer&gt;&gt; matrix = new Map&lt;String, Map&lt;String, Integer&gt;&gt;();</code></pre>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>List</th><th>Set</th><th>Map</th></tr></thead>
+  <tbody>
+    <tr><td>Order preserved</td><td>✅</td><td>❌</td><td>❌ (keys unordered)</td></tr>
+    <tr><td>Duplicates</td><td>✅</td><td>❌</td><td>Keys unique, values not</td></tr>
+    <tr><td>Index access</td><td>✅ <code>[0]</code></td><td>❌</td><td>By key</td></tr>
+    <tr><td>Lookup speed</td><td>O(n)</td><td>O(1)</td><td>O(1)</td></tr>
+    <tr><td>Used in DML</td><td>✅ <code>insert myList;</code></td><td>❌</td><td>❌ (use <code>.values()</code>)</td></tr>
+    <tr><td>Used as SOQL bind</td><td>✅</td><td>✅</td><td>✅ (binds keySet)</td></tr>
+    <tr><td>Typical use</td><td>DML batches, ordered results</td><td>Collecting unique Ids</td><td>Lookups &amp; grouping</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="oop">Classes &amp; OOP</h2>
+
+<pre><code class="language-apex">public with sharing class OpportunityService {
+
+    // ---- static: one per transaction, shared by all instances ----
+    private static Integer callCount = 0;
+    public  static final Decimal MAX_DISCOUNT = 0.30;
+
+    // ---- instance members ----
+    private final Id accountId;
+    private List&lt;Opportunity&gt; opportunities;
+
+    // ---- constructors (overloaded) ----
+    public OpportunityService(Id accountId) {
+        this.accountId = accountId;
+        this.opportunities = new List&lt;Opportunity&gt;();
+    }
+    public OpportunityService(Id accountId, List&lt;Opportunity&gt; opps) {
+        this(accountId);                 // constructor chaining
+        this.opportunities = opps;
+    }
+
+    // ---- properties (getter/setter shorthand) ----
+    public Integer count {
+        get { return opportunities == null ? 0 : opportunities.size(); }
+    }
+    public String stage { get; set; }                  // auto-property
+    public Boolean isClosed { get; private set; }      // read-only outside
+
+    // ---- methods ----
+    public void load() {
+        this.opportunities = [
+            SELECT Id, Name, Amount, StageName
+            FROM Opportunity WHERE AccountId = :accountId
+        ];
+        callCount++;
+    }
+
+    // static factory
+    public static OpportunityService forAccount(Id accId) {
+        OpportunityService svc = new OpportunityService(accId);
+        svc.load();
+        return svc;
+    }
+}</code></pre>
+
+<h3>Access modifiers</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Modifier</th><th>Visible to</th></tr></thead>
+  <tbody>
+    <tr><td><code>private</code></td><td>The same class only <em>(default for members)</em></td></tr>
+    <tr><td><code>protected</code></td><td>The same class and subclasses</td></tr>
+    <tr><td><code>public</code></td><td>Anywhere in the same namespace</td></tr>
+    <tr><td><code>global</code></td><td>Any namespace — required for web services, managed-package APIs, and <code>Schedulable</code>/<code>Batchable</code> in packages</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Inheritance, abstract classes and interfaces</h3>
+<pre><code class="language-apex">// ---------- INTERFACE : a contract, no implementation ----------
+public interface Payable {
+    Decimal calculatePay();
+    void approve(Id approverId);
+}
+
+// ---------- ABSTRACT : partial implementation, cannot be instantiated ----------
+public abstract class Employee implements Payable {
+    protected String name;
+    protected Decimal baseSalary;
+
+    public Employee(String name, Decimal baseSalary) {
+        this.name = name;
+        this.baseSalary = baseSalary;
+    }
+
+    // concrete method — inherited as-is
+    public String getName() { return name; }
+
+    // abstract — every subclass MUST implement
+    public abstract Decimal calculatePay();
+
+    // virtual — subclasses MAY override
+    public virtual void approve(Id approverId) {
+        System.debug('Approved by ' + approverId);
+    }
+}
+
+// ---------- CONCRETE SUBCLASSES ----------
+public class SalariedEmployee extends Employee {
+    public SalariedEmployee(String n, Decimal s) { super(n, s); }
+    public override Decimal calculatePay() { return baseSalary / 12; }
+}
+
+public class ContractEmployee extends Employee {
+    private Decimal hourlyRate, hours;
+    public ContractEmployee(String n, Decimal rate, Decimal hrs) {
+        super(n, 0);
+        this.hourlyRate = rate; this.hours = hrs;
+    }
+    public override Decimal calculatePay() { return hourlyRate * hours; }
+    public override void approve(Id approverId) {
+        super.approve(approverId);                   // call the parent
+        System.debug('Contractor approval logged');
+    }
+}
+
+// ---------- POLYMORPHISM in action ----------
+List&lt;Payable&gt; staff = new List&lt;Payable&gt;{
+    new SalariedEmployee('Asha', 900000),
+    new ContractEmployee('Ravi', 1200, 160)
+};
+Decimal total = 0;
+for (Payable p : staff) total += p.calculatePay();   // correct method chosen at runtime</code></pre>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>Interface</th><th>Abstract class</th></tr></thead>
+  <tbody>
+    <tr><td>Method bodies</td><td>❌ None</td><td>✅ Can have both abstract and concrete</td></tr>
+    <tr><td>Variables</td><td>❌</td><td>✅</td></tr>
+    <tr><td>Constructor</td><td>❌</td><td>✅</td></tr>
+    <tr><td>Multiple allowed?</td><td>✅ <code>implements A, B, C</code></td><td>❌ Single <code>extends</code> only</td></tr>
+    <tr><td>Keyword to override</td><td>Just implement</td><td><code>virtual</code>/<code>abstract</code> + <code>override</code></td></tr>
+    <tr><td>Use it for</td><td>"Can do" capability, mocking, plug-ins</td><td>"Is a" hierarchy with shared code</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout note">
+  <span class="c-ico">🔑</span>
+  <div class="c-body"><span class="c-title">Apex specifics people miss</span>
+    Apex classes and methods are <strong>final by default</strong> — you must mark them <code>virtual</code> or
+    <code>abstract</code> to allow overriding, and use the <code>override</code> keyword explicitly.
+    Inner classes can be one level deep only, and static variables aren't allowed in inner classes.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="soql">SOQL — in detail</h2>
+<p><strong>S</strong>alesforce <strong>O</strong>bject <strong>Q</strong>uery <strong>L</strong>anguage.
+   Like SQL but with one crucial difference: <strong>you query one object and traverse relationships</strong> —
+   there is no arbitrary JOIN, no <code>SELECT *</code>.</p>
+
+<pre><code class="language-apex">// ---------- BASIC ----------
+List&lt;Account&gt; accs = [
+    SELECT Id, Name, Industry, AnnualRevenue
+    FROM Account
+    WHERE Industry = 'Technology'
+      AND AnnualRevenue &gt; 1000000
+    ORDER BY AnnualRevenue DESC NULLS LAST
+    LIMIT 50
+    OFFSET 10
+];
+
+// Single record — throws QueryException if 0 or 2+ rows returned
+Account one = [SELECT Id, Name FROM Account WHERE Id = :accId];
+
+// Count without pulling records (doesn't count toward heap)
+Integer total = [SELECT COUNT() FROM Contact WHERE AccountId = :accId];</code></pre>
+
+<h3>Bind variables</h3>
+<pre><code class="language-apex">Id       accId  = '001xx';
+Set&lt;Id&gt;  accIds = new Set&lt;Id&gt;{ '001xx', '001yy' };
+String   name   = 'Acme';
+Date     cutoff = Date.today().addDays(-30);
+
+List&lt;Opportunity&gt; opps = [
+    SELECT Id FROM Opportunity
+    WHERE AccountId IN :accIds              // Set / List / Map keySet all work
+      AND Name LIKE :('%' + name + '%')
+      AND CloseDate &gt;= :cutoff
+];</code></pre>
+<div class="callout tip">
+  <span class="c-ico">🛡️</span>
+  <div class="c-body"><span class="c-title">Bind variables prevent SOQL injection</span>
+    Never concatenate user input into a query string. If you must build dynamic SOQL, use
+    <code>String.escapeSingleQuotes()</code> or, better, <code>Database.queryWithBinds()</code>.</div>
+</div>
+
+<h3>Relationship queries — the two directions</h3>
+<div class="dgm">
+  <div class="dgm-title">Child → Parent vs Parent → Child</div>
+  <svg viewBox="0 0 780 300" role="img" aria-label="Diagram of child to parent and parent to child SOQL">
+    <text class="s-t s-t-b" x="20" y="20">① Child → Parent  (dot notation, up to 5 levels)</text>
+    <rect class="s-box" x="20" y="34" width="150" height="44" rx="8"/>
+    <text class="s-t-sm anchor-mid" x="95" y="56">Contact (child)</text>
+    <path class="s-line-b" d="M170 56 H250" marker-end="url(#q1)"/>
+    <text class="s-t-mono s-t-b anchor-mid" x="210" y="42">Account.</text>
+    <rect class="s-box-b" x="250" y="34" width="150" height="44" rx="8"/>
+    <text class="s-t-sm anchor-mid" x="325" y="56">Account (parent)</text>
+    <text class="s-t-mono" x="420" y="48">SELECT Id, Account.Name,</text>
+    <text class="s-t-mono" x="420" y="66">  Account.Owner.Email FROM Contact</text>
+
+    <text class="s-t s-t-v" x="20" y="122">② Parent → Child  (subquery, 1 level only)</text>
+    <rect class="s-box-v" x="20" y="136" width="150" height="44" rx="8"/>
+    <text class="s-t-sm anchor-mid" x="95" y="158">Account (parent)</text>
+    <path class="s-line-v" d="M170 158 H250" marker-end="url(#q1)"/>
+    <text class="s-t-mono s-t-v anchor-mid" x="210" y="144">(SELECT…)</text>
+    <rect class="s-box" x="250" y="136" width="150" height="44" rx="8"/>
+    <text class="s-t-sm anchor-mid" x="325" y="158">Contacts (children)</text>
+    <text class="s-t-mono" x="420" y="150">SELECT Id, (SELECT LastName</text>
+    <text class="s-t-mono" x="420" y="168">  FROM Contacts) FROM Account</text>
+
+    <rect class="s-box-a" x="20" y="212" width="740" height="72" rx="9"/>
+    <text class="s-t s-t-a" x="40" y="234">Naming rule — the one everyone gets wrong</text>
+    <text class="s-t-sm" x="40" y="256">Standard child relationship: plural name → <tspan class="s-t-mono">(SELECT … FROM Contacts)</tspan></text>
+    <text class="s-t-sm" x="40" y="274">Custom child relationship: <tspan class="s-t-mono">__r</tspan> → <tspan class="s-t-mono">(SELECT … FROM Invoices__r)</tspan> · custom parent field <tspan class="s-t-mono">Account__c</tspan> → <tspan class="s-t-mono">Account__r.Name</tspan></text>
+    <defs><marker id="q1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<pre><code class="language-apex">// CHILD → PARENT (up to 5 levels of dots)
+List&lt;Contact&gt; cons = [
+    SELECT Id, LastName,
+           Account.Name,
+           Account.Owner.Email,
+           Account.Parent.Name
+    FROM Contact
+    WHERE Account.Industry = 'Banking'
+];
+System.debug(cons[0].Account.Owner.Email);
+
+// PARENT → CHILD (subquery; only 1 level deep, max 20 child relationships)
+List&lt;Account&gt; accs = [
+    SELECT Id, Name,
+           (SELECT Id, LastName, Email FROM Contacts WHERE Email != null ORDER BY LastName),
+           (SELECT Id, Amount FROM Opportunities WHERE IsClosed = false),
+           (SELECT Id, Subject FROM Invoices__r)          // custom object → __r
+    FROM Account
+    WHERE Id IN :accountIds
+];
+for (Account a : accs) {
+    for (Contact c : a.Contacts) {              // no extra query — already loaded
+        System.debug(a.Name + ' → ' + c.LastName);
+    }
+}
+
+// Filtering a parent by children — semi-join / anti-join
+List&lt;Account&gt; withOpps = [
+    SELECT Id FROM Account
+    WHERE Id IN (SELECT AccountId FROM Opportunity WHERE StageName = 'Closed Won')
+];
+List&lt;Account&gt; withoutCases = [
+    SELECT Id FROM Account
+    WHERE Id NOT IN (SELECT AccountId FROM Case WHERE IsClosed = false)
+];</code></pre>
+
+<h3>Aggregate queries</h3>
+<pre><code class="language-apex">List&lt;AggregateResult&gt; results = [
+    SELECT AccountId,
+           COUNT(Id)      dealCount,
+           SUM(Amount)    totalAmount,
+           AVG(Amount)    avgAmount,
+           MAX(CloseDate) latestClose,
+           MIN(Amount)    smallest
+    FROM Opportunity
+    WHERE StageName = 'Closed Won'
+      AND CloseDate = THIS_YEAR
+    GROUP BY AccountId
+    HAVING SUM(Amount) &gt; 500000
+    ORDER BY SUM(Amount) DESC
+    LIMIT 100
+];
+
+for (AggregateResult ar : results) {
+    Id accId       = (Id)      ar.get('AccountId');
+    Integer cnt    = (Integer) ar.get('dealCount');
+    Decimal total  = (Decimal) ar.get('totalAmount');
+    // Without an alias the key is expr0, expr1, …
+}
+
+// GROUP BY ROLLUP adds subtotal rows
+List&lt;AggregateResult&gt; rollup = [
+    SELECT StageName, COUNT(Id) c FROM Opportunity GROUP BY ROLLUP(StageName)
+];</code></pre>
+<div class="callout warn">
+  <span class="c-ico">📏</span>
+  <div class="c-body"><span class="c-title">Aggregate limits</span>
+    <code>AggregateResult</code> rows count toward the <strong>50,000 query rows</strong> limit.
+    <code>GROUP BY</code> is capped at 2,000 result rows. You cannot use aggregate functions with
+    <code>ORDER BY</code> on an unaggregated field.</div>
+</div>
+
+<h3>Date literals &amp; functions</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Literal</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td><code>TODAY</code>, <code>YESTERDAY</code>, <code>TOMORROW</code></td><td>Relative days</td></tr>
+    <tr><td><code>THIS_WEEK</code>, <code>LAST_MONTH</code>, <code>NEXT_QUARTER</code>, <code>THIS_FISCAL_YEAR</code></td><td>Relative periods</td></tr>
+    <tr><td><code>LAST_N_DAYS:30</code>, <code>NEXT_N_MONTHS:3</code></td><td>Parameterised windows</td></tr>
+    <tr><td><code>CALENDAR_YEAR(CloseDate) = 2026</code></td><td>Date functions in WHERE/GROUP BY</td></tr>
+    <tr><td><code>FISCAL_QUARTER(CloseDate)</code></td><td>Uses your org's fiscal year settings</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>SOQL for loops — the heap saver</h3>
+<pre><code class="language-apex">// ❌ Loads everything into heap at once — risks "Apex heap size too large"
+List&lt;Account&gt; all = [SELECT Id, Name FROM Account];
+for (Account a : all) { /* ... */ }
+
+// ✅ Streams in chunks of 200 automatically
+for (Account a : [SELECT Id, Name FROM Account]) { /* ... */ }
+
+// ✅✅ Best for DML — processes 200 records per iteration
+for (List&lt;Account&gt; batch : [SELECT Id, Name FROM Account WHERE Industry = 'Retail']) {
+    for (Account a : batch) a.Description = 'Reviewed';
+    update batch;                       // one DML per 200
+}</code></pre>
+
+<h3>Query selectivity &amp; indexes</h3>
+<p>Non-selective queries on large objects throw <code>System.QueryException: Non-selective query against large object type</code>
+   (in triggers) or simply run slowly.</p>
+<div class="grid g2">
+  <div class="card accent-green"><h4>Indexed by default</h4>
+    <ul><li><code>Id</code>, <code>Name</code>, <code>OwnerId</code>, <code>CreatedDate</code>, <code>SystemModstamp</code>, <code>RecordTypeId</code></li>
+        <li>Master-detail &amp; lookup fields</li><li>Fields marked <strong>Unique</strong> or <strong>External ID</strong></li></ul></div>
+  <div class="card accent-rose"><h4>Kills selectivity</h4>
+    <ul><li>Leading wildcard: <code>LIKE '%acme'</code></li><li><code>!=</code> and <code>NOT IN</code></li>
+        <li><code>field = null</code> (unless the index includes nulls)</li><li>Formula fields (unless deterministic)</li>
+        <li><code>OR</code> across different fields where one is unindexed</li></ul></div>
+</div>
+<div class="callout note">
+  <span class="c-ico">🔢</span>
+  <div class="c-body"><span class="c-title">Selectivity thresholds</span>
+    A filter is selective if it returns under <strong>30%</strong> of the first million records and under
+    <strong>15%</strong> beyond that (roughly 333,000 rows max). Ask Salesforce Support for a
+    <strong>custom index</strong> or <strong>skinny table</strong> on very large objects.</div>
+</div>
+
+<h3>Security &amp; locking clauses</h3>
+<pre><code class="language-apex">// Enforce FLS + CRUD + sharing for the running user
+List&lt;Account&gt; a1 = [SELECT Id, Name FROM Account WITH USER_MODE];
+
+// Legacy: FLS/CRUD only
+List&lt;Account&gt; a2 = [SELECT Id, Name FROM Account WITH SECURITY_ENFORCED];
+
+// Row locking to prevent concurrent updates (releases at transaction end)
+Account locked = [SELECT Id, Name FROM Account WHERE Id = :accId FOR UPDATE];
+
+// Search scope
+List&lt;Account&gt; mine = [SELECT Id FROM Account USING SCOPE mine];   // mine | everything | team | delegated</code></pre>
+
+<h3>Dynamic SOQL</h3>
+<pre><code class="language-apex">String objectName = 'Account';
+String field      = 'Industry';
+String value      = userInput;                       // untrusted!
+
+// Safe: bind map (API 55+)
+List&lt;sObject&gt; recs = Database.queryWithBinds(
+    'SELECT Id, Name FROM ' + objectName + ' WHERE ' + field + ' = :val',
+    new Map&lt;String, Object&gt;{ 'val' =&gt; value },
+    AccessLevel.USER_MODE
+);
+
+// Older approach — always escape
+String q = 'SELECT Id FROM Account WHERE Name = \'' + String.escapeSingleQuotes(value) + '\'';
+List&lt;sObject&gt; recs2 = Database.query(q);
+
+// Build the field list dynamically from describe
+Map&lt;String, Schema.SObjectField&gt; fields = Schema.getGlobalDescribe()
+    .get('Account').getDescribe().fields.getMap();
+String fieldList = String.join(new List&lt;String&gt;(fields.keySet()), ',');</code></pre>
+
+<!-- ============================================ -->
+<h2 id="sosl">SOSL — in detail</h2>
+<p><strong>S</strong>alesforce <strong>O</strong>bject <strong>S</strong>earch <strong>L</strong>anguage searches
+   <em>text indexes</em> across <strong>multiple objects at once</strong>. Think of it as the platform's search box in query form.</p>
+
+<pre><code class="language-apex">// Basic shape — always returns List&lt;List&lt;sObject&gt;&gt;
+List&lt;List&lt;sObject&gt;&gt; results = [
+    FIND 'Acme*'
+    IN ALL FIELDS
+    RETURNING Account(Id, Name, Industry WHERE Industry = 'Technology' ORDER BY Name LIMIT 10),
+              Contact(Id, LastName, Email),
+              Lead(Id, Company),
+              Opportunity(Id, Name)
+    LIMIT 200
+];
+
+List&lt;Account&gt;     accounts = (List&lt;Account&gt;)     results[0];
+List&lt;Contact&gt;     contacts = (List&lt;Contact&gt;)     results[1];
+List&lt;Lead&gt;        leads    = (List&lt;Lead&gt;)        results[2];
+List&lt;Opportunity&gt; opps     = (List&lt;Opportunity&gt;) results[3];
+
+// Dynamic SOSL
+String term = String.escapeSingleQuotes(userInput);
+List&lt;List&lt;sObject&gt;&gt; r = Search.query(
+    'FIND \'' + term + '\' IN NAME FIELDS RETURNING Account(Id, Name)'
+);</code></pre>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Search group</th><th>Searches</th></tr></thead>
+  <tbody>
+    <tr><td><code>IN ALL FIELDS</code></td><td>Every searchable text field <em>(default)</em></td></tr>
+    <tr><td><code>IN NAME FIELDS</code></td><td>Name / Subject-type fields only — fastest</td></tr>
+    <tr><td><code>IN EMAIL FIELDS</code></td><td>Email fields</td></tr>
+    <tr><td><code>IN PHONE FIELDS</code></td><td>Phone fields</td></tr>
+    <tr><td><code>IN SIDEBAR FIELDS</code></td><td>Fields in the classic sidebar search</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h4>Wildcards &amp; operators</h4>
+<ul>
+  <li><code>*</code> — multiple characters (<code>'Acm*'</code>). Cannot be the <em>first</em> character.</li>
+  <li><code>?</code> — single character (<code>'Jo?n'</code> → John, Joan).</li>
+  <li><code>AND</code>, <code>OR</code>, <code>AND NOT</code>, and quotes for exact phrases: <code>FIND '"Acme Corp"'</code>.</li>
+  <li>Escape reserved characters: <code>? &amp; | ! { } [ ] ( ) ^ ~ * : \ " ' + -</code></li>
+</ul>
+
+<h3>SOQL vs SOSL — the comparison table</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>SOQL</th><th>SOSL</th></tr></thead>
+  <tbody>
+    <tr><td>Objects per query</td><td>One (+ related)</td><td><strong>Many, unrelated</strong></td></tr>
+    <tr><td>Returns</td><td><code>List&lt;sObject&gt;</code></td><td><code>List&lt;List&lt;sObject&gt;&gt;</code></td></tr>
+    <tr><td>Searches</td><td>Database records</td><td>The <strong>search index</strong></td></tr>
+    <tr><td>Text matching</td><td><code>LIKE</code> — slow, exact-ish</td><td>Tokenised, handles typos/stemming</td></tr>
+    <tr><td>Governor limit</td><td>100 queries (sync) / 50,000 rows</td><td><strong>20 searches</strong> / 2,000 records returned</td></tr>
+    <tr><td>Aggregates &amp; GROUP BY</td><td>✅</td><td>❌</td></tr>
+    <tr><td>Relationship traversal</td><td>✅</td><td>❌ (filters within RETURNING only)</td></tr>
+    <tr><td>Can search encrypted/long text?</td><td>Limited</td><td>Yes for indexed text</td></tr>
+    <tr><td><strong>Use when</strong></td><td>You know the object and the criteria</td><td>Free-text search across objects (a global search bar)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout case">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">Use case</span>
+    A support console has one search box. The agent types "acme" and must see matching Accounts, Contacts, Cases and
+    Knowledge articles. That's SOSL. But "all open cases for account X created this month" is SOQL.</div>
+</div>
+<div class="callout warn">
+  <span class="c-ico">⏱️</span>
+  <div class="c-body"><span class="c-title">Index delay</span>
+    SOSL reads the search index, which updates <strong>asynchronously</strong> — a record inserted moments ago may not
+    be findable yet. In tests you must call <code>Test.setFixedSearchResults(ids)</code> because the index isn't built at all.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="dml">DML — writing data</h2>
+
+<pre><code class="language-apex">Account a = new Account(Name = 'Acme India', Industry = 'Technology');
+
+insert a;                  // a.Id is populated after this line
+a.Industry = 'Banking';
+update a;
+delete a;                  // goes to Recycle Bin (15 days)
+undelete a;                // restore from Recycle Bin
+
+// upsert — insert or update based on Id or an External ID field
+upsert accountList;                                  // by Id
+upsert accountList Legacy_Id__c;                     // by external id field
+
+// merge — only Account, Contact, Lead, Case (max 3 records total: 1 master + 2)
+merge masterAccount duplicateAccount;
+
+// ALWAYS bulk: pass a list, never DML inside a loop
+List&lt;Contact&gt; toInsert = new List&lt;Contact&gt;();
+for (Integer i = 0; i &lt; 200; i++) toInsert.add(new Contact(LastName = 'Test ' + i));
+insert toInsert;          // 1 DML statement, not 200</code></pre>
+
+<div class="callout danger">
+  <span class="c-ico">💥</span>
+  <div class="c-body"><span class="c-title">All-or-nothing</span>
+    A DML <em>statement</em> is atomic: if one record in the list fails, the <strong>entire statement rolls back</strong>
+    and a <code>DmlException</code> is thrown. When you need partial success, use the Database methods below.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="database-methods">Database methods</h2>
+<p>Every DML statement has a <code>Database.*</code> equivalent that accepts an <code>allOrNone</code> flag and returns
+   result objects instead of throwing.</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>DML statement</th><th>Database method</th></tr></thead>
+  <tbody>
+    <tr><td>Syntax</td><td><code>insert accs;</code></td><td><code>Database.insert(accs, false);</code></td></tr>
+    <tr><td>Partial success</td><td>❌ All or nothing</td><td>✅ With <code>allOrNone = false</code></td></tr>
+    <tr><td>On failure</td><td>Throws <code>DmlException</code></td><td>Returns results you inspect</td></tr>
+    <tr><td>Return value</td><td>void</td><td><code>SaveResult[]</code> / <code>UpsertResult[]</code> / <code>DeleteResult[]</code></td></tr>
+    <tr><td>Assignment rules, duplicate rules, email headers</td><td>Via <code>setOptions()</code></td><td>Via a <code>DMLOptions</code> parameter</td></tr>
+    <tr><td>Use when</td><td>Everything must succeed together</td><td>Bulk loads where you log failures and continue</td></tr>
+  </tbody>
+</table>
+</div>
+
+<pre><code class="language-apex">// ---------- Partial success + error handling ----------
+List&lt;Account&gt; accs = buildAccounts();
+Database.SaveResult[] results = Database.insert(accs, false);   // allOrNone = false
+
+List&lt;Error_Log__c&gt; logs = new List&lt;Error_Log__c&gt;();
+for (Integer i = 0; i &lt; results.size(); i++) {
+    Database.SaveResult sr = results[i];
+    if (sr.isSuccess()) {
+        System.debug('Inserted ' + sr.getId());
+    } else {
+        for (Database.Error err : sr.getErrors()) {
+            logs.add(new Error_Log__c(
+                Record_Name__c = accs[i].Name,
+                Status_Code__c = String.valueOf(err.getStatusCode()),
+                Message__c     = err.getMessage(),
+                Fields__c      = String.join(err.getFields(), ',')
+            ));
+        }
+    }
+}
+if (!logs.isEmpty()) insert logs;
+
+// ---------- Upsert by External Id ----------
+Schema.SObjectField extField = Account.Fields.Legacy_Id__c;
+Database.UpsertResult[] ur = Database.upsert(accs, extField, false);
+for (Database.UpsertResult r : ur) {
+    System.debug(r.isCreated() ? 'Created' : 'Updated');
+}
+
+// ---------- Other Database methods ----------
+Database.DeleteResult[]   dr  = Database.delete(accs, false);
+Database.UndeleteResult[] udr = Database.undelete(accs, false);
+Database.MergeResult[]    mr  = Database.merge(master, dupes, false);
+Database.emptyRecycleBin(accs);                       // permanent
+List&lt;Account&gt; q = Database.query('SELECT Id FROM Account LIMIT 10');
+Database.QueryLocator loc = Database.getQueryLocator([SELECT Id FROM Account]);  // Batch Apex
+
+// ---------- User mode (API 55+) ----------
+Database.insert(accs, AccessLevel.USER_MODE);         // enforces FLS/CRUD/sharing</code></pre>
+
+<h3>Savepoints &amp; rollback</h3>
+<pre><code class="language-apex">Savepoint sp = Database.setSavepoint();
+try {
+    insert parentRecords;
+    insert childRecords;                 // if this fails…
+    doRiskyThing();
+} catch (Exception e) {
+    Database.rollback(sp);               // …undo the parents too
+    // Note: Id values set during the rolled-back DML are NOT reset — clear them manually
+    throw new AppException('Batch failed: ' + e.getMessage(), e);
+}</code></pre>
+<div class="callout warn">
+  <span class="c-ico">📌</span>
+  <div class="c-body"><span class="c-title">Savepoint limits</span>
+    Each <code>setSavepoint()</code> counts toward the DML statement limit (150). Don't create them in a loop.
+    A rollback restores data but does <strong>not</strong> reset the <code>Id</code> fields on your in-memory sObjects.</div>
+</div>
+
+<h3>Mixed DML — the exception everyone hits</h3>
+<pre><code class="language-apex">// ❌ Throws: MIXED_DML_OPERATION — setup and non-setup objects in one transaction
+User u = new User(/* ... */);
+insert u;
+insert new Account(Name = 'Acme');       // BOOM
+
+// ✅ Move one of them to an async context
+public class UserCreator {
+    @future
+    public static void createUser(String json) {
+        insert (User) JSON.deserialize(json, User.class);
+    }
+}
+insert new Account(Name = 'Acme');
+UserCreator.createUser(JSON.serialize(newUser));
+
+// ✅ In tests, wrap the setup DML
+System.runAs(new User(Id = UserInfo.getUserId())) {
+    insert newUser;
+}</code></pre>
+<p><strong>Setup objects</strong> include: User, Group, GroupMember, PermissionSet, PermissionSetAssignment,
+   QueueSobject, UserRole, ObjectPermissions, FieldPermissions.</p>
+
+<h3>What DML triggers behind the scenes</h3>
+<div class="flowchain">
+  <span class="chip b">Your DML</span><span class="arrow">→</span>
+  <span class="chip">Validation</span><span class="arrow">→</span>
+  <span class="chip v">before triggers</span><span class="arrow">→</span>
+  <span class="chip">Save to DB</span><span class="arrow">→</span>
+  <span class="chip t">after triggers</span><span class="arrow">→</span>
+  <span class="chip a">Roll-ups &amp; workflow</span><span class="arrow">→</span>
+  <span class="chip g">Commit</span>
+</div>
+<p>The full 20-step sequence is on the <a href="apex-triggers.html#order-of-execution">Triggers page</a>.</p>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Why must you use Decimal rather than Double for currency?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>Double</code> is a 64-bit binary floating point type, so values like 0.1 can't be represented
+exactly and errors accumulate — you end up a cent out after enough arithmetic. <code>Decimal</code> has arbitrary
+precision and lets you control rounding explicitly with <code>setScale(2, RoundingMode.HALF_UP)</code>. All Salesforce
+Currency fields map to <code>Decimal</code>, so matching the type also avoids silent conversions.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> <code>if (myBoolean)</code> throws a NullPointerException. Explain.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Every Apex type is nullable, including <code>Boolean</code> and <code>Integer</code>. An
+undeclared-value <code>Boolean</code> is <strong>null, not false</strong>, and evaluating null in a condition throws.
+Defend with <code>if (myBoolean == true)</code>, initialise at declaration, or use the safe-navigation operator
+<code>?.</code> when reaching through objects: <code>opp.Account?.BillingCity</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> List vs Set vs Map — give a real reason to pick each.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>List</strong> — ordered and allows duplicates; it's the only one you can pass to DML
+(<code>insert myList</code>). <strong>Set</strong> — uniqueness plus O(1) <code>contains()</code>; use it to collect Ids
+for a <code>WHERE Id IN :ids</code> filter and for membership tests inside loops (a List's <code>contains()</code> is
+O(n) and will cause CPU timeouts). <strong>Map</strong> — O(1) key lookup; the foundation of bulkification, because you
+query parents once into a Map and then <code>get()</code> inside the loop instead of querying.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Write a query returning Accounts with their Contacts and the Account owner's email.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body">
+<pre><code class="language-apex">SELECT Id, Name, Owner.Email,                  // child → parent: dot notation, up to 5 levels
+       (SELECT Id, LastName FROM Contacts)     // parent → child: subquery, only 1 level deep
+FROM Account
+WHERE Id IN :accountIds
+WITH USER_MODE</code></pre>
+<p>Naming rule people get wrong: standard child relationships use the <strong>plural</strong> name
+(<code>Contacts</code>), custom ones use <strong><code>__r</code></strong> (<code>Invoices__r</code>), and a custom
+parent field <code>Account__c</code> is traversed as <code>Account__r.Name</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> When would you use SOSL over SOQL?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>When you need a <strong>free-text search across multiple unrelated objects</strong> — a global
+search box returning Accounts, Contacts, Cases and Leads in one call. SOSL hits the tokenised <em>search index</em>, so
+it handles stemming and near-matches that <code>LIKE</code> can't, and it costs 1 of your 20 SOSL limits instead of 4 of
+your 100 SOQL queries.</p>
+<p>Stay with SOQL when you know the object and the criteria, or need relationships, aggregates or <code>GROUP BY</code>.
+Remember the search index updates asynchronously, and in tests you must call
+<code>Test.setFixedSearchResults()</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> What makes a query "non-selective" and why does it matter?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A filter is selective if it uses an <strong>indexed field</strong> and returns under roughly 30% of the
+first million rows (15% beyond that, capped near 333,000). Indexed by default: <code>Id</code>, <code>Name</code>,
+<code>OwnerId</code>, <code>CreatedDate</code>, <code>SystemModstamp</code>, <code>RecordTypeId</code>, lookup and
+master-detail fields, and anything marked Unique or External ID.</p>
+<p>Selectivity is destroyed by leading wildcards (<code>LIKE '%acme'</code>), <code>!=</code>, <code>NOT IN</code>,
+<code>field = null</code>, non-deterministic formula fields, and <code>OR</code> across unindexed fields. On a large
+object inside a trigger this throws <em>"Non-selective query against large object type"</em>. Fix by filtering on
+indexed fields, or request a custom index or skinny table from Support.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> DML statement or Database method — how do you choose?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>insert list;</code> is <strong>all-or-nothing</strong>: one bad record throws a
+<code>DmlException</code> and the whole statement rolls back. Right when the records form one logical unit.</p>
+<p><code>Database.insert(list, false)</code> allows <strong>partial success</strong> and returns
+<code>SaveResult[]</code> so you can log failures and continue — right for bulk loads and integrations. Database methods
+also take <code>DMLOptions</code> for assignment rules, duplicate-rule overrides and email headers, which the plain
+statement can only do via <code>setOptions()</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> Explain the difference between <code>abstract</code>, <code>virtual</code> and an interface.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Apex classes and methods are <strong>final by default</strong>. <code>virtual</code> permits a
+subclass to override a method that already has an implementation; <code>abstract</code> declares a method with
+<em>no</em> body that every subclass <strong>must</strong> implement, and makes the class non-instantiable. An
+<strong>interface</strong> is a pure contract — no bodies, no variables, no constructor — and a class can implement
+many while extending only one class. Use an interface for "can do" capability and mocking; an abstract class for
+"is a" hierarchies that share code.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> How do you prevent SOQL injection in dynamic queries?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Prefer <strong>bind variables</strong> — <code>WHERE Name = :userInput</code> can't be injected at all.
+For genuinely dynamic queries use <code>Database.queryWithBinds(soql, bindMap, AccessLevel.USER_MODE)</code>. If you must
+concatenate, wrap every user value in <code>String.escapeSingleQuotes()</code>.</p>
+<p>The subtlety interviewers look for: escaping protects <em>values</em>, not <em>identifiers</em>. A dynamic object or
+field name must be validated against a whitelist or resolved through <code>Schema.getGlobalDescribe()</code>, because no
+amount of quote-escaping makes an injected FROM clause safe.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. Which collection would you use to check membership of 10,000 Ids inside a loop?</div>
+  <button class="opt">List — with <code>contains()</code></button>
+  <button class="opt" data-correct="1">Set — <code>contains()</code> is O(1)</button>
+  <button class="opt">Map with null values</button>
+  <div class="explain"><code>List.contains()</code> scans the whole list every call (O(n)); a Set hashes. On 10,000 items inside a loop that's the difference between milliseconds and a CPU timeout.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. You need Accounts, Contacts and Cases matching the text "acme" in one call. What do you use?</div>
+  <button class="opt">Three SOQL queries</button>
+  <button class="opt" data-correct="1">One SOSL search with RETURNING</button>
+  <button class="opt">A SOQL query with OR across objects</button>
+  <div class="explain">SOSL is the only way to search multiple unrelated objects in one statement — and it uses 1 of your 20 SOSL limits instead of 3 of your 100 SOQL limits.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. A data load of 5,000 records must insert everything valid and log the rest. Which do you use?</div>
+  <button class="opt"><code>insert records;</code></button>
+  <button class="opt" data-correct="1"><code>Database.insert(records, false)</code> and inspect the SaveResults</button>
+  <button class="opt">A try/catch around <code>insert</code></button>
+  <div class="explain">The DML statement is all-or-nothing — one bad row rolls back all 5,000. <code>allOrNone = false</code> gives you per-record results.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Apex Core</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

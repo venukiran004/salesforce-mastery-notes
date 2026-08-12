@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Postman In Detail | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Integration</span> › <span>Postman</span></div>
+  <h1>Postman In Detail</h1>
+  <p class="lede">From zero to a fully automated Salesforce API workspace: Connected App, every auth flow, environments,
+     variables, scripts, the collection runner, and Newman in CI.</p>
+</header>
+
+<!-- ============================================ -->
+<h2 id="why-postman">Why Postman for Salesforce</h2>
+<div class="grid g3">
+  <div class="card"><div class="c-ico">🔍</div><h4>Explore the API</h4><p>See exactly what a REST call returns before writing a line of Apex or middleware code.</p></div>
+  <div class="card accent-violet"><div class="c-ico">🐞</div><h4>Debug integrations</h4><p>Reproduce the exact call a partner is making and see the real error body, not a wrapped exception.</p></div>
+  <div class="card accent-teal"><div class="c-ico">✅</div><h4>Test your Apex REST</h4><p>Hit your own <code>@RestResource</code> endpoints with real payloads and assert the responses.</p></div>
+  <div class="card accent-amber"><div class="c-ico">📄</div><h4>Document contracts</h4><p>A shared collection <em>is</em> the API documentation for the team consuming your endpoints.</p></div>
+  <div class="card accent-green"><div class="c-ico">🤖</div><h4>Automate</h4><p>Collection Runner + Newman gives you regression tests for your integration layer in CI.</p></div>
+  <div class="card accent-rose"><div class="c-ico">📚</div><h4>Learn the platform</h4><p>The official Salesforce Platform APIs collection is the fastest way to discover what's available.</p></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="setup">Step 1 · Set up the Connected App</h2>
+<p>Postman can't talk to Salesforce until you create a Connected App to authenticate against.</p>
+
+<ul class="steps">
+  <li><b>Setup → App Manager → New Connected App</b> (choose "Create an External Client App" in newer orgs).</li>
+  <li><b>Basic Information</b> — name it "Postman", add your email.</li>
+  <li><b>Tick "Enable OAuth Settings".</b></li>
+  <li><b>Callback URL</b>: <code>https://oauth.pstmn.io/v1/callback</code> (Postman's hosted callback).
+      Add <code>http://localhost:1717/OauthRedirect</code> too if you use the desktop agent.</li>
+  <li><b>Selected OAuth Scopes</b> — add:
+      <code>Manage user data via APIs (api)</code>,
+      <code>Perform requests at any time (refresh_token, offline_access)</code>,
+      and optionally <code>Full access (full)</code> for exploration.</li>
+  <li><b>Untick "Require Proof Key for Code Exchange (PKCE)"</b> only if you hit trouble — Postman supports PKCE, so leave it on where possible.</li>
+  <li><b>Save</b>, then <strong>wait up to 10 minutes</strong> for it to propagate. Calling too early gives confusing
+      <code>invalid_client_id</code> errors.</li>
+  <li><b>Click "Manage Consumer Details"</b> and copy the <strong>Consumer Key</strong> and <strong>Consumer Secret</strong>.</li>
+  <li><b>Manage → Edit Policies</b> — set Permitted Users to "Admin approved users are pre-authorized" for tight control
+      (then assign a profile/permission set), or "All users may self-authorize" for a dev org.
+      Set <strong>IP Relaxation</strong> to "Relax IP restrictions" while testing.</li>
+</ul>
+
+<div class="callout warn">
+  <span class="c-ico">⏳</span>
+  <div class="c-body"><span class="c-title">The three things that waste an hour</span>
+    ① Not waiting 10 minutes after creating the app. ② A callback URL that doesn't match <em>exactly</em>
+    (including <code>https</code> and no trailing slash). ③ Using <code>login.salesforce.com</code> for a sandbox —
+    sandboxes need <code>test.salesforce.com</code>, and My Domain orgs should use their own domain URL.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="auth">Step 2 · Get an access token</h2>
+
+<div class="dgm">
+  <div class="dgm-title">What Postman needs to make any Salesforce call</div>
+  <svg viewBox="0 0 790 240" role="img" aria-label="Postman authentication and request flow to Salesforce">
+    <rect class="s-box-b" x="20" y="80" width="150" height="70" rx="10"/>
+    <text class="s-t s-t-b anchor-mid" x="95" y="104">Postman</text>
+    <text class="s-t-sm anchor-mid" x="95" y="126">client_id + secret</text>
+    <path class="s-line-b" d="M170 100 H330" marker-end="url(#pm1)"/>
+    <text class="s-t-sm anchor-mid" x="250" y="88">POST /services/oauth2/token</text>
+    <path class="s-line-g" d="M330 132 H170" marker-end="url(#pm1)"/>
+    <text class="s-t-sm s-t-g anchor-mid" x="250" y="150">access_token + instance_url</text>
+
+    <rect class="s-box-v" x="330" y="70" width="150" height="90" rx="10"/>
+    <text class="s-t s-t-v anchor-mid" x="405" y="96">Salesforce</text>
+    <text class="s-t-sm anchor-mid" x="405" y="118">OAuth endpoint</text>
+    <text class="s-t-sm anchor-mid" x="405" y="140">validates the app</text>
+
+    <path class="s-line-t" d="M480 115 H600" marker-end="url(#pm1)"/>
+    <rect class="s-box-t" x="600" y="80" width="170" height="70" rx="10"/>
+    <text class="s-t-sm anchor-mid" x="685" y="102">Every later request:</text>
+    <text class="s-t-mono anchor-mid" x="685" y="124">Authorization:</text>
+    <text class="s-t-mono anchor-mid" x="685" y="140">Bearer {{access_token}}</text>
+
+    <text class="s-t-sm anchor-mid" x="395" y="200">Store access_token and instance_url as ENVIRONMENT VARIABLES —</text>
+    <text class="s-t-sm anchor-mid" x="395" y="220">then every request in the collection works without editing anything</text>
+    <defs><marker id="pm1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<div class="tabs">
+  <div class="tab-btns">
+    <button class="tab-btn active">Client Credentials</button>
+    <button class="tab-btn">Authorization Code</button>
+    <button class="tab-btn">JWT Bearer</button>
+    <button class="tab-btn">Username-Password</button>
+  </div>
+
+  <div class="tab-panel active">
+    <p><strong>Best for a dev/test workspace.</strong> No browser prompt, no user interaction.
+       Requires nominating a "Run As" user on the Connected App (Manage → Edit → Client Credentials Flow).</p>
+<pre><code class="language-bash">POST {{login_url}}/services/oauth2/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id={{consumer_key}}
+&client_secret={{consumer_secret}}</code></pre>
+<pre><code class="language-json">// Response
+{
+  "access_token": "00D5j000008XXXX!AQEAQK3...",
+  "instance_url": "https://mycompany.my.salesforce.com",
+  "id":           "https://login.salesforce.com/id/00D5j.../0055j...",
+  "token_type":   "Bearer",
+  "issued_at":    "1754969600000",
+  "signature":    "xY7..."
+}</code></pre>
+  </div>
+
+  <div class="tab-panel">
+    <p><strong>Best when you want to act as yourself</strong> and get a refresh token. Postman handles the browser
+       round trip for you.</p>
+    <p>In the request's <strong>Authorization</strong> tab, choose Type = <em>OAuth 2.0</em> and fill in:</p>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Field</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Grant Type</td><td>Authorization Code (With PKCE)</td></tr>
+        <tr><td>Callback URL</td><td><code>https://oauth.pstmn.io/v1/callback</code></td></tr>
+        <tr><td>Auth URL</td><td><code>{{login_url}}/services/oauth2/authorize</code></td></tr>
+        <tr><td>Access Token URL</td><td><code>{{login_url}}/services/oauth2/token</code></td></tr>
+        <tr><td>Client ID / Secret</td><td>From the Connected App</td></tr>
+        <tr><td>Scope</td><td><code>api refresh_token offline_access</code></td></tr>
+        <tr><td>Client Authentication</td><td>Send as Basic Auth header</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>Click <strong>Get New Access Token</strong> → log in → <strong>Use Token</strong>. Postman can auto-refresh it
+       when it expires.</p>
+  </div>
+
+  <div class="tab-panel">
+    <p><strong>The production standard for server-to-server.</strong> No password anywhere — you sign a JWT with a
+       private key whose certificate is uploaded to the Connected App.</p>
+<pre><code class="language-js">// Pre-request script: build and sign the JWT
+// (Requires the private key in an environment variable — never commit it)
+const header  = { alg: 'RS256' };
+const claims  = {
+    iss: pm.environment.get('consumer_key'),          // Connected App key
+    sub: pm.environment.get('integration_username'),  // the user to impersonate
+    aud: pm.environment.get('login_url'),             // login or test .salesforce.com
+    exp: Math.floor(Date.now() / 1000) + 180
+};
+// Sign with jsrsasign loaded via pm.sendRequest, or generate the assertion externally
+// then POST it:</code></pre>
+<pre><code class="language-bash">POST {{login_url}}/services/oauth2/token
+grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer
+&assertion={{signed_jwt}}</code></pre>
+    <p><strong>Setup:</strong> generate a self-signed certificate, upload it to the Connected App
+       ("Use digital signatures"), and pre-authorise the integration user's profile.</p>
+  </div>
+
+  <div class="tab-panel">
+<pre><code class="language-bash">POST {{login_url}}/services/oauth2/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=password
+&client_id={{consumer_key}}
+&client_secret={{consumer_secret}}
+&username={{username}}
+&password={{password}}{{security_token}}     ← password and token CONCATENATED</code></pre>
+    <div class="callout danger">
+      <span class="c-ico">🚫</span>
+      <div class="c-body"><span class="c-title">Blocked by default and deprecated</span>
+        Salesforce disables this flow in new orgs (Setup → OAuth and OpenID Connect Settings → "Allow OAuth
+        Username-Password Flows"). It sends credentials on every call and can't use MFA.
+        <strong>Never use it in production.</strong> Know it only because legacy integrations still do.</div>
+    </div>
+    <p>The <strong>security token</strong> is emailed when you reset it (Personal Settings → Reset My Security Token).
+       It isn't needed if your IP is in a Trusted IP Range.</p>
+  </div>
+</div>
+
+<h3>Saving the token automatically</h3>
+<p>Add this to the <strong>Tests</strong> tab of your token request so every other request just works:</p>
+<pre><code class="language-js">// Tests tab of the "Get Token" request
+const res = pm.response.json();
+
+pm.environment.set('access_token', res.access_token);
+pm.environment.set('instance_url', res.instance_url);
+if (res.refresh_token) {
+    pm.environment.set('refresh_token', res.refresh_token);
+}
+pm.environment.set('token_issued_at', Date.now());
+
+pm.test('Token received', function () {
+    pm.response.to.have.status(200);
+    pm.expect(res.access_token).to.be.a('string').and.not.empty;
+});</code></pre>
+
+<!-- ============================================ -->
+<h2 id="environments">Step 3 · Environments &amp; variables</h2>
+<p>Variables are what turn a pile of ad-hoc requests into a reusable, shareable workspace. One collection, many orgs.</p>
+
+<div class="dgm">
+  <div class="dgm-title">Variable scope — narrowest wins</div>
+  <svg viewBox="0 0 790 280" role="img" aria-label="Postman variable scope hierarchy">
+    <rect class="s-box" x="40" y="20" width="700" height="240" rx="12"/>
+    <text class="s-t" x="60" y="44">Global — shared across every collection in the workspace</text>
+    <rect class="s-box-b" x="80" y="58" width="620" height="182" rx="10"/>
+    <text class="s-t s-t-b" x="100" y="82">Collection — bundled with the collection when you share it</text>
+    <rect class="s-box-v" x="120" y="96" width="540" height="126" rx="10"/>
+    <text class="s-t s-t-v" x="140" y="120">Environment — one per org (Dev / UAT / Prod)</text>
+    <rect class="s-box-t" x="160" y="134" width="460" height="70" rx="10"/>
+    <text class="s-t s-t-t" x="180" y="158">Data — from a CSV/JSON file in the Collection Runner</text>
+    <rect class="s-box-a" x="200" y="170" width="380" height="24" rx="8"/>
+    <text class="s-t-sm anchor-mid" x="390" y="182">Local — set in a script, lives for one run only</text>
+    <text class="s-t-sm s-t-r" x="640" y="182">← highest priority</text>
+  </svg>
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Variable</th><th>Example value</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><code>login_url</code></td><td><code>https://mycompany.my.salesforce.com</code></td><td>Use <code>test.salesforce.com</code> for sandboxes without My Domain</td></tr>
+    <tr><td><code>instance_url</code></td><td>Set by the token response</td><td>Never hard-code it — it can change</td></tr>
+    <tr><td><code>consumer_key</code></td><td><code>3MVG9...</code></td><td>Mark the <strong>Type = secret</strong></td></tr>
+    <tr><td><code>consumer_secret</code></td><td><code>ABC123...</code></td><td><strong>Secret</strong> — never sync to a shared workspace</td></tr>
+    <tr><td><code>access_token</code></td><td>Set by the token response</td><td>Secret</td></tr>
+    <tr><td><code>api_version</code></td><td><code>v62.0</code></td><td>One place to bump the whole collection</td></tr>
+    <tr><td><code>base_url</code></td><td><code>{{instance_url}}/services/data/{{api_version}}</code></td><td>Variables can reference variables</td></tr>
+    <tr><td><code>account_id</code></td><td>Captured from a create response</td><td>Chain requests together</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout tip">
+  <span class="c-ico">🔐</span>
+  <div class="c-body"><span class="c-title">Initial value vs current value</span>
+    <strong>Initial Value</strong> is what gets shared/synced with your team. <strong>Current Value</strong> stays
+    local to you. Put secrets in Current Value only, and leave Initial Value blank — otherwise you'll push your client
+    secret to everyone in the workspace.</div>
+</div>
+
+<h3>Dynamic variables</h3>
+<pre><code class="language-json">{
+  "Name": "Test Account {{$randomCompanyName}}",
+  "Phone": "{{$randomPhoneNumber}}",
+  "Website": "{{$randomUrl}}",
+  "External_Id__c": "{{$guid}}",
+  "Description": "Created at {{$isoTimestamp}} run {{$randomInt}}"
+}</code></pre>
+
+<!-- ============================================ -->
+<h2 id="requests">Step 4 · Building the requests</h2>
+
+<div class="tabs">
+  <div class="tab-btns">
+    <button class="tab-btn active">CRUD</button>
+    <button class="tab-btn">Query &amp; Search</button>
+    <button class="tab-btn">Composite</button>
+    <button class="tab-btn">Apex REST</button>
+    <button class="tab-btn">Bulk API</button>
+  </div>
+
+  <div class="tab-panel active">
+<pre><code class="language-bash"># CREATE
+POST {{base_url}}/sobjects/Account
+Authorization: Bearer {{access_token}}
+Content-Type: application/json
+
+{ "Name": "Acme India", "Industry": "Technology", "Phone": "+91 80 1234 5678" }
+# → 201 { "id": "0015j00000ABCDE", "success": true, "errors": [] }
+
+# READ (all fields)
+GET {{base_url}}/sobjects/Account/{{account_id}}
+
+# READ (specific fields — much faster)
+GET {{base_url}}/sobjects/Account/{{account_id}}?fields=Id,Name,Industry
+
+# UPDATE
+PATCH {{base_url}}/sobjects/Account/{{account_id}}
+{ "Industry": "Banking" }
+# → 204 No Content (empty body is SUCCESS, not an error)
+
+# UPSERT by External Id
+PATCH {{base_url}}/sobjects/Account/Legacy_Id__c/A-1001
+{ "Name": "Acme India" }
+# → 201 created  or  204 updated
+
+# DELETE
+DELETE {{base_url}}/sobjects/Account/{{account_id}}
+# → 204
+
+# DESCRIBE — every field, picklist value and record type
+GET {{base_url}}/sobjects/Account/describe
+
+# LIMITS — check your remaining daily API calls
+GET {{base_url}}/limits</code></pre>
+  </div>
+
+  <div class="tab-panel">
+<pre><code class="language-bash"># SOQL — remember to URL-encode (Postman does it if you use Params)
+GET {{base_url}}/query?q=SELECT Id, Name, Industry FROM Account WHERE Industry = 'Technology' LIMIT 10
+
+# Pagination — the response includes nextRecordsUrl when there are more
+GET {{instance_url}}/services/data/{{api_version}}/query/01g5j00000ABCDEabc-2000
+
+# Include deleted and archived records
+GET {{base_url}}/queryAll?q=SELECT Id FROM Account WHERE IsDeleted = true
+
+# SOSL
+GET {{base_url}}/search?q=FIND {Acme*} IN ALL FIELDS RETURNING Account(Id,Name), Contact(Id,Name)
+
+# Parameterised search (easier to build)
+GET {{base_url}}/parameterizedSearch?q=Acme&sobject=Account&Account.fields=Id,Name&Account.limit=10</code></pre>
+    <p>Capture the first record's Id for later requests:</p>
+<pre><code class="language-js">// Tests tab
+const json = pm.response.json();
+if (json.records &amp;&amp; json.records.length) {
+    pm.environment.set('account_id', json.records[0].Id);
+}</code></pre>
+  </div>
+
+  <div class="tab-panel">
+<pre><code class="language-json">// POST {{base_url}}/composite
+{
+  "allOrNone": true,
+  "compositeRequest": [
+    { "method": "POST", "referenceId": "newAccount",
+      "url": "/services/data/v62.0/sobjects/Account",
+      "body": { "Name": "Composite Co" } },
+    { "method": "POST", "referenceId": "newContact",
+      "url": "/services/data/v62.0/sobjects/Contact",
+      "body": { "LastName": "Kumar", "AccountId": "@{newAccount.id}" } },
+    { "method": "GET", "referenceId": "verify",
+      "url": "/services/data/v62.0/sobjects/Account/@{newAccount.id}?fields=Id,Name" }
+  ]
+}</code></pre>
+<pre><code class="language-js">// Tests: assert every subrequest succeeded
+const body = pm.response.json();
+pm.test('All composite subrequests succeeded', () =&gt; {
+    body.compositeResponse.forEach(sub =&gt; {
+        pm.expect(sub.httpStatusCode, sub.referenceId).to.be.below(300);
+    });
+});
+pm.environment.set('account_id', body.compositeResponse[0].body.id);</code></pre>
+  </div>
+
+  <div class="tab-panel">
+<pre><code class="language-bash"># Your own @RestResource(urlMapping='/orders/*')
+GET {{instance_url}}/services/apexrest/orders/ORD-1001
+Authorization: Bearer {{access_token}}
+
+POST {{instance_url}}/services/apexrest/orders
+Content-Type: application/json
+{
+  "accountExternalId": "A-1001",
+  "poNumber": "PO-77",
+  "lines": [ { "sku": "WIDGET-1", "qty": 2 } ]
+}
+
+# Invoke a Flow
+POST {{base_url}}/actions/custom/flow/My_Autolaunched_Flow
+{ "inputs": [ { "recordId": "{{account_id}}" } ] }
+
+# Invoke an @InvocableMethod
+POST {{base_url}}/actions/custom/apex/CalculateDiscount
+{ "inputs": [ { "opportunityId": "0065j...", "requestedDiscount": 0.25 } ] }</code></pre>
+  </div>
+
+  <div class="tab-panel">
+<pre><code class="language-bash"># 1 · Create the job
+POST {{base_url}}/jobs/ingest
+{ "object": "Account", "operation": "upsert",
+  "externalIdFieldName": "Legacy_Id__c", "contentType": "CSV", "lineEnding": "CRLF" }
+
+# 2 · Upload CSV (Body → binary, or raw text/csv)
+PUT {{base_url}}/jobs/ingest/{{job_id}}/batches
+Content-Type: text/csv
+
+Legacy_Id__c,Name,Industry
+A-1001,Acme India,Technology
+A-1002,Globex,Manufacturing
+
+# 3 · Close the job so processing starts
+PATCH {{base_url}}/jobs/ingest/{{job_id}}
+{ "state": "UploadComplete" }
+
+# 4 · Poll status
+GET {{base_url}}/jobs/ingest/{{job_id}}
+
+# 5 · Results
+GET {{base_url}}/jobs/ingest/{{job_id}}/successfulResults/
+GET {{base_url}}/jobs/ingest/{{job_id}}/failedResults/</code></pre>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="scripts">Step 5 · Pre-request scripts &amp; tests</h2>
+<p>Every request has two script slots: <strong>Pre-request</strong> (runs before) and <strong>Tests</strong>
+   (runs after). They're plain JavaScript.</p>
+
+<h3>Auto-refresh the token — put this at collection level</h3>
+<pre><code class="language-js">// Collection → Pre-request Script: refresh if the token is missing or older than 1 hour
+const issuedAt = Number(pm.environment.get('token_issued_at') || 0);
+const isStale  = !pm.environment.get('access_token') || (Date.now() - issuedAt) &gt; 3600000;
+
+if (isStale) {
+    pm.sendRequest({
+        url: pm.environment.get('login_url') + '/services/oauth2/token',
+        method: 'POST',
+        header: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: {
+            mode: 'urlencoded',
+            urlencoded: [
+                { key: 'grant_type',    value: 'client_credentials' },
+                { key: 'client_id',     value: pm.environment.get('consumer_key') },
+                { key: 'client_secret', value: pm.environment.get('consumer_secret') }
+            ]
+        }
+    }, function (err, res) {
+        if (err) { console.error('Token refresh failed', err); return; }
+        const json = res.json();
+        pm.environment.set('access_token',   json.access_token);
+        pm.environment.set('instance_url',   json.instance_url);
+        pm.environment.set('token_issued_at', Date.now());
+        console.log('Token refreshed');
+    });
+}</code></pre>
+<div class="callout tip">
+  <span class="c-ico">♻️</span>
+  <div class="c-body"><span class="c-title">Set auth once, at the collection</span>
+    On the collection's <strong>Authorization</strong> tab choose Bearer Token with value
+    <code>{{access_token}}</code>, then set every request to "Inherit auth from parent". Now one script keeps the whole
+    collection authenticated.</div>
+</div>
+
+<h3>Writing tests</h3>
+<pre><code class="language-js">// ---- Status and timing ----
+pm.test('Status is 201 Created', () =&gt; pm.response.to.have.status(201));
+pm.test('Responds under 2s',     () =&gt; pm.expect(pm.response.responseTime).to.be.below(2000));
+pm.test('Is JSON',               () =&gt; pm.response.to.be.json);
+
+// ---- Body assertions ----
+const json = pm.response.json();
+pm.test('Record was created', () =&gt; {
+    pm.expect(json.success).to.be.true;
+    pm.expect(json.errors).to.be.an('array').that.is.empty;
+    pm.expect(json.id).to.match(/^001[a-zA-Z0-9]{12,15}$/);
+});
+
+// ---- Chain: save the Id for the next request ----
+pm.environment.set('account_id', json.id);
+
+// ---- Schema validation ----
+const schema = {
+    type: 'object',
+    required: ['id', 'success'],
+    properties: {
+        id:      { type: 'string' },
+        success: { type: 'boolean' },
+        errors:  { type: 'array' }
+    }
+};
+pm.test('Matches schema', () =&gt; pm.response.to.have.jsonSchema(schema));
+
+// ---- Negative testing ----
+pm.test('Rejects a missing required field', () =&gt; {
+    if (pm.response.code === 400) {
+        pm.expect(pm.response.json()[0].errorCode).to.eql('REQUIRED_FIELD_MISSING');
+    }
+});
+
+// ---- Control the flow of a collection run ----
+if (pm.response.code === 401) {
+    postman.setNextRequest('Get Token');       // jump back
+}
+// postman.setNextRequest(null);               // stop the run</code></pre>
+
+<!-- ============================================ -->
+<h2 id="runner">Step 6 · Collection Runner &amp; data files</h2>
+<ul class="steps">
+  <li><b>Order your requests</b> — token first, then create, read, update, delete. The runner executes top to bottom.</li>
+  <li><b>Click Run collection</b>, choose the environment, iterations and delay.</li>
+  <li><b>Attach a data file</b> (CSV or JSON) to run the same requests once per row.</li>
+  <li><b>Read the results</b> — pass/fail per test, response times, and the console output.</li>
+</ul>
+
+<pre><code class="language-json">// accounts.json — one iteration per object
+[
+  { "name": "Acme India",  "industry": "Technology",    "revenue": 5000000 },
+  { "name": "Globex Ltd",  "industry": "Manufacturing", "revenue": 12000000 },
+  { "name": "Initech",     "industry": "Consulting",    "revenue": 800000 }
+]</code></pre>
+<pre><code class="language-json">// Request body referencing the data columns
+{
+  "Name": "{{name}}",
+  "Industry": "{{industry}}",
+  "AnnualRevenue": {{revenue}}
+}</code></pre>
+
+<h3>Newman — running collections in CI</h3>
+<pre><code class="language-bash"># Install
+npm install -g newman newman-reporter-htmlextra
+
+# Export the collection and environment from Postman, then:
+newman run SalesforceAPI.postman_collection.json \
+  -e UAT.postman_environment.json \
+  -d accounts.json \
+  --reporters cli,htmlextra,junit \
+  --reporter-htmlextra-export ./reports/report.html \
+  --reporter-junit-export ./reports/junit.xml \
+  --bail                      # stop on first failure
+
+# Pass secrets from the CI vault rather than the environment file
+newman run collection.json -e env.json \
+  --env-var "consumer_secret=$SF_CONSUMER_SECRET" \
+  --env-var "consumer_key=$SF_CONSUMER_KEY"</code></pre>
+<pre><code class="language-bash"># GitHub Actions step
+- name: API regression tests
+  run: |
+    npm install -g newman
+    newman run postman/SalesforceAPI.json \
+      -e postman/UAT.json \
+      --env-var "consumer_secret=${{ secrets.SF_CONSUMER_SECRET }}" \
+      --reporters cli,junit --reporter-junit-export results.xml</code></pre>
+
+<!-- ============================================ -->
+<h2 id="official-collection">The official Salesforce collection</h2>
+<ul>
+  <li>In Postman, search the public API Network for <strong>"Salesforce Platform APIs"</strong> and fork it into your workspace.</li>
+  <li>It ships with hundreds of pre-built requests: REST, Bulk 2.0, Composite, Tooling, Metadata, UI API, Connect, Analytics, Pub/Sub.</li>
+  <li>Fill in its environment template (<code>_endpoint</code>, <code>_accessToken</code>, version) and everything works.</li>
+  <li>Use it as a reference even if you build your own collection — it documents parameter names you'd otherwise hunt for.</li>
+</ul>
+
+<!-- ============================================ -->
+<h2 id="troubleshooting">Troubleshooting cheat sheet</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Error</th><th>Cause</th><th>Fix</th></tr></thead>
+  <tbody>
+    <tr><td><code>invalid_client_id</code></td><td>Wrong Consumer Key, or the app hasn't propagated</td><td>Re-copy the key; wait 10 minutes</td></tr>
+    <tr><td><code>invalid_grant</code></td><td>Bad credentials, wrong login URL, or missing security token</td><td>Sandbox → <code>test.salesforce.com</code>; append the security token to the password</td></tr>
+    <tr><td><code>redirect_uri_mismatch</code></td><td>Callback URL differs from the Connected App</td><td>Make them byte-identical</td></tr>
+    <tr><td><code>INVALID_SESSION_ID</code> (401)</td><td>Token expired or wrong instance URL</td><td>Re-run the token request; use <code>{{instance_url}}</code> from the response</td></tr>
+    <tr><td><code>INSUFFICIENT_ACCESS</code> (403)</td><td>The user lacks object/field permission</td><td>Fix the permission set — not the code</td></tr>
+    <tr><td><code>REQUEST_LIMIT_EXCEEDED</code> (403)</td><td>Daily API allocation exhausted</td><td><code>GET /limits</code>; reduce polling; use Composite/Bulk</td></tr>
+    <tr><td><code>NOT_FOUND</code> (404)</td><td>Wrong URL, wrong API version, or no access to the record</td><td>Check <code>{{api_version}}</code> and the Id</td></tr>
+    <tr><td><code>MALFORMED_QUERY</code> (400)</td><td>SOQL syntax or un-encoded characters</td><td>Use the Params tab so Postman encodes for you</td></tr>
+    <tr><td><code>UNSUPPORTED_MEDIA_TYPE</code> (415)</td><td>Missing <code>Content-Type</code></td><td>Set <code>application/json</code></td></tr>
+    <tr><td><code>JSON_PARSER_ERROR</code></td><td>Trailing comma or a Postman variable that resolved to nothing</td><td>Check the resolved body in the console</td></tr>
+    <tr><td>Empty 204 response looks like a failure</td><td>It isn't — PATCH/DELETE return no body</td><td>Assert on the status code, not the body</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout tip">
+  <span class="c-ico">🖥️</span>
+  <div class="c-body"><span class="c-title">Open the Postman Console</span>
+    <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> shows the <em>fully resolved</em> request — every variable substituted,
+    every header sent. Nine times out of ten the bug is visible there immediately.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="best-practices">Best practices</h2>
+<div class="grid g2">
+  <div class="card accent-green"><h4>✅ Do</h4>
+    <ul><li>Structure the collection in folders: Auth · CRUD · Query · Composite · Apex REST · Bulk</li>
+        <li>One environment per org, never hard-coded URLs</li>
+        <li>Set auth at collection level and inherit it</li>
+        <li>Mark secrets as <strong>secret</strong> type, and only in Current Value</li>
+        <li>Write at least a status-code test on every request</li>
+        <li>Chain requests by saving Ids to environment variables</li>
+        <li>Add a description to every request — the collection becomes your documentation</li>
+        <li>Export collections to Git alongside the code they test</li></ul></div>
+  <div class="card accent-rose"><h4>❌ Don't</h4>
+    <ul><li>Commit an environment file containing a real client secret</li>
+        <li>Use the Username-Password flow in production</li>
+        <li>Hard-code record Ids that only exist in your sandbox</li>
+        <li>Point a shared collection at production by default</li>
+        <li>Run destructive DELETE requests in a shared workspace without a guard</li>
+        <li>Ignore the daily API allocation while load testing</li>
+        <li>Forget to switch <code>{{login_url}}</code> when moving from sandbox to prod</li></ul></div>
+</div>
+
+<div class="callout note">
+  <span class="c-ico">🧰</span>
+  <div class="c-body"><span class="c-title">Beyond the basics</span>
+    <strong>Mock servers</strong> let a front-end team build against your Apex REST contract before you've written it.
+    <strong>Monitors</strong> run a collection on a schedule from Postman's cloud and alert you when an endpoint breaks.
+    <strong>Postman Interceptor</strong> captures real browser traffic so you can see exactly what the Salesforce UI
+    itself calls.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Walk me through connecting Postman to a Salesforce org from scratch.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Create a <strong>Connected App</strong> with OAuth enabled, callback
+<code>https://oauth.pstmn.io/v1/callback</code> and scopes <code>api refresh_token offline_access</code>; wait ~10
+minutes; copy the Consumer Key and Secret. In Postman create an <strong>environment</strong> holding
+<code>login_url</code>, <code>consumer_key</code>, <code>consumer_secret</code> and <code>api_version</code>. Run a token
+request, and in its <strong>Tests</strong> tab save <code>access_token</code> and <code>instance_url</code> to the
+environment. Set the collection's auth to Bearer <code>{{access_token}}</code> and have every request inherit it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> Your token request returns <code>invalid_grant</code>. Diagnose it.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Most likely, in order: you're hitting <code>login.salesforce.com</code> for a
+<strong>sandbox</strong> (use <code>test.salesforce.com</code> or the My Domain URL); the password is missing the
+appended <strong>security token</strong>; the user isn't authorised for the Connected App ("Admin approved users are
+pre-authorized" without the profile assigned); or the username-password flow is disabled org-wide, which it is by
+default in new orgs. <code>invalid_client_id</code> instead means a wrong key or an app that hasn't propagated yet.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Where do you put secrets, and what's the trap?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Environment variables with <strong>Type = secret</strong>, and only in the
+<strong>Current Value</strong> column.</p>
+<p>The trap is <strong>Initial Value</strong>: that's the column Postman syncs and shares with your team or workspace.
+Put a client secret there and you've distributed it to everyone — and it ends up in the exported JSON if you commit the
+environment to Git. Leave Initial Value blank and inject secrets from the CI vault via
+<code>newman --env-var</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> How do you avoid re-authenticating manually before every request?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A <strong>collection-level pre-request script</strong> that checks whether the token is missing or
+older than an hour and, if so, calls the token endpoint with <code>pm.sendRequest()</code> and writes the new
+<code>access_token</code>, <code>instance_url</code> and <code>token_issued_at</code> back to the environment.</p>
+<p>Combine that with collection-level Bearer auth on <code>{{access_token}}</code> and "inherit auth from parent" on
+every request, and the whole collection stays authenticated with no manual step — which is what makes it usable in
+Newman/CI.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> Explain Postman's variable scopes.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>From broadest to narrowest — and <strong>narrowest wins</strong>: <strong>Global</strong> (whole
+workspace) → <strong>Collection</strong> (travels with the collection when shared) → <strong>Environment</strong> (one
+per org: Dev, UAT, Prod) → <strong>Data</strong> (a CSV/JSON row in the Collection Runner) → <strong>Local</strong> (set
+in a script, lives for one run).</p>
+<p>Practical use: put <code>api_version</code> at collection level so one edit updates every request, and org-specific
+URLs and credentials at environment level so switching orgs is a dropdown.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> How do you chain requests so request B uses the Id created by request A?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>In A's <strong>Tests</strong> tab, capture and store it:
+<code>pm.environment.set('account_id', pm.response.json().id);</code> Then B references
+<code>{{account_id}}</code> in its URL or body.</p>
+<p>For flow control inside a run, <code>postman.setNextRequest('Get Token')</code> jumps to a named request (useful for
+re-authenticating on a 401), and <code>postman.setNextRequest(null)</code> stops the run.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> How would you use Postman in a CI pipeline?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Export the collection and environment to the repo, then run <strong>Newman</strong> in the pipeline:
+<code>newman run collection.json -e uat.json --reporters cli,junit --env-var "consumer_secret=$SF_SECRET"</code>.
+Publish the JUnit XML so failures appear as test results, and use <code>--bail</code> to stop on the first failure.</p>
+<p>This gives you <strong>API regression tests</strong> for your Apex REST endpoints on every deployment — the contract
+your partners depend on is verified automatically rather than by someone remembering to click Send.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> A PATCH returns 204 with an empty body and the developer says the API is broken. Response?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>204 No Content is the <strong>documented success</strong> response for PATCH and DELETE in the
+Salesforce REST API — there is deliberately no body. Only POST returns 201 with the new Id, and GET returns 200 with
+data.</p>
+<p>The lesson for their tests: assert on the <strong>status code</strong>, not on body content. And open the Postman
+Console (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd>) to see the fully resolved request — nine times out of ten an
+"API problem" is an unresolved variable visible right there.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. Your PATCH returns 204 with an empty body. Did it work?</div>
+  <button class="opt">No — an empty body means failure</button>
+  <button class="opt" data-correct="1">Yes — 204 No Content is the documented success response for PATCH and DELETE</button>
+  <button class="opt">Only if you also get a Location header</button>
+  <div class="explain">Assert on status codes, not body content. 200 returns a body; 204 deliberately does not.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. Where should the Consumer Secret live in Postman?</div>
+  <button class="opt">Hard-coded in the request body</button>
+  <button class="opt" data-correct="1">An environment variable of type "secret", with the Initial Value left blank</button>
+  <button class="opt">A global variable so all collections can use it</button>
+  <div class="explain">Initial Values sync to everyone in the workspace. Secrets belong in Current Value only, marked as secret so they're masked.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. You need the same 200 accounts created in three sandboxes. Fastest approach?</div>
+  <button class="opt">Copy-paste the request 200 times</button>
+  <button class="opt" data-correct="1">Collection Runner with a CSV data file, run once per environment</button>
+  <button class="opt">Write an Apex script</button>
+  <div class="explain">Data-driven runs are exactly this scenario — and swapping environments repoints the whole collection at another org.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Postman</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

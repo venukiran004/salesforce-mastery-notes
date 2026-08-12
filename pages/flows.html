@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flow Builder | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Admin</span> › <span>Flow Builder</span></div>
+  <h1>Flow Builder — in detail</h1>
+  <p class="lede">Flow is now the single declarative automation tool. Every type, every element, the entry-criteria
+     rules that decide performance, and the best practices that stop a flow org from becoming unmaintainable.</p>
+</header>
+
+<!-- ============================================ -->
+<h2 id="why-flow">Why Flow replaced everything</h2>
+<p>Workflow Rules and Process Builder are <strong>retired</strong> — no new ones can be created, and existing ones must
+   be migrated. Flow is the successor because it can do everything they did <em>plus</em> loops, screens, callouts,
+   error handling and record deletion.</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Capability</th><th>Workflow Rule</th><th>Process Builder</th><th>Flow</th></tr></thead>
+  <tbody>
+    <tr><td>Create records</td><td>Tasks only</td><td>✅</td><td>✅ Any object</td></tr>
+    <tr><td>Update related records</td><td>Parent (MD) only</td><td>✅ Related</td><td>✅ Anything</td></tr>
+    <tr><td>Delete records</td><td>❌</td><td>❌</td><td>✅</td></tr>
+    <tr><td>Loops / collections</td><td>❌</td><td>❌</td><td>✅</td></tr>
+    <tr><td>User interaction (screens)</td><td>❌</td><td>❌</td><td>✅</td></tr>
+    <tr><td>Call Apex</td><td>❌</td><td>✅ (invocable)</td><td>✅ (invocable)</td></tr>
+    <tr><td>External callouts</td><td>Outbound Message</td><td>❌</td><td>✅ (HTTP action / External Services)</td></tr>
+    <tr><td>Error handling</td><td>❌</td><td>❌</td><td>✅ Fault paths</td></tr>
+    <tr><td>Runs before save (fast)</td><td>✅ Field updates</td><td>❌</td><td>✅ Before-save flows</td></tr>
+    <tr><td>Status</td><td class="nowrap">🚫 Retired</td><td class="nowrap">🚫 Retired</td><td class="nowrap">✅ Current</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="flow-types">The flow types</h2>
+
+<div class="dgm">
+  <div class="dgm-title">Choosing a flow type</div>
+  <svg viewBox="0 0 800 400" role="img" aria-label="Decision tree for selecting a flow type">
+    <rect class="s-box-b" x="300" y="10" width="200" height="46" rx="9"/>
+    <text class="s-t anchor-mid" x="400" y="34">What starts the automation?</text>
+
+    <path class="s-line" d="M400 56 V80 M90 80 H710 M90 80 V110 M290 80 V110 M510 80 V110 M710 80 V110"/>
+
+    <rect class="s-box-v" x="20" y="110" width="150" height="62" rx="9"/>
+    <text class="s-t s-t-v anchor-mid" x="95" y="132">A user</text>
+    <text class="s-t-sm anchor-mid" x="95" y="154">clicks something</text>
+    <rect class="s-box" x="20" y="186" width="150" height="70" rx="9"/>
+    <text class="s-t anchor-mid" x="95" y="208">Screen Flow</text>
+    <text class="s-t-sm anchor-mid" x="95" y="230">guided wizard, UI</text>
+    <text class="s-t-sm anchor-mid" x="95" y="246">buttons, LWC, Utility bar</text>
+
+    <rect class="s-box-t" x="215" y="110" width="150" height="62" rx="9"/>
+    <text class="s-t s-t-t anchor-mid" x="290" y="132">A record</text>
+    <text class="s-t-sm anchor-mid" x="290" y="154">changes</text>
+    <rect class="s-box" x="215" y="186" width="150" height="70" rx="9"/>
+    <text class="s-t anchor-mid" x="290" y="208">Record-Triggered</text>
+    <text class="s-t-sm anchor-mid" x="290" y="230">before/after save</text>
+    <text class="s-t-sm anchor-mid" x="290" y="246">or scheduled paths</text>
+
+    <rect class="s-box-a" x="435" y="110" width="150" height="62" rx="9"/>
+    <text class="s-t s-t-a anchor-mid" x="510" y="132">A clock</text>
+    <text class="s-t-sm anchor-mid" x="510" y="154">or a batch</text>
+    <rect class="s-box" x="435" y="186" width="150" height="70" rx="9"/>
+    <text class="s-t anchor-mid" x="510" y="208">Schedule-Triggered</text>
+    <text class="s-t-sm anchor-mid" x="510" y="230">nightly / weekly</text>
+    <text class="s-t-sm anchor-mid" x="510" y="246">over a record set</text>
+
+    <rect class="s-box-g" x="635" y="110" width="150" height="62" rx="9"/>
+    <text class="s-t s-t-g anchor-mid" x="710" y="132">Another process</text>
+    <text class="s-t-sm anchor-mid" x="710" y="154">Apex / event / REST</text>
+    <rect class="s-box" x="635" y="186" width="150" height="70" rx="9"/>
+    <text class="s-t anchor-mid" x="710" y="208">Autolaunched</text>
+    <text class="s-t-sm anchor-mid" x="710" y="230">or Platform Event-</text>
+    <text class="s-t-sm anchor-mid" x="710" y="246">Triggered Flow</text>
+
+    <rect class="s-box-v" x="230" y="300" width="340" height="66" rx="9"/>
+    <text class="s-t s-t-v anchor-mid" x="400" y="322">Orchestration</text>
+    <text class="s-t-sm anchor-mid" x="400" y="344">Multi-step, multi-user, long-running approvals &amp; handoffs</text>
+  </svg>
+</div>
+
+<div class="grid g2">
+  <div class="card accent-violet"><div class="c-ico">🖥️</div><h4>Screen Flow</h4>
+    <p>Collects input from a user. Surface it on a Lightning page, a record action button, the utility bar, an
+       Experience Cloud site, or embed it in an LWC.</p>
+    <p><strong>Use case:</strong> a guided "Log a Complaint" wizard that asks three questions and creates a Case with the right record type.</p></div>
+
+  <div class="card accent-teal"><div class="c-ico">⚡</div><h4>Record-Triggered Flow</h4>
+    <p>Runs on create/update/delete. The workhorse — replaces Workflow and Process Builder.</p>
+    <p><strong>Use case:</strong> when Opportunity hits Closed Won, create a Project record and notify the delivery team.</p></div>
+
+  <div class="card accent-amber"><div class="c-ico">🕒</div><h4>Schedule-Triggered Flow</h4>
+    <p>Runs once, daily or weekly at a set time, optionally over every record matching a filter.</p>
+    <p><strong>Use case:</strong> every night, flag Opportunities with a Close Date in the past and still open.</p></div>
+
+  <div class="card accent-green"><div class="c-ico">🔗</div><h4>Autolaunched Flow</h4>
+    <p>No UI, no trigger — invoked by Apex, REST, a process, another flow (subflow) or a button.</p>
+    <p><strong>Use case:</strong> a reusable "Calculate Discount" flow called from three different places.</p></div>
+
+  <div class="card accent-rose"><div class="c-ico">📡</div><h4>Platform Event-Triggered Flow</h4>
+    <p>Subscribes to a platform event and runs when a message is published. Always asynchronous.</p>
+    <p><strong>Use case:</strong> an ERP publishes <code>Order_Shipped__e</code>; the flow updates the Order and notifies the customer.</p></div>
+
+  <div class="card"><div class="c-ico">🎼</div><h4>Flow Orchestration</h4>
+    <p>Chains flows into stages and steps assigned to different users, with its own work-item UI.</p>
+    <p><strong>Use case:</strong> employee onboarding — IT provisions, HR verifies, manager approves, each in sequence.</p></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="before-after">Before-save vs after-save — the performance decision</h2>
+<p>This single choice can make a record-triggered flow <strong>10× faster</strong>. Know exactly when to use each.</p>
+
+<div class="dgm">
+  <div class="dgm-title">Where each flow runs in the save</div>
+  <svg viewBox="0 0 800 300" role="img" aria-label="Before save and after save flow positions in the record save process">
+    <rect class="s-box" x="20" y="120" width="110" height="52" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="75" y="146">Save initiated</text>
+    <path class="s-line" d="M130 146 H180" marker-end="url(#f1)"/>
+
+    <rect class="s-box-b" x="180" y="108" width="150" height="76" rx="9"/>
+    <text class="s-t s-t-b anchor-mid" x="255" y="130">BEFORE-SAVE</text>
+    <text class="s-t-sm anchor-mid" x="255" y="152">Flow + before triggers</text>
+    <text class="s-t-sm anchor-mid" x="255" y="170">field values in memory</text>
+    <path class="s-line-b" d="M330 146 H380" marker-end="url(#f1)"/>
+
+    <rect class="s-box-a" x="380" y="120" width="110" height="52" rx="9"/>
+    <text class="s-t s-t-a anchor-mid" x="435" y="140">Record</text>
+    <text class="s-t-sm anchor-mid" x="435" y="158">saved to DB</text>
+    <path class="s-line-a" d="M490 146 H540" marker-end="url(#f1)"/>
+
+    <rect class="s-box-v" x="540" y="108" width="150" height="76" rx="9"/>
+    <text class="s-t s-t-v anchor-mid" x="615" y="130">AFTER-SAVE</text>
+    <text class="s-t-sm anchor-mid" x="615" y="152">Flow + after triggers</text>
+    <text class="s-t-sm anchor-mid" x="615" y="170">record has an Id</text>
+    <path class="s-line-v s-dash" d="M690 146 H750 V220 H435 V180" marker-end="url(#f1)"/>
+    <text class="s-t-sm s-t-r anchor-mid" x="590" y="240">Updating the same record here = a second DML + possible recursion</text>
+
+    <text class="s-t-sm s-t-g anchor-mid" x="255" y="212">Same-record field update = free</text>
+    <text class="s-t-sm anchor-mid" x="255" y="232">no extra DML, no recursion</text>
+    <text class="s-t-sm anchor-mid" x="400" y="282">Rule of thumb: same record → before-save · anything else → after-save</text>
+    <defs><marker id="f1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<div class="vs">
+  <div class="card accent-teal"><h4>Fast Field Update (before-save)</h4>
+    <ul><li>Only updates <strong>the triggering record</strong></li>
+        <li>No DML, no extra SOQL for the record</li>
+        <li>Cannot: create/delete records, send email, call Apex, use screens, get related records via actions</li>
+        <li><code>$Record</code> is editable directly</li></ul></div>
+  <div class="vs-mid">vs</div>
+  <div class="card accent-violet"><h4>Actions and Related Records (after-save)</h4>
+    <ul><li>Record already has an <strong>Id</strong></li>
+        <li>Can create/update/delete <em>other</em> records, send emails, call Apex, publish events</li>
+        <li>Supports <strong>scheduled paths</strong> and <strong>asynchronous paths</strong></li>
+        <li><code>$Record</code> is read-only</li></ul></div>
+</div>
+
+<h3>Entry criteria — "When to Run the Flow"</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Option</th><th>Behaviour</th></tr></thead>
+  <tbody>
+    <tr><td>Every time a record is updated</td><td>Runs even if nothing relevant changed — avoid</td></tr>
+    <tr><td>Only when a record is updated to meet the condition</td><td><strong>Best practice.</strong> Equivalent to <code>ISCHANGED</code> logic — fires only on the transition</td></tr>
+    <tr><td>Formula evaluates to true</td><td>Full formula power including <code>ISCHANGED()</code>, <code>PRIORVALUE()</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Paths</h3>
+<ul>
+  <li><strong>Immediate path</strong> — runs in the same transaction.</li>
+  <li><strong>Scheduled path</strong> — runs later (X hours/days after a date field or after the trigger). Runs asynchronously as the <em>Automated Process</em> user by default, and gets its own limits.</li>
+  <li><strong>Asynchronous path</strong> — runs immediately after the transaction commits, in a separate transaction. <strong>This is how you make a callout from a record-triggered flow.</strong></li>
+  <li><strong>Run Asynchronously path</strong> also protects the main transaction from a slow external call failing the save.</li>
+</ul>
+
+<!-- ============================================ -->
+<h2 id="elements">The elements — your toolbox</h2>
+
+<div class="grid g3">
+  <div class="card accent-blue"><h4>🔍 Data elements</h4>
+    <ul><li><strong>Get Records</strong> — query</li><li><strong>Create Records</strong></li><li><strong>Update Records</strong></li><li><strong>Delete Records</strong></li><li><strong>Roll Back Records</strong> (in screen flows)</li></ul></div>
+  <div class="card accent-violet"><h4>🔀 Logic elements</h4>
+    <ul><li><strong>Assignment</strong> — set a variable</li><li><strong>Decision</strong> — branch</li><li><strong>Loop</strong> — iterate a collection</li><li><strong>Collection Sort</strong></li><li><strong>Collection Filter</strong></li><li><strong>Transform</strong> — map collections</li></ul></div>
+  <div class="card accent-teal"><h4>⚙️ Interaction &amp; actions</h4>
+    <ul><li><strong>Screen</strong></li><li><strong>Action</strong> — email, Apex, post to Chatter, submit for approval, HTTP callout</li><li><strong>Subflow</strong></li><li><strong>Wait</strong> (pause)</li></ul></div>
+</div>
+
+<h3>Resources (variables)</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Resource</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Variable</strong></td><td>Value that can change. Mark <em>Available for input/output</em> to pass into/out of subflows and LWC.</td></tr>
+    <tr><td><strong>Collection Variable</strong></td><td>A list — the key to bulkification.</td></tr>
+    <tr><td><strong>Record Variable / Record Collection</strong></td><td>Holds sObject records.</td></tr>
+    <tr><td><strong>Constant</strong></td><td>Fixed value.</td></tr>
+    <tr><td><strong>Formula</strong></td><td>Calculated at the moment it's referenced.</td></tr>
+    <tr><td><strong>Text Template</strong></td><td>Rich text for emails.</td></tr>
+    <tr><td><strong>Choice / Picklist Choice Set</strong></td><td>Options for screen components.</td></tr>
+    <tr><td><strong>Stage</strong></td><td>Progress indicator in long screen flows.</td></tr>
+    <tr><td><code>$Record</code> / <code>$Record__Prior</code></td><td>The triggering record, and its values before the update.</td></tr>
+    <tr><td><code>$User</code>, <code>$Organization</code>, <code>$Permission</code>, <code>$Label</code>, <code>$Api</code></td><td>Global context.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="bulkification">Bulkification — the #1 flow mistake</h2>
+<p>Flows <em>are</em> bulkified automatically <strong>between</strong> interviews, but a DML or Get inside a
+   <strong>Loop</strong> is executed once per iteration and will blow your limits on a 200-record data load.</p>
+
+<div class="vs">
+  <div class="card accent-rose"><h4>❌ Wrong</h4>
+    <pre style="font-size:12px;background:none;padding:0;color:var(--text-dim)">Loop over Contacts
+  └─ Get Records (Account)     ← SOQL in loop
+  └─ Assignment
+  └─ Update Records            ← DML in loop
+End Loop</pre>
+    <p>200 contacts = 200 queries + 200 DML → <code>Too many SOQL queries: 101</code>.</p></div>
+  <div class="vs-mid">→</div>
+  <div class="card accent-green"><h4>✅ Right</h4>
+    <pre style="font-size:12px;background:none;padding:0;color:var(--text-dim)">Get Records (all Accounts) → collection
+Loop over Contacts
+  └─ Assignment (build record)
+  └─ Add to collection variable
+End Loop
+Update Records (the collection)  ← ONE DML</pre>
+    <p>Query once before the loop, collect inside, commit once after.</p></div>
+</div>
+
+<div class="callout danger">
+  <span class="c-ico">🔥</span>
+  <div class="c-body"><span class="c-title">Never put these inside a Loop</span>
+    Get Records · Create Records · Update Records · Delete Records · Apex actions · Email actions.
+    Build a collection inside the loop and act on it once outside.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="fault-paths">Fault paths &amp; error handling</h2>
+<p>Without a fault path, an error shows the user a raw, unhelpful "An unhandled fault has occurred" screen — and in a
+   record-triggered flow it rolls back the whole transaction.</p>
+<ul class="steps">
+  <li><b>Drag the fault connector</b> from any data element or action.</li>
+  <li><b>In a screen flow</b>, route to a Screen showing <code>{!$Flow.FaultMessage}</code> in friendly language.</li>
+  <li><b>In an autolaunched/record-triggered flow</b>, route to a Create Records that logs an <code>Error_Log__c</code> record, or send an email to the admin.</li>
+  <li><b>Add a Decision</b> before risky elements to prevent predictable failures (null checks, empty collections).</li>
+</ul>
+<div class="callout note">
+  <span class="c-ico">📧</span>
+  <div class="c-body"><span class="c-title">Who gets the error email?</span>
+    By default the flow's last modifier. Change it in Setup → Process Automation Settings → "Send Process or Flow
+    Error Email to" → Apex Exception Email recipients. Do this on day one.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="flow-best-practices">Flow best practices</h2>
+
+<div class="grid g2">
+  <div class="card accent-green"><h4>✅ Do</h4>
+    <ul>
+      <li><strong>One record-triggered flow per object per timing</strong> (one before-save, one after-save) — use Decisions inside to branch. Order is otherwise unpredictable.</li>
+      <li>Use <strong>before-save</strong> for same-record field updates.</li>
+      <li>Set entry criteria to "<em>only when a record is updated to meet the condition</em>".</li>
+      <li>Always add <strong>fault paths</strong>.</li>
+      <li>Name elements meaningfully: <code>Get_Open_Cases</code>, not <code>Get_Records_0</code>.</li>
+      <li>Use the <strong>Description</strong> field on every element — it's your only documentation.</li>
+      <li>Build reusable logic as <strong>subflows</strong>.</li>
+      <li>Use <strong>Custom Metadata</strong> for thresholds instead of hard-coded numbers.</li>
+      <li>Test with 200 records, not one.</li>
+      <li>Use the <strong>Debug</strong> button with "Run as another user" and rollback mode.</li>
+    </ul></div>
+  <div class="card accent-rose"><h4>❌ Don't</h4>
+    <ul>
+      <li>DML or Get Records inside a Loop.</li>
+      <li>Hard-code record IDs — they change between orgs. Use Get Records by DeveloperName or Custom Metadata.</li>
+      <li>Build 15 flows on one object.</li>
+      <li>Mix Apex triggers and flows doing the same job on the same object.</li>
+      <li>Use a flow for high-volume batch processing — that's Batch Apex.</li>
+      <li>Forget to deactivate the old Workflow/Process when migrating.</li>
+      <li>Leave "Every time a record is updated" as the entry condition.</li>
+      <li>Ignore the flow's execution context — it runs in <strong>system context</strong> by default; set "How to Run the Flow" to user context when access must be respected.</li>
+    </ul></div>
+</div>
+
+<h3>Flow vs Apex — when to switch to code</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Use Flow when…</th><th>Use Apex when…</th></tr></thead>
+  <tbody>
+    <tr><td>Logic is simple and admin-maintainable</td><td>Complex branching, recursion or algorithms</td></tr>
+    <tr><td>Screens/user interaction are needed</td><td>Processing thousands of records (Batch Apex)</td></tr>
+    <tr><td>Volume is modest</td><td>Complex SOQL joins / aggregate queries</td></tr>
+    <tr><td>Requirements change often</td><td>You need proper unit tests and version control discipline</td></tr>
+    <tr><td>You want it visible to admins</td><td>Callouts with retry logic, custom error handling</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="flow-apex">Flow ⇄ Apex</h2>
+<h4>Calling Apex from Flow</h4>
+<pre><code class="language-apex">public class DiscountCalculator {
+
+    public class Request {
+        @InvocableVariable(required=true label='Opportunity Id')
+        public Id opportunityId;
+        @InvocableVariable(label='Requested Discount')
+        public Decimal requestedDiscount;
+    }
+    public class Result {
+        @InvocableVariable(label='Approved Discount')
+        public Decimal approvedDiscount;
+        @InvocableVariable(label='Needs Approval')
+        public Boolean needsApproval;
+    }
+
+    @InvocableMethod(label='Calculate Discount'
+                     description='Caps discount by account tier'
+                     category='Sales')
+    public static List&lt;Result&gt; calculate(List&lt;Request&gt; requests) {
+        // Bulkified: Flow passes ALL records in one call
+        Set&lt;Id&gt; oppIds = new Set&lt;Id&gt;();
+        for (Request r : requests) oppIds.add(r.opportunityId);
+
+        Map&lt;Id, Opportunity&gt; opps = new Map&lt;Id, Opportunity&gt;([
+            SELECT Id, Account.Tier__c FROM Opportunity WHERE Id IN :oppIds
+        ]);
+
+        List&lt;Result&gt; results = new List&lt;Result&gt;();
+        for (Request r : requests) {
+            Result res = new Result();
+            Decimal cap = opps.get(r.opportunityId)?.Account.Tier__c == 'Platinum' ? 0.30 : 0.15;
+            res.approvedDiscount = Math.min(r.requestedDiscount, cap);
+            res.needsApproval    = r.requestedDiscount &gt; cap;
+            results.add(res);
+        }
+        return results;
+    }
+}</code></pre>
+<div class="callout warn">
+  <span class="c-ico">📦</span>
+  <div class="c-body"><span class="c-title">Invocable rules</span>
+    The method must be <code>static</code>, take a <code>List</code> and return a <code>List</code> of the same size and order.
+    One <code>@InvocableMethod</code> per class. Flow calls it <strong>once per batch</strong>, so write it bulk-safe.</div>
+</div>
+
+<h4>Calling Flow from Apex</h4>
+<pre><code class="language-apex">Map&lt;String, Object&gt; inputs = new Map&lt;String, Object&gt;{
+    'recordId'  =&gt; acc.Id,
+    'newStatus' =&gt; 'Active'
+};
+Flow.Interview.Update_Account_Status flow =
+    new Flow.Interview.Update_Account_Status(inputs);
+flow.start();
+Object out = flow.getVariableValue('resultMessage');</code></pre>
+
+<!-- ============================================ -->
+<h2 id="flow-limits">Flow limits worth remembering</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Limit</th><th>Value</th></tr></thead>
+  <tbody>
+    <tr><td>Elements executed per interview</td><td>2,000</td></tr>
+    <tr><td>Flows/processes per transaction</td><td>50</td></tr>
+    <tr><td>Scheduled path records per hourly batch</td><td>250,000 per hour (org-wide async limit applies)</td></tr>
+    <tr><td>Schedule-triggered flow records</td><td>250,000 per day (or 200 × licences, whichever is higher)</td></tr>
+    <tr><td>SOQL / DML</td><td>Shares the standard governor limits with the whole transaction</td></tr>
+    <tr><td>Flow versions</td><td>50 per flow</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="worked-example">Worked example: Closed Won → Project</h2>
+<ul class="steps">
+  <li><b>Type</b>: Record-Triggered Flow on Opportunity, "A record is updated", <strong>after save</strong> (we're creating another record).</li>
+  <li><b>Entry conditions</b>: <code>StageName equals "Closed Won"</code>, and set "Only when a record is updated to meet the condition" so it fires once.</li>
+  <li><b>Decision</b>: does the Account already have an active Project? Use Get Records → Decision on "record found".</li>
+  <li><b>Create Records</b>: build <code>Project__c</code> with Name = Opportunity Name, Account, Start Date = TODAY(), Budget = Amount.</li>
+  <li><b>Action</b>: Send email alert to the delivery team, and Post to Chatter on the Account.</li>
+  <li><b>Scheduled path</b>: 7 days after close date, create a follow-up Task for the rep.</li>
+  <li><b>Fault path</b> on Create Records → Create an <code>Error_Log__c</code> record with <code>{!$Flow.FaultMessage}</code>.</li>
+  <li><b>Debug</b> with an existing Opportunity, then activate.</li>
+</ul>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Name the flow types and give a use case for each.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><ul>
+  <li><strong>Screen Flow</strong> — a guided "Log a Complaint" wizard on a record page.</li>
+  <li><strong>Record-Triggered</strong> — on Closed Won, create a Project and notify delivery.</li>
+  <li><strong>Schedule-Triggered</strong> — nightly, flag Opportunities past their Close Date.</li>
+  <li><strong>Autolaunched</strong> — reusable "Calculate Discount" subflow called from three places.</li>
+  <li><strong>Platform Event-Triggered</strong> — an ERP publishes <code>Order_Shipped__e</code>; update the Order.</li>
+  <li><strong>Orchestration</strong> — employee onboarding across IT, HR and the manager, in sequence.</li>
+</ul></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> Before-save vs after-save — how do you decide, and why does it matter?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>If you're only setting fields <strong>on the record being saved</strong>, use <strong>before-save</strong>
+("Fast Field Update"). It edits <code>$Record</code> in memory: no extra DML, no second save, no recursion — roughly
+<strong>10× faster</strong> than the equivalent after-save update.</p>
+<p>Use <strong>after-save</strong> when you need the record's Id or must touch anything else: creating/updating/deleting
+other records, sending email, calling Apex, publishing events, or using scheduled and asynchronous paths. In after-save,
+<code>$Record</code> is read-only.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> A flow fails on a 200-record data load with "Too many SOQL queries: 101". What happened?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>There's a <strong>Get Records</strong> (or a DML element, or an Apex/email action) <strong>inside a
+Loop</strong>. Flows bulkify <em>between</em> interviews but every element inside a loop executes once per iteration.</p>
+<p>Fix: Get Records <em>once before</em> the loop into a collection, use Assignment inside the loop to build a record
+collection, then a single Create/Update Records <em>after</em> the loop. Never place data elements or actions inside a
+Loop.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> How many record-triggered flows should one object have?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Ideally <strong>one before-save and one after-save</strong>, branching internally with Decision
+elements. Salesforce does <strong>not guarantee execution order</strong> between multiple flows on the same object and
+timing, so several flows means unpredictable, unreproducible behaviour and repeated evaluation cost. If you must split
+them, use the flow's <em>Trigger Order</em> field (values in increments of 10) to make the order explicit.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> A record-triggered flow must call an external REST API. How do you do it legally?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Not on the immediate path — you can't make a callout after uncommitted DML. Put the HTTP callout
+action on the <strong>asynchronous path</strong>, which runs in a separate transaction after commit. Alternatively call
+an <code>@InvocableMethod</code> that enqueues a <code>Queueable implements Database.AllowsCallouts</code>, which also
+gives you retry logic and proper error handling. Add a fault path either way.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> What happens if you don't add a fault path?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>In a <strong>screen flow</strong> the user sees a raw "An unhandled fault has occurred" screen with a
+technical message. In a <strong>record-triggered flow</strong> the error rolls back the entire transaction, so the user's
+save fails. An email goes to the flow's last modifier by default — change this in
+<strong>Setup → Process Automation Settings</strong> on day one. Route fault paths to a friendly screen, or to a
+Create Records element logging <code>{!$Flow.FaultMessage}</code> to an <code>Error_Log__c</code> object.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> When do you stop using Flow and write Apex?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Switch to Apex for: complex branching or recursive algorithms; processing thousands of records
+(Batch Apex); complex SOQL with joins or aggregates; callouts needing retry and custom error handling; anything requiring
+real unit tests and version-controlled review. Stay in Flow for simple, admin-maintainable logic, screens, and
+requirements that change often. The rule that matters most: <strong>never build both on the same object doing
+overlapping work</strong>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> How do you pass data between Flow and Apex?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Flow → Apex:</strong> an <code>@InvocableMethod</code>. It must be <code>static</code>, take
+a <code>List</code> and return a <code>List</code> of the same size and order, with one invocable method per class. Flow
+calls it <strong>once per batch</strong>, so write it bulk-safe. Use <code>@InvocableVariable</code> on request/response
+inner-class members.</p>
+<p><strong>Apex → Flow:</strong> <code>Flow.Interview.My_Flow f = new Flow.Interview.My_Flow(inputsMap); f.start();</code>
+then read outputs with <code>f.getVariableValue('name')</code>. Flow variables must be marked "Available for input/output".</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. You need to set a field on the record being saved, based on other fields of the same record. Best design?</div>
+  <button class="opt">After-save record-triggered flow with an Update Records element</button>
+  <button class="opt" data-correct="1">Before-save (Fast Field Update) record-triggered flow</button>
+  <button class="opt">Scheduled flow that runs nightly</button>
+  <div class="explain">Before-save updates the in-memory record — no extra DML, no recursion, roughly 10× faster than an after-save update of the same record.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. A flow errors on a data load of 200 records with "Too many SOQL queries: 101". Most likely cause?</div>
+  <button class="opt">Too many flow versions</button>
+  <button class="opt" data-correct="1">A Get Records element inside a Loop</button>
+  <button class="opt">The flow is inactive</button>
+  <div class="explain">Elements inside a Loop run once per iteration. Move Get Records before the loop and use a collection.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. A record-triggered flow must call an external REST API. How?</div>
+  <button class="opt">Add an HTTP callout on the immediate path</button>
+  <button class="opt" data-correct="1">Put the callout on an asynchronous path (or call a Queueable via an invocable Apex action)</button>
+  <button class="opt">Callouts aren't possible from flows</button>
+  <div class="explain">You cannot make a callout after uncommitted DML in the same transaction. The asynchronous path runs after commit, which is exactly what's needed.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Flow Builder</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

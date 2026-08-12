@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Salesforce Fundamentals | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Start Here</span> › <span>Fundamentals</span></div>
+  <h1>Salesforce Fundamentals</h1>
+  <p class="lede">What Salesforce actually is under the hood — multitenancy, metadata, the runtime engine, org types
+     and the vocabulary every other module assumes you already know.</p>
+</header>
+
+<!-- ============================================ -->
+<h2 id="what-is-salesforce">What is Salesforce?</h2>
+<p>Salesforce is a <strong>cloud-based CRM platform</strong>. Two halves matter:</p>
+<ul>
+  <li><strong>CRM applications</strong> — ready-made apps for sales, service, marketing and commerce (Sales Cloud, Service Cloud…).</li>
+  <li><strong>The platform (Lightning Platform)</strong> — the toolkit underneath that lets you extend those apps or build entirely new ones with clicks (declarative) or code (programmatic).</li>
+</ul>
+<p>CRM stands for Customer Relationship Management: a single system that stores every customer interaction — leads,
+   deals, support cases, emails — so the whole company works from one record of truth instead of scattered spreadsheets.</p>
+
+<div class="callout note">
+  <span class="c-ico">💡</span>
+  <div class="c-body"><span class="c-title">Interview one-liner</span>
+    "Salesforce is a multitenant, metadata-driven SaaS + PaaS platform. Customers share infrastructure but their
+    customisations live as metadata, which keeps every org isolated and upgradeable three times a year."</div>
+</div>
+
+<h3>Cloud service models — where Salesforce sits</h3>
+<div class="dgm">
+  <div class="dgm-title">On-Premise vs IaaS vs PaaS vs SaaS</div>
+  <svg viewBox="0 0 780 330" role="img" aria-label="Comparison of on-premise, IaaS, PaaS and SaaS responsibilities">
+    <text class="s-t-sm anchor-mid" x="115" y="18">On-Premise</text>
+    <text class="s-t-sm anchor-mid" x="295" y="18">IaaS</text>
+    <text class="s-t-sm anchor-mid" x="475" y="18">PaaS</text>
+    <text class="s-t-sm anchor-mid" x="655" y="18">SaaS</text>
+    <text class="s-t-sm s-t-v anchor-mid" x="475" y="322">Lightning Platform (build your own apps)</text>
+    <text class="s-t-sm s-t-b anchor-mid" x="655" y="322">Sales / Service Cloud</text>
+
+    <!-- rows: Applications, Data, Runtime, OS, Virtualisation, Servers -->
+    <g>
+      <text class="s-t-sm" x="6" y="52">Application</text>
+      <text class="s-t-sm" x="6" y="94">Data</text>
+      <text class="s-t-sm" x="6" y="136">Runtime</text>
+      <text class="s-t-sm" x="6" y="178">OS</text>
+      <text class="s-t-sm" x="6" y="220">Virtualisation</text>
+      <text class="s-t-sm" x="6" y="262">Servers</text>
+    </g>
+    <!-- On-premise: all you -->
+    <g>
+      <rect class="s-box-r" x="80" y="36"  width="150" height="32" rx="6"/><text class="s-t-sm anchor-mid" x="155" y="52">You</text>
+      <rect class="s-box-r" x="80" y="78"  width="150" height="32" rx="6"/><text class="s-t-sm anchor-mid" x="155" y="94">You</text>
+      <rect class="s-box-r" x="80" y="120" width="150" height="32" rx="6"/><text class="s-t-sm anchor-mid" x="155" y="136">You</text>
+      <rect class="s-box-r" x="80" y="162" width="150" height="32" rx="6"/><text class="s-t-sm anchor-mid" x="155" y="178">You</text>
+      <rect class="s-box-r" x="80" y="204" width="150" height="32" rx="6"/><text class="s-t-sm anchor-mid" x="155" y="220">You</text>
+      <rect class="s-box-r" x="80" y="246" width="150" height="32" rx="6"/><text class="s-t-sm anchor-mid" x="155" y="262">You</text>
+    </g>
+    <!-- IaaS -->
+    <g>
+      <rect class="s-box-r" x="240" y="36"  width="150" height="32" rx="6"/><text class="s-t-sm anchor-mid" x="315" y="52">You</text>
+      <rect class="s-box-r" x="240" y="78"  width="150" height="32" rx="6"/><text class="s-t-sm anchor-mid" x="315" y="94">You</text>
+      <rect class="s-box-r" x="240" y="120" width="150" height="32" rx="6"/><text class="s-t-sm anchor-mid" x="315" y="136">You</text>
+      <rect class="s-box-g" x="240" y="162" width="150" height="32" rx="6"/><text class="s-t-sm anchor-mid" x="315" y="178">Provider</text>
+      <rect class="s-box-g" x="240" y="204" width="150" height="32" rx="6"/><text class="s-t-sm anchor-mid" x="315" y="220">Provider</text>
+      <rect class="s-box-g" x="240" y="246" width="150" height="32" rx="6"/><text class="s-t-sm anchor-mid" x="315" y="262">Provider</text>
+    </g>
+    <!-- PaaS -->
+    <g>
+      <rect class="s-box-r" x="400" y="36"  width="150" height="32" rx="6"/><text class="s-t-sm anchor-mid" x="475" y="52">You</text>
+      <rect class="s-box-r" x="400" y="78"  width="150" height="32" rx="6"/><text class="s-t-sm anchor-mid" x="475" y="94">You</text>
+      <rect class="s-box-g" x="400" y="120" width="150" height="32" rx="6"/><text class="s-t-sm anchor-mid" x="475" y="136">Provider</text>
+      <rect class="s-box-g" x="400" y="162" width="150" height="32" rx="6"/><text class="s-t-sm anchor-mid" x="475" y="178">Provider</text>
+      <rect class="s-box-g" x="400" y="204" width="150" height="32" rx="6"/><text class="s-t-sm anchor-mid" x="475" y="220">Provider</text>
+      <rect class="s-box-g" x="400" y="246" width="150" height="32" rx="6"/><text class="s-t-sm anchor-mid" x="475" y="262">Provider</text>
+    </g>
+    <!-- SaaS -->
+    <g>
+      <rect class="s-box-g" x="560" y="36"  width="150" height="32" rx="6"/><text class="s-t-sm anchor-mid" x="635" y="52">Provider</text>
+      <rect class="s-box-a" x="560" y="78"  width="150" height="32" rx="6"/><text class="s-t-sm anchor-mid" x="635" y="94">Your data</text>
+      <rect class="s-box-g" x="560" y="120" width="150" height="32" rx="6"/><text class="s-t-sm anchor-mid" x="635" y="136">Provider</text>
+      <rect class="s-box-g" x="560" y="162" width="150" height="32" rx="6"/><text class="s-t-sm anchor-mid" x="635" y="178">Provider</text>
+      <rect class="s-box-g" x="560" y="204" width="150" height="32" rx="6"/><text class="s-t-sm anchor-mid" x="635" y="220">Provider</text>
+      <rect class="s-box-g" x="560" y="246" width="150" height="32" rx="6"/><text class="s-t-sm anchor-mid" x="635" y="262">Provider</text>
+    </g>
+    <path class="s-line-v s-dash" d="M396 30 V286 M556 30 V286"/>
+  </svg>
+  <div class="dgm-cap">Salesforce sells SaaS apps <em>and</em> the PaaS underneath them. You always own your data; Salesforce owns everything below the app.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="multitenancy">Multitenancy</h2>
+<p>Thousands of customers ("tenants") run on the <strong>same</strong> application instance, database and hardware.
+   Think of an apartment building: shared foundation, plumbing and lifts, but each flat is locked and privately furnished.</p>
+
+<div class="dgm">
+  <div class="dgm-title">One codebase, many isolated orgs</div>
+  <svg viewBox="0 0 760 330" role="img" aria-label="Multitenant architecture with shared kernel and isolated org metadata">
+    <rect class="s-box-b" x="40" y="20" width="180" height="86" rx="10"/>
+    <text class="s-t anchor-mid" x="130" y="48">Org A</text>
+    <text class="s-t-sm anchor-mid" x="130" y="70">Acme Corp</text>
+    <text class="s-t-mono anchor-mid" x="130" y="88">00D1a…</text>
+
+    <rect class="s-box-v" x="290" y="20" width="180" height="86" rx="10"/>
+    <text class="s-t anchor-mid" x="380" y="48">Org B</text>
+    <text class="s-t-sm anchor-mid" x="380" y="70">Globex Ltd</text>
+    <text class="s-t-mono anchor-mid" x="380" y="88">00D7f…</text>
+
+    <rect class="s-box-t" x="540" y="20" width="180" height="86" rx="10"/>
+    <text class="s-t anchor-mid" x="630" y="48">Org C</text>
+    <text class="s-t-sm anchor-mid" x="630" y="70">Initech</text>
+    <text class="s-t-mono anchor-mid" x="630" y="88">00D3c…</text>
+
+    <path class="s-line-b" d="M130 106 V140"/><path class="s-line-v" d="M380 106 V140"/><path class="s-line-t" d="M630 106 V140"/>
+
+    <rect class="s-box" x="40" y="140" width="680" height="58" rx="10"/>
+    <text class="s-t anchor-mid" x="380" y="160">Metadata Layer — each org's objects, fields, layouts, code, permissions</text>
+    <text class="s-t-sm anchor-mid" x="380" y="182">Stored as data rows, tagged with the Org ID → this is what isolates tenants</text>
+
+    <path class="s-line s-dash" d="M380 198 V226"/>
+
+    <rect class="s-box-a" x="40" y="226" width="680" height="44" rx="10"/>
+    <text class="s-t s-t-a anchor-mid" x="380" y="248">Shared Runtime Engine · Governor Limits · Query Optimizer</text>
+
+    <rect class="s-box-g" x="40" y="284" width="680" height="34" rx="10"/>
+    <text class="s-t s-t-g anchor-mid" x="380" y="301">Shared Infrastructure — servers, storage, network (one physical database)</text>
+  </svg>
+  <div class="dgm-cap">Your data and customisations are separated by Org ID at the data layer, not by separate servers.</div>
+</div>
+
+<div class="grid g3">
+  <div class="card accent-green"><div class="c-ico">✅</div><h4>Benefits</h4>
+    <ul><li>No hardware to buy or patch</li><li>3 free upgrades a year, no downtime</li><li>Economies of scale = lower cost</li><li>Instant scalability</li></ul></div>
+  <div class="card accent-amber"><div class="c-ico">⚖️</div><h4>The trade-off</h4>
+    <ul><li><strong>Governor limits</strong> — one tenant can't hog resources</li><li>No OS/DB access</li><li>Upgrades happen on Salesforce's schedule</li></ul></div>
+  <div class="card accent-rose"><div class="c-ico">🔒</div><h4>Isolation</h4>
+    <ul><li>Every row carries an Org ID</li><li>Queries are rewritten to filter by it</li><li>You can never see another tenant's data</li></ul></div>
+</div>
+
+<div class="callout warn">
+  <span class="c-ico">🚦</span>
+  <div class="c-body"><span class="c-title">Why governor limits exist — remember this answer</span>
+    Because the platform is multitenant, a runaway loop in <em>your</em> org would slow down everyone else's.
+    Limits are the platform's way of enforcing fair resource sharing. See <a href="governor-limits.html">Governor Limits</a>.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="metadata">Metadata-driven architecture</h2>
+<p>This is the single most important architectural idea in Salesforce. When you create a custom object
+   <code>Invoice__c</code> with five fields, Salesforce does <strong>not</strong> run <code>CREATE TABLE</code>.
+   It writes rows into internal metadata tables. Your data then lands in a giant shared table where each field maps
+   to a generic <code>value0…valueN</code> column, and indexes are "pivoted" separately.</p>
+
+<div class="dgm">
+  <div class="dgm-title">How your custom object is really stored</div>
+  <svg viewBox="0 0 760 300" role="img" aria-label="Metadata tables and shared data table">
+    <rect class="s-box-v" x="30" y="20" width="200" height="120" rx="10"/>
+    <text class="s-t s-t-v anchor-mid" x="130" y="44">Objects Metadata</text>
+    <text class="s-t-mono anchor-mid" x="130" y="70">ObjId | OrgId | Name</text>
+    <text class="s-t-mono anchor-mid" x="130" y="92">a01   | 00D1a | Invoice__c</text>
+    <text class="s-t-mono anchor-mid" x="130" y="114">a02   | 00D7f | Claim__c</text>
+
+    <rect class="s-box-b" x="30" y="160" width="200" height="120" rx="10"/>
+    <text class="s-t s-t-b anchor-mid" x="130" y="184">Fields Metadata</text>
+    <text class="s-t-mono anchor-mid" x="130" y="210">FldId | ObjId | Name | Type</text>
+    <text class="s-t-mono anchor-mid" x="130" y="232">f01   | a01   | Amount__c | Currency</text>
+    <text class="s-t-mono anchor-mid" x="130" y="254">f02   | a01   | Due__c    | Date</text>
+
+    <path class="s-line-v" d="M230 80 H300 M230 220 H300"/>
+    <rect class="s-box-a" x="300" y="110" width="120" height="80" rx="10"/>
+    <text class="s-t s-t-a anchor-mid" x="360" y="140">Runtime</text>
+    <text class="s-t-sm anchor-mid" x="360" y="162">Engine builds</text>
+    <text class="s-t-sm anchor-mid" x="360" y="178">the virtual table</text>
+
+    <path class="s-line-a" d="M420 150 H490"/>
+    <rect class="s-box-g" x="490" y="60" width="240" height="180" rx="10"/>
+    <text class="s-t s-t-g anchor-mid" x="610" y="86">Shared Data Table</text>
+    <text class="s-t-mono anchor-mid" x="610" y="112">OrgId | ObjId | RecId</text>
+    <text class="s-t-mono anchor-mid" x="610" y="134">value0 | value1 | value2 …</text>
+    <text class="s-t-sm anchor-mid" x="610" y="166">00D1a | a01 | a0X…</text>
+    <text class="s-t-sm anchor-mid" x="610" y="188">1200.00 | 2026-09-30 | …</text>
+    <text class="s-t-sm anchor-mid" x="610" y="216">One physical table, all tenants</text>
+  </svg>
+  <div class="dgm-cap">Consequence: schema changes are instant and safe, but you can't tune the database — you tune your queries instead.</div>
+</div>
+
+<h3>What counts as metadata?</h3>
+<div class="grid g3">
+  <div class="card"><h4>Metadata (configuration)</h4><p>Objects, fields, page layouts, Apex classes, flows, profiles, validation rules, record types, reports.</p><p><strong>Deployable</strong> between orgs.</p></div>
+  <div class="card accent-amber"><h4>Data (records)</h4><p>Accounts, Contacts, Opportunities, Cases — the actual business rows.</p><p><strong>Not</strong> deployed with metadata; needs Data Loader or seeding.</p></div>
+  <div class="card accent-violet"><h4>The blurry middle</h4><p><strong>Custom Metadata Types</strong> are records that behave like metadata — deployable <em>and</em> queryable. See <a href="admin.html#custom-settings">Custom Settings vs Metadata</a>.</p></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="request-lifecycle">How a request is served</h2>
+<p>Understanding this loop explains error messages, limits and why order of execution matters.</p>
+
+<div class="dgm">
+  <div class="dgm-title">Request lifecycle</div>
+  <svg viewBox="0 0 780 250" role="img" aria-label="Salesforce request lifecycle from browser to database">
+    <rect class="s-box-b" x="20" y="90" width="110" height="60" rx="10"/>
+    <text class="s-t anchor-mid" x="75" y="112">Client</text><text class="s-t-sm anchor-mid" x="75" y="132">Browser / API</text>
+
+    <path class="s-line-b" d="M130 120 H180" marker-end="url(#ah)"/>
+    <rect class="s-box-v" x="180" y="90" width="120" height="60" rx="10"/>
+    <text class="s-t anchor-mid" x="240" y="112">Auth Layer</text><text class="s-t-sm anchor-mid" x="240" y="132">Session / OAuth</text>
+
+    <path class="s-line-v" d="M300 120 H350" marker-end="url(#ah)"/>
+    <rect class="s-box-t" x="350" y="70" width="130" height="100" rx="10"/>
+    <text class="s-t anchor-mid" x="415" y="94">Runtime Engine</text>
+    <text class="s-t-sm anchor-mid" x="415" y="116">Metadata lookup</text>
+    <text class="s-t-sm anchor-mid" x="415" y="134">Apex / Flow exec</text>
+    <text class="s-t-sm anchor-mid" x="415" y="152">Limit enforcement</text>
+
+    <path class="s-line-t" d="M480 120 H530" marker-end="url(#ah)"/>
+    <rect class="s-box-g" x="530" y="70" width="120" height="100" rx="10"/>
+    <text class="s-t anchor-mid" x="590" y="94">Query</text>
+    <text class="s-t anchor-mid" x="590" y="112">Optimizer</text>
+    <text class="s-t-sm anchor-mid" x="590" y="136">Adds OrgId +</text>
+    <text class="s-t-sm anchor-mid" x="590" y="152">sharing filters</text>
+
+    <path class="s-line-g" d="M650 120 H700" marker-end="url(#ah)"/>
+    <rect class="s-box-a" x="700" y="90" width="64" height="60" rx="10"/>
+    <text class="s-t-sm anchor-mid" x="732" y="120">DB</text>
+
+    <path class="s-line s-dash" d="M732 150 V210 H75 V150" marker-end="url(#ah)"/>
+    <text class="s-t-sm anchor-mid" x="400" y="226">Response rendered back to the client</text>
+    <defs>
+      <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="currentColor" class="s-t"/>
+      </marker>
+    </defs>
+  </svg>
+</div>
+
+<!-- ============================================ -->
+<h2 id="mvc">MVC on the platform</h2>
+<p>Salesforce follows Model-View-Controller. Knowing which bucket a feature lives in helps you pick the right tool.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Layer</th><th>What it is</th><th>Salesforce features</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Model</strong></td><td>Data structure</td><td>Standard &amp; custom objects, fields, relationships, validation rules, record types</td></tr>
+    <tr><td><strong>View</strong></td><td>What the user sees</td><td>Lightning App Builder, LWC, Aura, Visualforce, page layouts, Dynamic Forms</td></tr>
+    <tr><td><strong>Controller</strong></td><td>Logic connecting them</td><td>Apex classes &amp; triggers, Flow, standard controllers, workflow/approval</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="orgs">Org types &amp; environment strategy</h2>
+<p>An <strong>org</strong> is a single, isolated Salesforce instance with its own users, data and metadata, identified by a 15/18-character Org ID.</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Type</th><th>Purpose</th><th>Data</th><th class="nowrap">Refresh</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Production</strong></td><td>Live business org where real users work</td><td>Real</td><td>—</td></tr>
+    <tr><td><strong>Developer Sandbox</strong></td><td>Coding &amp; unit testing (200 MB)</td><td>Metadata only</td><td>Daily</td></tr>
+    <tr><td><strong>Developer Pro Sandbox</strong></td><td>Bigger dev/test, integration testing (1 GB)</td><td>Metadata only</td><td>Daily</td></tr>
+    <tr><td><strong>Partial Copy Sandbox</strong></td><td>UAT with a data sample (5 GB, sampled via template)</td><td>Sample</td><td>5 days</td></tr>
+    <tr><td><strong>Full Sandbox</strong></td><td>Performance/load testing, staging — exact replica</td><td>All</td><td>29 days</td></tr>
+    <tr><td><strong>Scratch Org</strong></td><td>Source-driven, disposable dev org (max 30 days)</td><td>None (seed it)</td><td>Recreate</td></tr>
+    <tr><td><strong>Developer Edition</strong></td><td>Free personal org that never expires</td><td>Sample</td><td>—</td></tr>
+    <tr><td><strong>Trailhead Playground</strong></td><td>Free org for learning &amp; Trailhead challenges</td><td>Sample</td><td>—</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="dgm">
+  <div class="dgm-title">Typical release pipeline</div>
+  <svg viewBox="0 0 800 180" role="img" aria-label="Deployment pipeline from developer sandbox to production">
+    <rect class="s-box-b" x="20"  y="50" width="130" height="62" rx="10"/>
+    <text class="s-t anchor-mid" x="85" y="72">Dev Sandbox</text><text class="s-t-sm anchor-mid" x="85" y="94">build feature</text>
+    <path class="s-line-b" d="M150 81 H190"/><text class="s-t-sm anchor-mid" x="170" y="66">→</text>
+
+    <rect class="s-box-v" x="190" y="50" width="130" height="62" rx="10"/>
+    <text class="s-t anchor-mid" x="255" y="72">Dev Pro / Int</text><text class="s-t-sm anchor-mid" x="255" y="94">merge &amp; test</text>
+    <path class="s-line-v" d="M320 81 H360"/><text class="s-t-sm anchor-mid" x="340" y="66">→</text>
+
+    <rect class="s-box-t" x="360" y="50" width="130" height="62" rx="10"/>
+    <text class="s-t anchor-mid" x="425" y="72">Partial / UAT</text><text class="s-t-sm anchor-mid" x="425" y="94">business signs off</text>
+    <path class="s-line-t" d="M490 81 H530"/><text class="s-t-sm anchor-mid" x="510" y="66">→</text>
+
+    <rect class="s-box-a" x="530" y="50" width="130" height="62" rx="10"/>
+    <text class="s-t anchor-mid" x="595" y="72">Full / Staging</text><text class="s-t-sm anchor-mid" x="595" y="94">perf + regression</text>
+    <path class="s-line-a" d="M660 81 H700"/><text class="s-t-sm anchor-mid" x="680" y="66">→</text>
+
+    <rect class="s-box-g" x="700" y="50" width="90" height="62" rx="10"/>
+    <text class="s-t anchor-mid" x="745" y="72">Prod</text><text class="s-t-sm anchor-mid" x="745" y="94">live</text>
+
+    <text class="s-t-sm anchor-mid" x="400" y="150">Version control (Git) is the source of truth — orgs are just deployment targets</text>
+  </svg>
+</div>
+
+<h3>Editions</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Edition</th><th>Who it's for</th><th>Key limits</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Essentials</strong></td><td>Very small teams</td><td>Up to 10 users, no custom Apex</td></tr>
+    <tr><td><strong>Professional</strong></td><td>Small businesses</td><td>Limited API &amp; Apex (Apex needs approval), 5 record types/object</td></tr>
+    <tr><td><strong>Enterprise</strong></td><td>The common choice</td><td>Full Apex, API, workflows; 500 custom objects</td></tr>
+    <tr><td><strong>Unlimited / Performance</strong></td><td>Large enterprises</td><td>Higher limits, more sandboxes, premier support</td></tr>
+    <tr><td><strong>Developer</strong></td><td>Learning &amp; building</td><td>Free, 2 users, small storage — full feature access</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout exam">
+  <span class="c-ico">🎓</span>
+  <div class="c-body"><span class="c-title">Exam trap</span>
+    "Which edition supports Apex?" → Enterprise and above out of the box. Professional Edition requires Salesforce
+    to enable it and comes with restrictions.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="licenses">Licenses — three kinds people confuse</h2>
+<div class="grid g3">
+  <div class="card"><div class="c-ico">👤</div><h4>User License</h4><p>The base license, one per user. Determines the <em>maximum</em> a user could ever access. E.g. Salesforce, Salesforce Platform, Customer Community.</p></div>
+  <div class="card accent-violet"><div class="c-ico">🎟️</div><h4>Permission Set License</h4><p>Adds capability on top of the user license without changing it. E.g. CRM Analytics, Sales Console User.</p></div>
+  <div class="card accent-teal"><div class="c-ico">🔧</div><h4>Feature License</h4><p>Turns on one specific feature for a user. E.g. Marketing User, Knowledge User, Service Cloud User.</p></div>
+</div>
+<div class="callout note">
+  <span class="c-ico">🔗</span>
+  <div class="c-body"><span class="c-title">Key rule</span>
+    A permission set can never grant more than the user license allows. If a Platform-licensed user can't see
+    Opportunities, no permission set will fix it — the license itself excludes standard CRM objects.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="releases">The release cycle</h2>
+<p>Salesforce ships <strong>three releases a year</strong> — <strong>Spring</strong> (Feb), <strong>Summer</strong> (Jun),
+   <strong>Winter</strong> (Oct) — named for the season <em>ahead</em> of the calendar year, e.g. Winter '26 ships in October 2025.</p>
+<ul class="steps">
+  <li><b>Release notes published</b> ~5 weeks before, and sandboxes on preview instances upgrade first.</li>
+  <li><b>Preview window</b> — test your customisations on a sandbox running the new version.</li>
+  <li><b>Production upgrade</b> — happens in a 5-minute rolling window with no downtime.</li>
+  <li><b>Critical Updates / Release Updates</b> — behaviour changes you must activate before an enforcement deadline. Check Setup → Release Updates every release.</li>
+</ul>
+<div class="callout tip">
+  <span class="c-ico">📌</span>
+  <div class="c-body"><span class="c-title">Practical habit</span>
+    <code>status.salesforce.com</code> tells you your instance (e.g. NA152), maintenance windows and the exact release date.
+    The <strong>API version</strong> of your classes stays where you left it — old code keeps its old behaviour after upgrade.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="clouds">The product family</h2>
+<div class="grid g3">
+  <div class="card"><h4>Sales Cloud</h4><p>Leads, Accounts, Contacts, Opportunities, forecasting, quotes. The classic CRM.</p></div>
+  <div class="card accent-teal"><h4>Service Cloud</h4><p>Cases, Knowledge, Omni-Channel, Entitlements, Service Console, Field Service.</p></div>
+  <div class="card accent-violet"><h4>Experience Cloud</h4><p>External portals and communities for customers and partners.</p></div>
+  <div class="card accent-amber"><h4>Marketing Cloud / Account Engagement</h4><p>Journeys, email campaigns, lead nurturing (Pardot = Account Engagement).</p></div>
+  <div class="card accent-green"><h4>Commerce Cloud</h4><p>B2C and B2B storefronts.</p></div>
+  <div class="card accent-rose"><h4>Lightning Platform</h4><p>The custom-app layer you build on — the focus of most of these notes.</p></div>
+</div>
+
+<h3>Lightning Experience vs Classic</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Aspect</th><th>Classic</th><th>Lightning Experience</th></tr></thead>
+  <tbody>
+    <tr><td>UI framework</td><td>Server-rendered pages</td><td>Component-based SPA (Aura/LWC)</td></tr>
+    <tr><td>Custom UI</td><td>Visualforce</td><td>LWC + Aura (VF still supported in an iframe)</td></tr>
+    <tr><td>App building</td><td>Page layouts only</td><td>Lightning App Builder + Dynamic Forms</td></tr>
+    <tr><td>New features</td><td>Frozen</td><td>All new investment goes here</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="ids">Record IDs — the 15 vs 18 character question</h2>
+<p>Every record has an ID. The <strong>first 3 characters</strong> are the object key prefix, which is a fast way to identify an object from a URL.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Prefix</th><th>Object</th><th>Prefix</th><th>Object</th></tr></thead>
+  <tbody>
+    <tr><td><code>001</code></td><td>Account</td><td><code>500</code></td><td>Case</td></tr>
+    <tr><td><code>003</code></td><td>Contact</td><td><code>00Q</code></td><td>Lead</td></tr>
+    <tr><td><code>006</code></td><td>Opportunity</td><td><code>005</code></td><td>User</td></tr>
+    <tr><td><code>00D</code></td><td>Organization</td><td><code>a0X</code></td><td>Custom objects</td></tr>
+  </tbody>
+</table>
+</div>
+<ul>
+  <li><strong>15-character</strong> — case-<em>sensitive</em>, shown in the UI/URL.</li>
+  <li><strong>18-character</strong> — case-<em>insensitive</em>, adds a 3-char checksum. Used by the API, and required by tools like Excel that lose case.</li>
+  <li>In Apex the two are interchangeable: <code>Id</code> comparisons normalise to 18. Convert with <code>String.valueOf(id)</code> (always 18) or the formula <code>CASESAFEID()</code>.</li>
+</ul>
+
+<!-- ============================================ -->
+<h2 id="glossary">Fast glossary</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td>Org</td><td>One isolated Salesforce instance</td></tr>
+    <tr><td>Object</td><td>A table (Account, <code>Invoice__c</code>)</td></tr>
+    <tr><td>Record</td><td>A row</td></tr>
+    <tr><td>Field</td><td>A column</td></tr>
+    <tr><td>App</td><td>A named collection of tabs</td></tr>
+    <tr><td>Setup</td><td>The admin configuration area</td></tr>
+    <tr><td>Sandbox</td><td>A copy of production for dev/test</td></tr>
+    <tr><td>Governor limit</td><td>Per-transaction resource cap</td></tr>
+    <tr><td>SOQL</td><td>Salesforce Object Query Language (query one object tree)</td></tr>
+    <tr><td>SOSL</td><td>Salesforce Object Search Language (text search many objects)</td></tr>
+    <tr><td>Metadata</td><td>Configuration describing your org</td></tr>
+    <tr><td>Declarative</td><td>Built with clicks, not code</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Explain multitenancy and how Salesforce keeps one customer's data away from another's.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Thousands of customers share the same application instance, database and hardware. Isolation is
+achieved at the <strong>data layer</strong>, not by separate servers: every row carries an <strong>Org ID</strong>, and
+the query optimizer rewrites every query to filter on it. Your customisations live as metadata rows tagged with the
+same Org ID. The trade-off for this efficiency is <strong>governor limits</strong> — enforced fairness so one tenant
+can't starve the others.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> What does "metadata-driven architecture" actually mean?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>When you create <code>Invoice__c</code>, Salesforce doesn't run <code>CREATE TABLE</code>. It writes
+rows into internal metadata tables describing the object and its fields; your records land in a shared data table where
+values map to generic columns, with indexes pivoted separately.</p>
+<p><strong>Consequences:</strong> schema changes are instant and safe, configuration is deployable as metadata, and the
+same platform serves every tenant. But you get no database tuning — you optimise <em>queries</em> and rely on
+selective filters and custom indexes instead.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Which sandbox would you use for performance testing, and why not the others?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Full sandbox</strong> — it's the only type that copies all production data, so load and
+performance results are meaningful. Developer (200 MB) and Developer Pro (1 GB) copy metadata only; Partial Copy takes
+a template-defined <em>sample</em>, which is fine for UAT but useless for performance. Note the refresh intervals:
+Developer daily, Partial 5 days, Full 29 days — that alone often drives the environment strategy.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> 15 vs 18 character record IDs — why do both exist?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The <strong>15-character</strong> ID is case-<em>sensitive</em> and appears in the UI and URLs.
+The <strong>18-character</strong> ID appends a 3-character checksum making it case-<em>insensitive</em>, which matters
+for tools that lose case — Excel, some databases, older ETL. The API returns 18. In Apex the <code>Id</code> type
+normalises them so comparisons work either way; in formulas use <code>CASESAFEID()</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> A release is coming. What do you do to prepare?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Read the release notes (~5 weeks ahead), then test on a sandbox that sits on a
+<strong>preview instance</strong> so it upgrades first. Critically, check <strong>Setup → Release Updates</strong> for
+behaviour changes with enforcement deadlines and activate them in a sandbox before they become mandatory. Production
+upgrades happen in a ~5-minute rolling window with no downtime. Existing Apex keeps its saved <strong>API version</strong>,
+so old code retains its old behaviour after the upgrade.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> A user has a Salesforce Platform licence and can't see Opportunities. Can a permission set fix it?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>No.</strong> A permission set can never grant more than the <strong>user licence</strong>
+permits, and the Platform licence excludes standard CRM objects such as Opportunity, Lead, Case and Campaign. The fix
+is a licence change, not a permission change. This is the distinction between a <em>user licence</em> (the ceiling),
+a <em>permission set licence</em> (adds capability on top) and a <em>feature licence</em> (turns on one feature such
+as Marketing User).</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> Where does MVC map on the Salesforce platform?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Model</strong> — objects, fields, relationships, validation rules, record types.
+<strong>View</strong> — Lightning App Builder, LWC, Aura, Visualforce, page layouts, Dynamic Forms.
+<strong>Controller</strong> — Apex classes and triggers, Flow, standard controllers, approval processes.
+Asking "which layer is this feature?" is a fast way to pick the right tool for a requirement.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> Why is there no <code>SELECT *</code> in SOQL?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Because of multitenancy and the shared data table. Returning every field of every row would be
+unbounded work on infrastructure shared with other tenants, and would blow heap limits. You must name the fields you
+need, which keeps queries selective and predictable. When you genuinely need all fields, build the list dynamically
+from <code>Schema.describe</code> or a Field Set — and accept the heap cost consciously.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. Why does Salesforce enforce governor limits?</div>
+  <button class="opt">To make developers write shorter code</button>
+  <button class="opt" data-correct="1">Because resources are shared across tenants, so no org may monopolise them</button>
+  <button class="opt">Because Apex is an interpreted language</button>
+  <div class="explain">Multitenancy is the reason. Shared infrastructure requires enforced fairness — every limit traces back to this.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. You need a sandbox with real production data for performance testing. Which one?</div>
+  <button class="opt">Developer</button>
+  <button class="opt">Partial Copy</button>
+  <button class="opt" data-correct="1">Full</button>
+  <div class="explain">Only a Full sandbox copies all data. Partial Copy takes a template-defined sample; Developer copies metadata only.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. A record ID starts with <code>006</code>. What object is it?</div>
+  <button class="opt">Account</button>
+  <button class="opt" data-correct="1">Opportunity</button>
+  <button class="opt">Case</button>
+  <div class="explain">001 = Account, 003 = Contact, 006 = Opportunity, 500 = Case, 00Q = Lead.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Fundamentals</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

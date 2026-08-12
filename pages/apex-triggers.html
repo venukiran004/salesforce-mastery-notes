@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apex Triggers | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Apex</span> › <span>Triggers</span></div>
+  <h1>Apex Triggers &amp; Order of Execution</h1>
+  <p class="lede">Context variables, the full save order, recursion control, a production-grade handler framework —
+     and scenario questions with worked answers.</p>
+</header>
+
+<!-- ============================================ -->
+<h2 id="triggers">What a trigger is</h2>
+<p>Apex code that executes automatically <strong>before or after</strong> a DML operation on a specific object.
+   It is the code equivalent of a record-triggered flow, but with full programmatic power.</p>
+
+<pre><code class="language-apex">trigger AccountTrigger on Account (
+    before insert, before update, before delete,
+    after  insert, after  update, after  delete, after undelete) {
+
+    AccountTriggerHandler.run();          // one line — all logic lives in the handler
+}</code></pre>
+
+<div class="dgm">
+  <div class="dgm-title">Where before and after triggers sit</div>
+  <svg viewBox="0 0 800 260" role="img" aria-label="Position of before and after triggers around the database save">
+    <rect class="s-box" x="20" y="102" width="110" height="56" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="75" y="122">DML fired</text>
+    <text class="s-t-sm anchor-mid" x="75" y="142">insert/update…</text>
+    <path class="s-line" d="M130 130 H180" marker-end="url(#t1)"/>
+
+    <rect class="s-box-b" x="180" y="86" width="170" height="88" rx="9"/>
+    <text class="s-t s-t-b anchor-mid" x="265" y="108">BEFORE trigger</text>
+    <text class="s-t-sm anchor-mid" x="265" y="130">✔ Record has no Id (insert)</text>
+    <text class="s-t-sm anchor-mid" x="265" y="148">✔ Edit Trigger.new directly</text>
+    <text class="s-t-sm anchor-mid" x="265" y="166">✘ No related records yet</text>
+    <path class="s-line-b" d="M350 130 H400" marker-end="url(#t1)"/>
+
+    <rect class="s-box-a" x="400" y="102" width="110" height="56" rx="9"/>
+    <text class="s-t s-t-a anchor-mid" x="455" y="122">Saved to DB</text>
+    <text class="s-t-sm anchor-mid" x="455" y="142">(not committed)</text>
+    <path class="s-line-a" d="M510 130 H560" marker-end="url(#t1)"/>
+
+    <rect class="s-box-v" x="560" y="86" width="180" height="88" rx="9"/>
+    <text class="s-t s-t-v anchor-mid" x="650" y="108">AFTER trigger</text>
+    <text class="s-t-sm anchor-mid" x="650" y="130">✔ Id available</text>
+    <text class="s-t-sm anchor-mid" x="650" y="148">✔ Create related records</text>
+    <text class="s-t-sm anchor-mid" x="650" y="166">✘ Trigger.new is READ-ONLY</text>
+
+    <text class="s-t-sm s-t-g anchor-mid" x="265" y="216">Use BEFORE to validate &amp; set fields on the same record (free — no extra DML)</text>
+    <text class="s-t-sm s-t-v anchor-mid" x="650" y="216">Use AFTER for related records, emails, callouts (async), roll-ups</text>
+    <defs><marker id="t1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<!-- ============================================ -->
+<h2 id="context-variables">Context variables</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Variable</th><th>Type</th><th>Available in</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><code>Trigger.new</code></td><td><code>List&lt;sObject&gt;</code></td><td>insert, update, undelete</td><td>New versions. <strong>Editable only in before triggers.</strong></td></tr>
+    <tr><td><code>Trigger.old</code></td><td><code>List&lt;sObject&gt;</code></td><td>update, delete</td><td>Old versions — always read-only</td></tr>
+    <tr><td><code>Trigger.newMap</code></td><td><code>Map&lt;Id, sObject&gt;</code></td><td>before update, after insert/update/undelete</td><td>Not in <em>before insert</em> (no Ids yet)</td></tr>
+    <tr><td><code>Trigger.oldMap</code></td><td><code>Map&lt;Id, sObject&gt;</code></td><td>update, delete</td><td>The go-to for "did this field change?"</td></tr>
+    <tr><td><code>Trigger.isInsert / isUpdate / isDelete / isUndelete</code></td><td>Boolean</td><td>All</td><td>Which DML</td></tr>
+    <tr><td><code>Trigger.isBefore / isAfter</code></td><td>Boolean</td><td>All</td><td>Which phase</td></tr>
+    <tr><td><code>Trigger.isExecuting</code></td><td>Boolean</td><td>All</td><td>True when running in trigger context</td></tr>
+    <tr><td><code>Trigger.size</code></td><td>Integer</td><td>All</td><td>Records in this invocation (max 200 per chunk)</td></tr>
+    <tr><td><code>Trigger.operationType</code></td><td>Enum</td><td>All</td><td><code>BEFORE_INSERT</code>, <code>AFTER_UPDATE</code>… — cleaner for switch statements</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="dgm">
+  <div class="dgm-title">Which context variables exist in which event</div>
+  <svg viewBox="0 0 780 250" role="img" aria-label="Matrix of context variable availability by trigger event">
+    <text class="s-t-sm" x="150" y="20">Trigger.new</text>
+    <text class="s-t-sm" x="270" y="20">Trigger.old</text>
+    <text class="s-t-sm" x="390" y="20">Trigger.newMap</text>
+    <text class="s-t-sm" x="530" y="20">Trigger.oldMap</text>
+    <text class="s-t-sm" x="650" y="20">new editable?</text>
+
+    <g>
+      <text class="s-t-sm" x="10" y="50">before insert</text>
+      <text class="s-t-sm s-t-g" x="180" y="50">✔</text><text class="s-t-sm s-t-r" x="300" y="50">✘</text>
+      <text class="s-t-sm s-t-r" x="430" y="50">✘</text><text class="s-t-sm s-t-r" x="565" y="50">✘</text>
+      <text class="s-t-sm s-t-g" x="690" y="50">YES</text>
+
+      <text class="s-t-sm" x="10" y="80">before update</text>
+      <text class="s-t-sm s-t-g" x="180" y="80">✔</text><text class="s-t-sm s-t-g" x="300" y="80">✔</text>
+      <text class="s-t-sm s-t-g" x="430" y="80">✔</text><text class="s-t-sm s-t-g" x="565" y="80">✔</text>
+      <text class="s-t-sm s-t-g" x="690" y="80">YES</text>
+
+      <text class="s-t-sm" x="10" y="110">before delete</text>
+      <text class="s-t-sm s-t-r" x="180" y="110">✘</text><text class="s-t-sm s-t-g" x="300" y="110">✔</text>
+      <text class="s-t-sm s-t-r" x="430" y="110">✘</text><text class="s-t-sm s-t-g" x="565" y="110">✔</text>
+      <text class="s-t-sm" x="690" y="110">n/a</text>
+
+      <text class="s-t-sm" x="10" y="140">after insert</text>
+      <text class="s-t-sm s-t-g" x="180" y="140">✔</text><text class="s-t-sm s-t-r" x="300" y="140">✘</text>
+      <text class="s-t-sm s-t-g" x="430" y="140">✔</text><text class="s-t-sm s-t-r" x="565" y="140">✘</text>
+      <text class="s-t-sm s-t-r" x="690" y="140">NO</text>
+
+      <text class="s-t-sm" x="10" y="170">after update</text>
+      <text class="s-t-sm s-t-g" x="180" y="170">✔</text><text class="s-t-sm s-t-g" x="300" y="170">✔</text>
+      <text class="s-t-sm s-t-g" x="430" y="170">✔</text><text class="s-t-sm s-t-g" x="565" y="170">✔</text>
+      <text class="s-t-sm s-t-r" x="690" y="170">NO</text>
+
+      <text class="s-t-sm" x="10" y="200">after delete</text>
+      <text class="s-t-sm s-t-r" x="180" y="200">✘</text><text class="s-t-sm s-t-g" x="300" y="200">✔</text>
+      <text class="s-t-sm s-t-r" x="430" y="200">✘</text><text class="s-t-sm s-t-g" x="565" y="200">✔</text>
+      <text class="s-t-sm" x="690" y="200">n/a</text>
+
+      <text class="s-t-sm" x="10" y="230">after undelete</text>
+      <text class="s-t-sm s-t-g" x="180" y="230">✔</text><text class="s-t-sm s-t-r" x="300" y="230">✘</text>
+      <text class="s-t-sm s-t-g" x="430" y="230">✔</text><text class="s-t-sm s-t-r" x="565" y="230">✘</text>
+      <text class="s-t-sm s-t-r" x="690" y="230">NO</text>
+    </g>
+    <path class="s-line s-dash" d="M0 32 H780 M0 62 H780 M0 92 H780 M0 122 H780 M0 152 H780 M0 182 H780 M0 212 H780"/>
+  </svg>
+</div>
+
+<pre><code class="language-apex">// The single most common pattern: detect a field change
+for (Opportunity opp : Trigger.new) {
+    Opportunity oldOpp = Trigger.oldMap.get(opp.Id);
+    if (opp.StageName != oldOpp.StageName && opp.StageName == 'Closed Won') {
+        // fires only on the transition into Closed Won
+    }
+}
+
+// Adding an error — blocks the save for that record only
+for (Account a : Trigger.new) {
+    if (String.isBlank(a.Industry)) {
+        a.addError('Industry is required.');                    // record-level
+        a.Industry.addError('Please choose an industry.');      // field-level (nicer UI)
+    }
+}</code></pre>
+
+<!-- ============================================ -->
+<h2 id="order-of-execution">Order of execution</h2>
+<p>The exact sequence when a record is saved. Memorise this — it explains nearly every "why did my automation not work?" question.</p>
+
+<div class="tl">
+  <div class="tl-item"><b>1 · Load the record</b><span>The original record is loaded from the database (or initialised for insert).</span></div>
+  <div class="tl-item"><b>2 · Overwrite with new values</b><span>New field values from the request overwrite the old ones. No automation yet.</span></div>
+  <div class="tl-item"><b>3 · System validation</b><span>Required fields, field data types, max length. (For UI saves only: layout-level rules run here too.)</span></div>
+  <div class="tl-item"><b>4 · Record-triggered flows — before save</b><span>"Fast Field Update" flows run <em>before</em> before-triggers.</span></div>
+  <div class="tl-item"><b>5 · BEFORE triggers</b><span>Your <code>before insert/update/delete</code> Apex.</span></div>
+  <div class="tl-item"><b>6 · System validation again</b><span>Re-runs the system checks plus custom validation on the values your trigger set.</span></div>
+  <div class="tl-item"><b>7 · Duplicate rules</b><span>If set to Block, the save stops here.</span></div>
+  <div class="tl-item"><b>8 · Save to database</b><span>Record written — but <strong>not committed</strong>. Ids now exist.</span></div>
+  <div class="tl-item"><b>9 · AFTER triggers</b><span>Your <code>after insert/update/delete/undelete</code> Apex.</span></div>
+  <div class="tl-item"><b>10 · Assignment rules</b><span>Lead/Case owner assignment.</span></div>
+  <div class="tl-item"><b>11 · Auto-response rules</b><span>Lead/Case acknowledgement emails.</span></div>
+  <div class="tl-item"><b>12 · Workflow rules</b><span>Legacy — field updates here cause the record to be saved <em>again</em>, re-firing before/after triggers <strong>once</strong>.</span></div>
+  <div class="tl-item"><b>13 · Escalation rules</b><span>Case escalation.</span></div>
+  <div class="tl-item"><b>14 · Record-triggered flows — after save</b><span>Your after-save flows. These run after workflow field updates.</span></div>
+  <div class="tl-item"><b>15 · Entitlement rules</b><span>Milestones and entitlement processes.</span></div>
+  <div class="tl-item"><b>16 · Roll-up summary fields</b><span>Parent records are recalculated — <strong>which fires the parent's triggers</strong>.</span></div>
+  <div class="tl-item"><b>17 · Criteria-based sharing</b><span>Sharing rules evaluated.</span></div>
+  <div class="tl-item"><b>18 · Grandparent roll-ups</b><span>If the parent is itself a detail record, the chain continues upward.</span></div>
+  <div class="tl-item"><b>19 · Commit</b><span>Everything is committed to the database. <strong>Only now</strong> do post-commit actions run.</span></div>
+  <div class="tl-item"><b>20 · Post-commit logic</b><span>Emails sent, <code>@future</code>/Queueable jobs enqueued, async paths, platform events published (<code>Publish After Commit</code>).</span></div>
+</div>
+
+<div class="callout danger">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">The three consequences that matter</span>
+    ① A <strong>workflow field update</strong> re-runs your triggers — the classic cause of "my trigger ran twice".
+    ② A <strong>roll-up summary</strong> updating a parent fires the parent's triggers, cascading upward.
+    ③ <code>@future</code> and emails only fire <strong>after commit</strong>, so they never see a rolled-back transaction.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="bulkification">Bulkification</h2>
+<p>A trigger receives up to <strong>200 records per invocation</strong>. Data Loader sends 10,000 records as 50 chunks
+   of 200 — and your governor limits reset per chunk, but not within one.</p>
+
+<div class="vs">
+  <div class="card accent-rose"><h4>❌ Never</h4>
+<pre style="font-size:12px;background:none;padding:0;color:var(--text-dim)">for (Account a : Trigger.new) {
+  // SOQL in a loop → 101 error
+  List&lt;Contact&gt; cs = [SELECT Id FROM Contact
+                      WHERE AccountId = :a.Id];
+  for (Contact c : cs) {
+    c.Description = 'x';
+    update c;        // DML in a loop
+  }
+}</pre></div>
+  <div class="vs-mid">→</div>
+  <div class="card accent-green"><h4>✅ Always</h4>
+<pre style="font-size:12px;background:none;padding:0;color:var(--text-dim)">Set&lt;Id&gt; accIds = Trigger.newMap.keySet();
+
+List&lt;Contact&gt; toUpdate = new List&lt;Contact&gt;();
+for (Contact c : [SELECT Id, AccountId FROM Contact
+                  WHERE AccountId IN :accIds]) {
+  c.Description = 'x';
+  toUpdate.add(c);
+}
+if (!toUpdate.isEmpty()) update toUpdate;</pre></div>
+</div>
+
+<div class="callout tip">
+  <span class="c-ico">✅</span>
+  <div class="c-body"><span class="c-title">The bulkification checklist</span>
+    ① No SOQL/SOSL inside a loop. ② No DML inside a loop. ③ No <code>@future</code>/callout inside a loop.
+    ④ Query with <code>IN :setOfIds</code>. ⑤ Collect into a List, DML once. ⑥ Guard with <code>if (!list.isEmpty())</code>.
+    ⑦ Test with 200 records.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="recursion">Recursion</h2>
+<p>Recursion happens when a trigger's own DML causes the same trigger to fire again — potentially hitting
+   <code>System.LimitException: Maximum trigger depth exceeded</code> (16 levels) or silently doubling work.</p>
+
+<div class="dgm">
+  <div class="dgm-title">How recursion happens — and how the static flag stops it</div>
+  <svg viewBox="0 0 780 300" role="img" aria-label="Recursive trigger loop and static boolean guard">
+    <rect class="s-box-b" x="40" y="30" width="150" height="50" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="115" y="55">User updates Account</text>
+    <path class="s-line-b" d="M190 55 H260" marker-end="url(#r1)"/>
+    <rect class="s-box-v" x="260" y="30" width="150" height="50" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="335" y="55">AccountTrigger fires</text>
+    <path class="s-line-v" d="M410 55 H480" marker-end="url(#r1)"/>
+    <rect class="s-box-a" x="480" y="30" width="170" height="50" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="565" y="48">Updates related</text>
+    <text class="s-t-sm anchor-mid" x="565" y="66">Contacts</text>
+    <path class="s-line-a" d="M565 80 V110" marker-end="url(#r1)"/>
+    <rect class="s-box-r" x="480" y="110" width="170" height="50" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="565" y="128">ContactTrigger fires</text>
+    <text class="s-t-sm anchor-mid" x="565" y="146">→ updates Account</text>
+    <path class="s-line-r" d="M480 135 H335 V80" marker-end="url(#r1)"/>
+    <text class="s-t-sm s-t-r anchor-mid" x="400" y="152">↺ loop</text>
+
+    <rect class="s-box-g" x="120" y="200" width="540" height="80" rx="10"/>
+    <text class="s-t s-t-g anchor-mid" x="390" y="224">The guard</text>
+    <text class="s-t-mono anchor-mid" x="390" y="248">if (TriggerControl.hasRun) return;  TriggerControl.hasRun = true;</text>
+    <text class="s-t-sm anchor-mid" x="390" y="270">Static variables live for one transaction — perfect scope for this</text>
+    <defs><marker id="r1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<h3>Solution 1 — static Boolean (simple)</h3>
+<pre><code class="language-apex">public class TriggerControl {
+    public static Boolean accountTriggerHasRun = false;
+}
+
+trigger AccountTrigger on Account (after update) {
+    if (TriggerControl.accountTriggerHasRun) return;
+    TriggerControl.accountTriggerHasRun = true;
+
+    AccountTriggerHandler.handleAfterUpdate(Trigger.new, Trigger.oldMap);
+}</code></pre>
+<div class="callout warn">
+  <span class="c-ico">⚠️</span>
+  <div class="c-body"><span class="c-title">The flaw</span>
+    A blanket flag also blocks <strong>legitimate</strong> second runs. Load 400 records with Data Loader:
+    chunk 1 (200 records) sets the flag, and chunk 2 is skipped entirely because statics persist across chunks in the
+    same transaction. Data silently goes unprocessed.</div>
+</div>
+
+<h3>Solution 2 — track processed record Ids (recommended)</h3>
+<pre><code class="language-apex">public class TriggerControl {
+    private static Set&lt;Id&gt; processedAccountIds = new Set&lt;Id&gt;();
+
+    /** Returns only the records not yet processed in this transaction. */
+    public static List&lt;Account&gt; filterUnprocessed(List&lt;Account&gt; records) {
+        List&lt;Account&gt; fresh = new List&lt;Account&gt;();
+        for (Account a : records) {
+            if (!processedAccountIds.contains(a.Id)) {
+                fresh.add(a);
+                processedAccountIds.add(a.Id);
+            }
+        }
+        return fresh;
+    }
+}
+
+// In the handler
+List&lt;Account&gt; toProcess = TriggerControl.filterUnprocessed(Trigger.new);
+if (toProcess.isEmpty()) return;</code></pre>
+
+<h3>Solution 3 — only act when something relevant changed</h3>
+<pre><code class="language-apex">// Often the best fix: recursion is harmless if the second pass does nothing
+List&lt;Opportunity&gt; changed = new List&lt;Opportunity&gt;();
+for (Opportunity o : Trigger.new) {
+    if (o.StageName != Trigger.oldMap.get(o.Id).StageName) changed.add(o);
+}
+if (changed.isEmpty()) return;    // second pass exits immediately</code></pre>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+  <tbody>
+    <tr><td>Static Boolean</td><td>One line, easy</td><td>Breaks multi-chunk loads and legitimate re-entry</td></tr>
+    <tr><td>Set of processed Ids</td><td>Precise, chunk-safe</td><td>Slightly more code; watch heap on huge volumes</td></tr>
+    <tr><td>Change detection</td><td>No state at all; also improves performance</td><td>Requires disciplined field comparisons</td></tr>
+    <tr><td>Custom Setting bypass</td><td>Admins can disable a trigger without a deploy</td><td>Needs governance so it isn't left on</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="handler-framework">Trigger handler framework</h2>
+<p><strong>One trigger per object</strong>, and the trigger contains no logic. Otherwise you cannot control execution
+   order between multiple triggers on the same object — Salesforce does not guarantee it.</p>
+
+<pre><code class="language-apex">/* ---------- 1. The base class ---------- */
+public virtual class TriggerHandler {
+
+    private static Map&lt;String, Integer&gt; loopCount = new Map&lt;String, Integer&gt;();
+    private static Set&lt;String&gt; bypassed = new Set&lt;String&gt;();
+    private String handlerName;
+
+    public TriggerHandler() {
+        this.handlerName = String.valueOf(this).substring(0, String.valueOf(this).indexOf(':'));
+    }
+
+    public void run() {
+        if (!Trigger.isExecuting || isBypassed(handlerName)) return;
+        if (!checkRecursion()) return;
+
+        switch on Trigger.operationType {
+            when BEFORE_INSERT  { beforeInsert();  }
+            when BEFORE_UPDATE  { beforeUpdate();  }
+            when BEFORE_DELETE  { beforeDelete();  }
+            when AFTER_INSERT   { afterInsert();   }
+            when AFTER_UPDATE   { afterUpdate();   }
+            when AFTER_DELETE   { afterDelete();   }
+            when AFTER_UNDELETE { afterUndelete(); }
+        }
+    }
+
+    /* Virtual no-ops — subclasses override only what they need */
+    protected virtual void beforeInsert()  {}
+    protected virtual void beforeUpdate()  {}
+    protected virtual void beforeDelete()  {}
+    protected virtual void afterInsert()   {}
+    protected virtual void afterUpdate()   {}
+    protected virtual void afterDelete()   {}
+    protected virtual void afterUndelete() {}
+
+    /* Recursion guard with a configurable max depth */
+    private Boolean checkRecursion() {
+        String key = handlerName + '.' + Trigger.operationType;
+        Integer count = loopCount.containsKey(key) ? loopCount.get(key) : 0;
+        loopCount.put(key, count + 1);
+        return count &lt; 2;                       // allow one legitimate re-entry
+    }
+
+    /* Admin/test bypass */
+    public static void bypass(String handler)   { bypassed.add(handler); }
+    public static void clearBypass(String h)    { bypassed.remove(h); }
+    public static Boolean isBypassed(String h)  {
+        if (bypassed.contains(h)) return true;
+        Trigger_Settings__c s = Trigger_Settings__c.getInstance();
+        return s != null &amp;&amp; s.Disable_All_Triggers__c == true;
+    }
+}
+
+/* ---------- 2. The object handler ---------- */
+public with sharing class AccountTriggerHandler extends TriggerHandler {
+
+    private List&lt;Account&gt;      newList = (List&lt;Account&gt;) Trigger.new;
+    private Map&lt;Id, Account&gt;   oldMap  = (Map&lt;Id, Account&gt;) Trigger.oldMap;
+
+    protected override void beforeInsert() {
+        AccountService.normaliseNames(newList);
+        AccountService.setDefaultOwnerRegion(newList);
+    }
+
+    protected override void beforeUpdate() {
+        AccountService.validateTierChange(newList, oldMap);
+    }
+
+    protected override void afterInsert() {
+        AccountService.createDefaultContact(newList);
+    }
+
+    protected override void afterUpdate() {
+        List&lt;Account&gt; tierChanged = new List&lt;Account&gt;();
+        for (Account a : newList) {
+            if (a.Tier__c != oldMap.get(a.Id).Tier__c) tierChanged.add(a);
+        }
+        if (!tierChanged.isEmpty()) AccountService.syncTierToContacts(tierChanged);
+    }
+}
+
+/* ---------- 3. The trigger : one line ---------- */
+trigger AccountTrigger on Account (
+    before insert, before update, before delete,
+    after insert, after update, after delete, after undelete) {
+    new AccountTriggerHandler().run();
+}</code></pre>
+
+<div class="grid g3">
+  <div class="card accent-green"><h4>Why this design</h4><ul><li>Deterministic order</li><li>Logic is unit-testable without DML</li><li>Recursion handled centrally</li><li>Admin bypass built in</li></ul></div>
+  <div class="card accent-violet"><h4>Layers</h4><ul><li><strong>Trigger</strong> — routing only</li><li><strong>Handler</strong> — orchestration per event</li><li><strong>Service</strong> — reusable business logic</li><li><strong>Selector</strong> — all SOQL lives here</li></ul></div>
+  <div class="card accent-amber"><h4>Naming convention</h4><ul><li><code>AccountTrigger</code></li><li><code>AccountTriggerHandler</code></li><li><code>AccountService</code></li><li><code>AccountSelector</code></li><li><code>AccountTriggerHandlerTest</code></li></ul></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="best-practices">Trigger best practices</h2>
+<div class="grid g2">
+  <div class="card accent-green"><h4>✅ Do</h4>
+    <ul><li>One trigger per object</li><li>No logic in the trigger body</li><li>Bulkify everything</li><li>Use collections and maps</li><li>Handle recursion deliberately</li><li>Use <code>addError()</code> for validation, not exceptions</li><li>Keep queries in a selector layer</li><li>Test with 200 records and negative cases</li><li>Respect FLS/sharing in handlers</li></ul></div>
+  <div class="card accent-rose"><h4>❌ Don't</h4>
+    <ul><li>SOQL/DML/callouts in loops</li><li>Hard-code Ids</li><li>Use <code>Trigger.new[0]</code> — that ignores 199 records</li><li>Write business logic that duplicates a flow on the same object</li><li>Assume the trigger runs once</li><li>Make synchronous callouts from a trigger (use Queueable)</li><li>Swallow exceptions silently</li></ul></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="practice">Trigger practice questions (with answers)</h2>
+
+<details class="acc">
+  <summary><span class="q-num">1</span> Write a trigger that prevents deleting an Account which has open Opportunities.<span class="q-diff med">Medium</span></summary>
+  <div class="acc-body">
+<pre><code class="language-apex">trigger AccountTrigger on Account (before delete) {
+    // Query children once, grouped by parent
+    Map&lt;Id, Integer&gt; openCountByAccount = new Map&lt;Id, Integer&gt;();
+    for (AggregateResult ar : [
+            SELECT AccountId aid, COUNT(Id) cnt
+            FROM Opportunity
+            WHERE AccountId IN :Trigger.oldMap.keySet()
+              AND IsClosed = false
+            GROUP BY AccountId]) {
+        openCountByAccount.put((Id) ar.get('aid'), (Integer) ar.get('cnt'));
+    }
+
+    for (Account a : Trigger.old) {
+        if (openCountByAccount.containsKey(a.Id)) {
+            a.addError('Cannot delete: ' + openCountByAccount.get(a.Id) + ' open opportunities exist.');
+        }
+    }
+}</code></pre>
+    <p><strong>Key points:</strong> <code>before delete</code> (so you can block it), <code>Trigger.old</code> only,
+       one aggregate query outside the loop, and <code>addError()</code> rather than throwing.</p>
+  </div>
+</details>
+
+<details class="acc">
+  <summary><span class="q-num">2</span> Update a custom field on Account with the count of its Contacts, on insert/update/delete/undelete of Contact.<span class="q-diff med">Medium</span></summary>
+  <div class="acc-body">
+<pre><code class="language-apex">trigger ContactTrigger on Contact (after insert, after update, after delete, after undelete) {
+
+    Set&lt;Id&gt; accountIds = new Set&lt;Id&gt;();
+
+    if (Trigger.isInsert || Trigger.isUndelete || Trigger.isUpdate) {
+        for (Contact c : Trigger.new) if (c.AccountId != null) accountIds.add(c.AccountId);
+    }
+    if (Trigger.isDelete || Trigger.isUpdate) {
+        // On update, the contact may have been REPARENTED — recount both accounts
+        for (Contact c : Trigger.old) if (c.AccountId != null) accountIds.add(c.AccountId);
+    }
+    if (accountIds.isEmpty()) return;
+
+    Map&lt;Id, Account&gt; toUpdate = new Map&lt;Id, Account&gt;();
+    for (Id accId : accountIds) toUpdate.put(accId, new Account(Id = accId, Contact_Count__c = 0));
+
+    for (AggregateResult ar : [SELECT AccountId aid, COUNT(Id) c
+                               FROM Contact WHERE AccountId IN :accountIds GROUP BY AccountId]) {
+        toUpdate.get((Id) ar.get('aid')).Contact_Count__c = (Integer) ar.get('c');
+    }
+    update toUpdate.values();
+}</code></pre>
+    <p><strong>The trap:</strong> most candidates forget reparenting on update — you must recount the <em>old</em>
+       account too. Also note seeding every account with 0 so a count that drops to zero is written.</p>
+  </div>
+</details>
+
+<details class="acc">
+  <summary><span class="q-num">3</span> Your trigger runs twice for a single save. Give three possible causes.<span class="q-diff hard">Hard</span></summary>
+  <div class="acc-body">
+    <ol>
+      <li><strong>A workflow rule with a field update</strong> — step 12 of the order of execution re-saves the record and re-fires before/after triggers once.</li>
+      <li><strong>Your own trigger's DML</strong> — updating a related record whose trigger updates back (true recursion).</li>
+      <li><strong>A roll-up summary or a record-triggered flow</strong> updating the record after save.</li>
+      <li>Also possible: an <code>after update</code> that updates the same record, or a process/flow doing an "Update the record that triggered the flow" on the after-save path.</li>
+    </ol>
+    <p><strong>How to diagnose:</strong> add <code>System.debug(Trigger.operationType + ' depth ' + Limits.getDmlStatements())</code>
+       at the top and read the debug log's <code>CODE_UNIT_STARTED</code> entries.</p>
+  </div>
+</details>
+
+<details class="acc">
+  <summary><span class="q-num">4</span> Why can't you modify <code>Trigger.new</code> in an after trigger, and what do you do instead?<span class="q-diff easy">Easy</span></summary>
+  <div class="acc-body">
+    <p>The record has already been written to the database, so the in-memory copy is read-only —
+       modifying it would have no effect. Attempting it throws
+       <em>"Record is read-only"</em>.</p>
+    <p><strong>Instead:</strong> either move the logic to a <code>before</code> trigger (free, no extra DML), or in the
+       after trigger build new sObject instances and issue an explicit update:</p>
+<pre><code class="language-apex">List&lt;Account&gt; updates = new List&lt;Account&gt;();
+for (Account a : Trigger.new) {
+    updates.add(new Account(Id = a.Id, Status__c = 'Processed'));
+}
+update updates;   // but prefer a before trigger if it's the same record!</code></pre>
+  </div>
+</details>
+
+<details class="acc">
+  <summary><span class="q-num">5</span> A trigger makes a callout and fails with "You have uncommitted work pending". Fix it.<span class="q-diff med">Medium</span></summary>
+  <div class="acc-body">
+    <p>You cannot make a callout after a DML in the same transaction, because the platform will not hold an open
+       database transaction while waiting on an external system.</p>
+<pre><code class="language-apex">// ✅ Move the callout to an async context that starts after commit
+public class NotifyErpQueueable implements Queueable, Database.AllowsCallouts {
+    private Set&lt;Id&gt; accountIds;
+    public NotifyErpQueueable(Set&lt;Id&gt; ids) { this.accountIds = ids; }
+
+    public void execute(QueueableContext ctx) {
+        for (Account a : [SELECT Id, Name FROM Account WHERE Id IN :accountIds]) {
+            HttpRequest req = new HttpRequest();
+            req.setEndpoint('callout:ERP_Named_Cred/accounts');
+            req.setMethod('POST');
+            req.setHeader('Content-Type', 'application/json');
+            req.setBody(JSON.serialize(a));
+            new Http().send(req);
+        }
+    }
+}
+
+// In the after trigger
+System.enqueueJob(new NotifyErpQueueable(Trigger.newMap.keySet()));</code></pre>
+    <p><code>@future(callout=true)</code> also works but Queueable is preferred: it takes sObject/complex parameters,
+       can be chained, and returns a job Id you can monitor.</p>
+  </div>
+</details>
+
+<details class="acc">
+  <summary><span class="q-num">6</span> Prevent duplicate Contacts by email within the same Account, handling both existing records and duplicates inside the same batch.<span class="q-diff hard">Hard</span></summary>
+  <div class="acc-body">
+<pre><code class="language-apex">trigger ContactTrigger on Contact (before insert, before update) {
+
+    Map&lt;String, Contact&gt; seenInBatch = new Map&lt;String, Contact&gt;();
+    Set&lt;String&gt; emails = new Set&lt;String&gt;();
+    Set&lt;Id&gt; accountIds = new Set&lt;Id&gt;();
+
+    for (Contact c : Trigger.new) {
+        if (String.isBlank(c.Email) || c.AccountId == null) continue;
+        String key = c.AccountId + '|' + c.Email.toLowerCase();
+
+        // 1. Duplicate WITHIN this batch
+        if (seenInBatch.containsKey(key)) {
+            c.Email.addError('Duplicate email in this batch for the same Account.');
+        } else {
+            seenInBatch.put(key, c);
+            emails.add(c.Email);
+            accountIds.add(c.AccountId);
+        }
+    }
+    if (seenInBatch.isEmpty()) return;
+
+    // 2. Duplicate against records ALREADY in the database
+    for (Contact existing : [SELECT Id, Email, AccountId FROM Contact
+                             WHERE Email IN :emails AND AccountId IN :accountIds]) {
+        String key = existing.AccountId + '|' + existing.Email.toLowerCase();
+        Contact incoming = seenInBatch.get(key);
+        if (incoming != null &amp;&amp; incoming.Id != existing.Id) {
+            incoming.Email.addError('A contact with this email already exists on the account.');
+        }
+    }
+}</code></pre>
+    <p><strong>Why it's a hard question:</strong> candidates almost always check the database but forget duplicates
+       inside the same 200-record batch, and forget to exclude the record itself on update.</p>
+  </div>
+</details>
+
+<details class="acc">
+  <summary><span class="q-num">7</span> What happens to a trigger when a record is updated by a roll-up summary recalculation?<span class="q-diff hard">Hard</span></summary>
+  <div class="acc-body">
+    <p>The parent's <code>before update</code> and <code>after update</code> triggers <strong>do</strong> fire.
+       <code>Trigger.old</code> and <code>Trigger.new</code> differ only in the roll-up field. This cascades: if the
+       parent is itself a detail of a grandparent, the grandparent's triggers fire too (step 18).</p>
+    <p><strong>Practical implication:</strong> guard "did anything I care about change?" logic, or a simple roll-up
+       will fire expensive automation across your whole hierarchy.</p>
+  </div>
+</details>
+
+<details class="acc">
+  <summary><span class="q-num">8</span> Trigger.new vs Trigger.newMap — when would you deliberately choose one?<span class="q-diff easy">Easy</span></summary>
+  <div class="acc-body">
+    <ul>
+      <li><code>Trigger.new</code> when you're iterating and possibly modifying records (before triggers).</li>
+      <li><code>Trigger.newMap.keySet()</code> when you need the Ids for a query — cleaner than building a Set in a loop.</li>
+      <li><code>Trigger.oldMap.get(record.Id)</code> to compare old vs new — this is the standard change-detection idiom.</li>
+      <li>Remember <code>Trigger.newMap</code> is <strong>not available in before insert</strong> (no Ids yet).</li>
+    </ul>
+  </div>
+</details>
+
+<details class="acc">
+  <summary><span class="q-num">9</span> How do you let an admin disable a trigger during a data migration without deploying code?<span class="q-diff med">Medium</span></summary>
+  <div class="acc-body">
+<pre><code class="language-apex">// Hierarchy Custom Setting: Trigger_Settings__c
+//   Disable_All_Triggers__c (checkbox)
+//   Disable_Account_Trigger__c (checkbox)
+// Set at Org level, or per-Profile/per-User for the migration user only.
+
+public static Boolean isDisabled(String triggerName) {
+    Trigger_Settings__c s = Trigger_Settings__c.getInstance();   // no SOQL consumed
+    if (s == null) return false;
+    if (s.Disable_All_Triggers__c) return true;
+    return triggerName == 'Account' &amp;&amp; s.Disable_Account_Trigger__c;
+}</code></pre>
+    <p>Setting it at the <strong>User</strong> level for the integration user is the safest pattern — normal users are
+       unaffected. Pair it with a checklist so it's turned back on.</p>
+  </div>
+</details>
+
+<details class="acc">
+  <summary><span class="q-num">10</span> Trigger vs record-triggered Flow — how do you decide?<span class="q-diff med">Medium</span></summary>
+  <div class="acc-body">
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Choose Flow</th><th>Choose Trigger</th></tr></thead>
+      <tbody>
+        <tr><td>Simple field updates and record creation</td><td>Complex logic, loops with conditions, recursion</td></tr>
+        <tr><td>Admins must maintain it</td><td>Needs unit tests and code review</td></tr>
+        <tr><td>Same-record updates (before-save is very fast)</td><td>Large data volumes / bulk processing</td></tr>
+        <tr><td>Low/medium volume</td><td>Complex SOQL, aggregates, cross-object joins</td></tr>
+        <tr><td>Fast iteration on changing requirements</td><td>Callouts with retry, custom error handling, async orchestration</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p><strong>Critical rule:</strong> never build both on the same object doing overlapping work. Pick one tool per
+       concern and document it, or you will get unpredictable ordering and double-processing.</p>
+  </div>
+</details>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+<p>The ten scenarios above are coding exercises. These are the conceptual questions that come before them.</p>
+
+<details class="acc"><summary><span class="q-num">1</span> Before or after trigger — how do you decide?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Before</strong> for validating or setting fields <em>on the record being saved</em> —
+you edit <code>Trigger.new</code> directly, so there's no extra DML and no recursion. <strong>After</strong> for anything
+needing the record's Id or touching other records: creating children, updating parents, sending email, enqueuing async
+work. In an after trigger <code>Trigger.new</code> is read-only; attempting to modify it throws "Record is read-only".</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> Which context variables are unavailable in which events?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>Trigger.new</code> is absent in <strong>delete</strong> events; <code>Trigger.old</code> is
+absent in <strong>insert</strong> and <strong>undelete</strong>. The one people miss:
+<strong><code>Trigger.newMap</code> is not available in <em>before insert</em></strong>, because the records have no Ids
+yet. <code>Trigger.oldMap</code> exists only in update and delete — and
+<code>Trigger.oldMap.get(record.Id)</code> is the standard change-detection idiom.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Why one trigger per object?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Because Salesforce gives <strong>no guarantee about the execution order</strong> of multiple triggers
+on the same object. With two triggers you get non-deterministic, unreproducible behaviour that changes between orgs.
+One trigger delegating to a handler gives you explicit ordering, one place to control recursion, testable logic that
+doesn't need DML, and a single switch to bypass during data loads.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Walk me through the order of execution.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Load record → overwrite with new values → system validation → <strong>before-save flows</strong> →
+<strong>before triggers</strong> → system + custom validation again → duplicate rules → <strong>save to DB (not
+committed)</strong> → <strong>after triggers</strong> → assignment rules → auto-response rules → <strong>workflow
+rules</strong> → escalation rules → <strong>after-save flows</strong> → entitlements → <strong>roll-up summary</strong>
+→ criteria-based sharing → grandparent roll-ups → <strong>commit</strong> → post-commit (email, <code>@future</code>,
+platform events).</p>
+<p>The three consequences worth stating: a workflow field update <strong>re-fires your triggers once</strong>; a roll-up
+fires the <em>parent's</em> triggers and can cascade upward; and <code>@future</code>/email only happen after commit, so
+they never see a rolled-back transaction.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> What is recursion, and why is a simple static Boolean a bad fix?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Recursion is a trigger's own DML causing the same trigger to fire again — hitting
+"Maximum trigger depth exceeded" (16) or silently doubling work.</p>
+<p>A blanket <code>static Boolean hasRun</code> also blocks <strong>legitimate</strong> re-entry. Load 400 records with
+Data Loader: chunk 1 sets the flag, and chunk 2 is skipped entirely because statics persist across chunks in the same
+transaction — 200 records silently unprocessed. Better: track a <strong>Set of processed record Ids</strong>, or
+best of all make the second pass a no-op by only acting when a relevant field actually changed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> <code>addError()</code> or throw an exception — which and why?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>addError()</code> — it attaches the message to the <strong>specific record</strong> (or field,
+with <code>record.Field.addError()</code>), so in a bulk operation the valid records still save when the caller used
+<code>allOrNone = false</code>, and the UI shows the error in the right place.</p>
+<p>Throwing an exception aborts the <strong>entire transaction</strong> and surfaces an ugly technical message. Reserve
+it for genuinely unrecoverable states, not business validation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> How do you let an admin disable your trigger during a migration?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A <strong>hierarchy Custom Setting</strong> such as <code>Trigger_Settings__c</code> with
+<code>Disable_All_Triggers__c</code> and per-object checkboxes. Read it with
+<code>Trigger_Settings__c.getInstance()</code>, which is cached and consumes no SOQL.</p>
+<p>The important refinement: set it at the <strong>User</strong> level for the migration user only, so normal users are
+unaffected — and pair it with a checklist item to turn it back on.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> Trigger or record-triggered Flow — how do you choose in a real org?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Flow</strong> for simple field updates and record creation, admin-maintainable logic, and
+same-record updates (before-save is very fast). <strong>Trigger</strong> for complex branching, large volumes, aggregate
+SOQL, callouts with retry, and anything needing real unit tests.</p>
+<p>The answer that matters most: <strong>never both on the same object doing overlapping work</strong>. Pick one tool per
+concern, document the decision, and enforce it in code review — otherwise you get unpredictable ordering and
+double-processing that nobody can reproduce.</p></div></details>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">More practice</span>
+    65 further questions across Apex, LWC, integration and admin are in the
+    <a href="practice.html">Practice Q&amp;A Bank</a>.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Triggers</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

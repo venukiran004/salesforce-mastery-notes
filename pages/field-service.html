@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Field Service | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Clouds</span> › <span>Field Service</span></div>
+  <h1>Field Service</h1>
+  <p class="lede">Getting the right engineer, with the right skills and the right parts, to the right place at the
+     right time — and letting them work offline when they get there.</p>
+</header>
+
+<!-- ============================================ -->
+<h2 id="model">The data model</h2>
+
+<div class="dgm">
+  <div class="dgm-title">From a Case to a completed visit</div>
+  <svg viewBox="0 0 790 330" role="img" aria-label="Field Service object model from case to work order and service appointment">
+    <rect class="s-box-b" x="20" y="24" width="130" height="44" rx="9"/>
+    <text class="s-t anchor-mid" x="85" y="46">Case</text>
+    <path class="s-line-b" d="M150 46 H200" marker-end="url(#fs1)"/>
+
+    <rect class="s-box-v" x="200" y="24" width="160" height="44" rx="9"/>
+    <text class="s-t anchor-mid" x="280" y="40">Work Order</text>
+    <text class="s-t-sm anchor-mid" x="280" y="58">what needs doing</text>
+    <path class="s-line-v" d="M280 68 V104" marker-end="url(#fs1)"/>
+
+    <rect class="s-box" x="190" y="104" width="180" height="44" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="280" y="120">Work Order Line Item</text>
+    <text class="s-t-sm anchor-mid" x="280" y="138">tasks / billable items</text>
+
+    <path class="s-line-v" d="M360 46 H420" marker-end="url(#fs1)"/>
+    <rect class="s-box-t" x="420" y="24" width="180" height="44" rx="9"/>
+    <text class="s-t anchor-mid" x="510" y="40">Service Appointment</text>
+    <text class="s-t-sm anchor-mid" x="510" y="58">the schedulable unit</text>
+
+    <path class="s-line-t" d="M510 68 V110" marker-end="url(#fs1)"/>
+    <rect class="s-box-a" x="410" y="110" width="200" height="60" rx="9"/>
+    <text class="s-t s-t-a anchor-mid" x="510" y="132">Scheduling engine</text>
+    <text class="s-t-sm anchor-mid" x="510" y="152">policy + objectives + rules</text>
+
+    <path class="s-line-a" d="M510 170 V210" marker-end="url(#fs1)"/>
+    <rect class="s-box-g" x="400" y="210" width="220" height="60" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="510" y="230">Assigned Resource</text>
+    <text class="s-t-sm anchor-mid" x="510" y="250">→ Service Resource (the engineer)</text>
+
+    <rect class="s-box" x="30" y="180" width="150" height="44" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="105" y="196">Service Territory</text>
+    <text class="s-t-sm anchor-mid" x="105" y="214">geography + hours</text>
+    <rect class="s-box" x="30" y="234" width="150" height="44" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="105" y="250">Skills &amp; Resource</text>
+    <text class="s-t-sm anchor-mid" x="105" y="268">Absences</text>
+    <rect class="s-box" x="200" y="210" width="170" height="44" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="285" y="226">Product Items (van stock)</text>
+    <text class="s-t-sm anchor-mid" x="285" y="244">Products Consumed</text>
+    <path class="s-line s-dash" d="M180 202 H410 M180 256 H400 M370 232 H400"/>
+
+    <path class="s-line-g" d="M620 240 H680 V70" marker-end="url(#fs1)"/>
+    <rect class="s-box-r" x="620" y="24" width="150" height="44" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="695" y="40">Mobile app (offline)</text>
+    <text class="s-t-sm anchor-mid" x="695" y="58">→ Service Report</text>
+    <defs><marker id="fs1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Object</th><th>Represents</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Work Order</strong></td><td>The job to be done, usually created from a Case, Asset or Entitlement</td></tr>
+    <tr><td><strong>Work Order Line Item</strong></td><td>Individual tasks or billable items within the job; can be scheduled separately</td></tr>
+    <tr><td><strong>Service Appointment</strong></td><td><strong>The unit that actually gets scheduled.</strong> Holds the arrival window, duration and status</td></tr>
+    <tr><td><strong>Service Resource</strong></td><td>A technician, contractor, crew or asset that can be assigned</td></tr>
+    <tr><td><strong>Assigned Resource</strong></td><td>Junction linking a Service Resource to a Service Appointment</td></tr>
+    <tr><td><strong>Service Territory</strong></td><td>Geographic area with operating hours; resources are members of territories</td></tr>
+    <tr><td><strong>Operating Hours / Time Slots</strong></td><td>When work can be scheduled; drives appointment windows</td></tr>
+    <tr><td><strong>Skill / Skill Requirement</strong></td><td>Certifications a resource holds and a job requires, with skill levels</td></tr>
+    <tr><td><strong>Resource Absence</strong></td><td>Holiday, training, sickness — blocks scheduling</td></tr>
+    <tr><td><strong>Work Type</strong></td><td>A template: default duration, required skills, and the appointment window</td></tr>
+    <tr><td><strong>Product Item / Products Consumed / Product Request</strong></td><td>Van stock, parts used on the job, and replenishment requests</td></tr>
+    <tr><td><strong>Service Report</strong></td><td>The signed completion document generated on the mobile app</td></tr>
+    <tr><td><strong>Maintenance Plan / Maintenance Work Rule</strong></td><td>Generates preventive-maintenance work orders on a schedule</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout note">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">The one distinction to get right</span>
+    A <strong>Work Order</strong> is <em>what needs doing</em>. A <strong>Service Appointment</strong> is
+    <em>a visit to do some of it</em>. One work order can have several appointments — an initial diagnosis, a return
+    visit with the part, a final sign-off. The scheduling engine works on Service Appointments, never Work Orders.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="scheduling">Scheduling &amp; optimisation</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Component</th><th>What it controls</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Scheduling Policy</strong></td><td>The named strategy — a bundle of work rules and objectives. Different policies for emergency vs routine work</td></tr>
+    <tr><td><strong>Work Rules</strong></td><td><em>Hard constraints</em> — must be satisfied. Match Skills, Match Territory, Working Hours, Resource Availability, Match Fields</td></tr>
+    <tr><td><strong>Service Objectives</strong></td><td><em>Soft preferences</em> — weighted and optimised. Minimise Travel, Preferred Resource, ASAP, Minimise Overtime, Highest Priority First</td></tr>
+    <tr><td><strong>Candidate → Book</strong></td><td>"Get Candidates" lists valid slots; "Book Appointment" or "Schedule" assigns one</td></tr>
+    <tr><td><strong>Optimisation</strong></td><td>Batch re-shuffling of a whole territory/day to minimise total travel; runs on a schedule or on demand</td></tr>
+    <tr><td><strong>Emergency dispatch</strong></td><td>Inserts an urgent job, bumping lower-priority work</td></tr>
+    <tr><td><strong>Complex Work</strong></td><td>Dependencies between appointments — "B must start after A finishes", or same resource, or same time</td></tr>
+  </tbody>
+</table>
+</div>
+<p><strong>Dispatcher Console</strong> is the control room: a Gantt chart of resources against time, a map with travel
+   routes, an appointment list with filters, and drag-and-drop rescheduling. Colour-coded by status so a dispatcher can
+   see jams at a glance.</p>
+
+<div class="callout tip">
+  <span class="c-ico">🧮</span>
+  <div class="c-body"><span class="c-title">Rules vs objectives — the mental model</span>
+    Work Rules answer <em>"is this assignment legal?"</em> (right skills, right territory, resource actually working).
+    Service Objectives answer <em>"of the legal options, which is best?"</em> (least travel, preferred engineer, soonest
+    slot). Too many hard rules and nothing can be scheduled; too few and you'll send an unqualified engineer 200 km.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="mobile">The mobile app</h2>
+<div class="grid g2">
+  <div class="card accent-teal"><h4>What technicians get</h4>
+    <ul><li><strong>Full offline capability</strong> — view, edit and create records with no signal, syncing when back online</li>
+        <li>Today's schedule with navigation and travel</li>
+        <li>Knowledge articles attached to the work type</li>
+        <li>Barcode scanning for parts and assets</li>
+        <li>Photos, signature capture and <strong>Service Reports</strong></li>
+        <li>Products Consumed recorded against van stock</li></ul></div>
+  <div class="card accent-amber"><h4>What you configure</h4>
+    <ul><li><strong>Mobile flows</strong> — guided procedures run on the device</li>
+        <li>Quick actions on the appointment</li>
+        <li>Offline priming: which related records get downloaded</li>
+        <li>Branding and layout per profile</li>
+        <li>Push notifications for new or changed jobs</li>
+        <li><strong>Conflict handling</strong> when two people edited the same record offline</li></ul></div>
+</div>
+<div class="callout warn">
+  <span class="c-ico">📴</span>
+  <div class="c-body"><span class="c-title">Design for offline from day one</span>
+    Anything requiring a callout, a server-side Apex round trip or real-time validation will fail in a basement or a
+    rural site. Keep on-device logic in mobile flows and simple field updates; do the heavy processing server-side
+    <em>after</em> sync, and make it tolerant of records arriving hours later and out of order.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="lifecycle">A day in the life</h2>
+<ul class="steps">
+  <li><b>Case raised</b> — the customer reports a fault; the agent confirms entitlement and SLA.</li>
+  <li><b>Work Order created</b> from the Case, using a <strong>Work Type</strong> that sets duration and required skills.</li>
+  <li><b>Service Appointment</b> generated with an arrival window derived from operating hours.</li>
+  <li><b>Scheduling</b> — the policy filters candidates by skills, territory and availability, then optimises for least travel.</li>
+  <li><b>Dispatch</b> — the dispatcher reviews the Gantt, adjusts, and releases the day's work.</li>
+  <li><b>Technician</b> receives it on mobile, navigates, and works offline on site.</li>
+  <li><b>Completion</b> — parts consumed recorded, photos and customer signature captured, Service Report generated.</li>
+  <li><b>Follow-up</b> — the Work Order closes, the Case updates, van stock decrements and a replenishment Product Request is raised; billing picks up the billable lines.</li>
+</ul>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Work Order vs Service Appointment — why are there two objects?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A <strong>Work Order</strong> is the work that needs doing; a <strong>Service Appointment</strong>
+is a scheduled visit to do some of it. Separating them means one job can span multiple visits — diagnose today, return
+with the part on Thursday, sign off on Friday — each independently scheduled, possibly to different engineers.</p>
+<p>Practical consequence: the scheduling engine, the dispatcher console and the mobile app all operate on
+<strong>Service Appointments</strong>. If you're trying to schedule a Work Order, you've misunderstood the model.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> Work Rules vs Service Objectives.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Work Rules are hard constraints</strong> — a candidate that fails one is excluded
+entirely (Match Skills, Match Territory, Working Hours, Resource Availability). <strong>Service Objectives are weighted
+preferences</strong> used to rank the remaining valid candidates (Minimise Travel, Preferred Resource, ASAP, Minimise
+Overtime).</p>
+<p>Both live in a <strong>Scheduling Policy</strong>, and you'll typically have several policies — an emergency policy
+weighting speed, a routine policy weighting travel cost.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> "No candidates found" when scheduling. How do you debug it?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Work through the hard rules in order, because one of them is excluding everybody:
+① <strong>Skills</strong> — does any resource hold the required skill at the required level, and hasn't it expired?
+② <strong>Territory</strong> — is the resource a member of the appointment's territory for those dates?
+③ <strong>Operating hours</strong> — does the window fall inside them, allowing for time zones?
+④ <strong>Availability</strong> — absences, existing appointments, capacity.
+⑤ <strong>Match Fields</strong> or custom rules quietly filtering everyone out.
+⑥ The appointment's earliest start / due date window being too narrow.</p>
+<p>Temporarily removing rules one at a time from a test policy isolates the culprit quickly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> How does offline mode change how you build?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>You cannot rely on the server. No callouts, no server-side Apex round trips, no real-time
+validation against data the device doesn't hold. Anything requiring them fails in a basement.</p>
+<p>So: keep on-device logic in <strong>mobile flows</strong> and simple field updates; prime the right related records
+for offline access; do heavy processing server-side <em>after</em> sync; and — critically — make that server-side logic
+<strong>idempotent and order-tolerant</strong>, because records may arrive hours late, out of sequence, and occasionally
+in conflict with someone else's edit.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> How do you handle a job that needs two engineers at once?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Two options. A <strong>Crew</strong> — a Service Crew record with members, treated as a single
+schedulable resource, which is right when the pair always work together. Or <strong>Complex Work</strong> dependencies
+— multiple Service Appointments on the same Work Order with a "same start time / same resource / start after" rule
+between them, which is right when you need two <em>different</em> specialists simultaneously.</p>
+<p>Crews are simpler to schedule; complex work is more flexible but harder to optimise.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> How does preventive maintenance work?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A <strong>Maintenance Plan</strong> is attached to an Asset (or Account/Location) with a frequency
+and a Work Type. <strong>Maintenance Work Rules</strong> define the generation pattern — calendar-based (every 6 months)
+or criteria-based (every 500 operating hours, driven by a field on the Asset).</p>
+<p>The plan generates Work Orders ahead of time in a batch, which then flow into scheduling like any other job. The
+business value is shifting from reactive break-fix to planned visits, which is far cheaper and lets you batch nearby
+jobs.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> Optimisation runs but travel time is still high. What do you check?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Check the objective <strong>weightings</strong> — if "Preferred Resource" or "ASAP" outweighs
+"Minimise Travel", the engine is doing exactly what you told it. Then: are territories drawn sensibly, or do they
+overlap so engineers cross each other? Are appointment windows so narrow that no efficient route exists? Are
+travel-time calculations using real street routing and correct home base / start location for each resource? And is
+optimisation actually running over a wide enough horizon and resource pool to find better routes?</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. Which object does the scheduling engine actually schedule?</div>
+  <button class="opt">Work Order</button>
+  <button class="opt" data-correct="1">Service Appointment</button>
+  <button class="opt">Work Order Line Item</button>
+  <div class="explain">A Work Order is the work; a Service Appointment is a visit. One Work Order can have several appointments, each scheduled independently.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. "Match Skills" is what kind of scheduling component?</div>
+  <button class="opt">A Service Objective (a weighted preference)</button>
+  <button class="opt" data-correct="1">A Work Rule (a hard constraint)</button>
+  <button class="opt">A Work Type setting</button>
+  <div class="explain">Work Rules exclude invalid candidates outright; Service Objectives rank the ones that remain.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. Why must post-sync server logic be idempotent in Field Service?</div>
+  <button class="opt">Because Apex requires it</button>
+  <button class="opt" data-correct="1">Because offline records can sync late, out of order, or more than once</button>
+  <button class="opt">To reduce storage</button>
+  <div class="explain">A technician may work all day with no signal. Your logic must tolerate a batch of records arriving hours later, in an unexpected sequence.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Field Service</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

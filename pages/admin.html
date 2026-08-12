@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin Essentials | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Admin</span> › <span>Admin Essentials</span></div>
+  <h1>Admin Essentials</h1>
+  <p class="lede">The declarative core: how data is modelled and related, how duplicates are stopped, how records are
+     routed and approved, and how a lead becomes cash — end to end.</p>
+</header>
+
+<!-- ============================================ -->
+<h2 id="objects-fields">Objects &amp; fields — the foundation</h2>
+<div class="grid g2">
+  <div class="card"><h4>Standard objects</h4><p>Ship with the platform: Account, Contact, Lead, Opportunity, Case, Campaign, User, Task, Event. You can add fields but not delete the object.</p></div>
+  <div class="card accent-violet"><h4>Custom objects</h4><p>You create them; API name always ends in <code>__c</code>. Get a tab, page layouts, reports and full API access automatically.</p></div>
+</div>
+
+<h3>Field types worth knowing</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Type</th><th>Notes / gotchas</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Text / Text Area (Long / Rich)</strong></td><td>255 / 131,072 chars. Long Text Areas are <em>not</em> filterable in reports and cost heap in Apex.</td></tr>
+    <tr><td><strong>Picklist / Multi-select</strong></td><td>Multi-select is stored semicolon-separated; avoid it — it's painful in reports, SOQL (<code>INCLUDES</code>) and integrations.</td></tr>
+    <tr><td><strong>Number / Currency / Percent</strong></td><td>Currency respects multi-currency; percent stores 0.5 as 50%.</td></tr>
+    <tr><td><strong>Formula</strong></td><td>Calculated on read, never stored, always current. Can't be used in <code>ORDER BY</code> efficiently and isn't indexed unless deterministic.</td></tr>
+    <tr><td><strong>Roll-Up Summary</strong></td><td>COUNT/SUM/MIN/MAX on children — <strong>requires Master-Detail</strong>. Max 25 per object.</td></tr>
+    <tr><td><strong>Lookup / Master-Detail</strong></td><td>See <a href="#relationships">Relationships</a>.</td></tr>
+    <tr><td><strong>Auto Number</strong></td><td>Read-only sequence, e.g. <code>INV-{0000}</code>. Not a true unique key across deletes.</td></tr>
+    <tr><td><strong>External ID</strong></td><td>Marks a field as a foreign key from another system — enables <code>upsert</code> by that field. Max 25 (7 pre-Spring&nbsp;'20 orgs) per object; automatically indexed.</td></tr>
+    <tr><td><strong>Encrypted / Shield</strong></td><td>Classic encrypted text masks in UI; Shield Platform Encryption encrypts at rest but blocks some filtering.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout tip">
+  <span class="c-ico">🔑</span>
+  <div class="c-body"><span class="c-title">External ID + Upsert = the integration superpower</span>
+    Mark <code>Legacy_Id__c</code> as External ID and Unique, then an external system can
+    <code>PATCH /sobjects/Account/Legacy_Id__c/A-1001</code> — insert or update without ever knowing the Salesforce ID.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="relationships">Relationships</h2>
+<p>Relationships are how objects connect. Choosing the wrong type is one of the most expensive mistakes in a data model,
+   because converting Lookup ⇄ Master-Detail later is restricted and sometimes impossible.</p>
+
+<div class="dgm">
+  <div class="dgm-title">The relationship family</div>
+  <svg viewBox="0 0 780 440" role="img" aria-label="Diagram of lookup, master-detail, and junction object relationships">
+    <!-- Lookup -->
+    <text class="s-t s-t-b" x="20" y="20">1 · Lookup (loosely coupled)</text>
+    <rect class="s-box-b" x="30" y="36" width="150" height="52" rx="9"/>
+    <text class="s-t anchor-mid" x="105" y="62">Account</text>
+    <path class="s-line-b s-dash" d="M180 62 H300" marker-end="url(#a1)"/>
+    <text class="s-t-sm anchor-mid" x="240" y="48">optional</text>
+    <rect class="s-box" x="300" y="36" width="150" height="52" rx="9"/>
+    <text class="s-t anchor-mid" x="375" y="62">Case</text>
+    <text class="s-t-sm" x="470" y="52">Child survives parent deletion</text>
+    <text class="s-t-sm" x="470" y="72">Own owner &amp; sharing · no roll-ups</text>
+
+    <!-- Master detail -->
+    <text class="s-t s-t-v" x="20" y="130">2 · Master-Detail (tightly coupled)</text>
+    <rect class="s-box-v" x="30" y="146" width="150" height="52" rx="9"/>
+    <text class="s-t anchor-mid" x="105" y="172">Invoice (Master)</text>
+    <path class="s-line-v" d="M180 172 H300" marker-end="url(#a1)"/>
+    <text class="s-t-sm anchor-mid" x="240" y="158">required</text>
+    <rect class="s-box" x="300" y="146" width="150" height="52" rx="9"/>
+    <text class="s-t anchor-mid" x="375" y="172">Line Item (Detail)</text>
+    <text class="s-t-sm" x="470" y="162">Cascade delete · inherits sharing</text>
+    <text class="s-t-sm" x="470" y="182">Roll-up summaries allowed</text>
+
+    <!-- Junction -->
+    <text class="s-t s-t-t" x="20" y="240">3 · Many-to-Many via a Junction Object</text>
+    <rect class="s-box-t" x="30" y="266" width="150" height="52" rx="9"/>
+    <text class="s-t anchor-mid" x="105" y="292">Course</text>
+    <rect class="s-box-t" x="590" y="266" width="150" height="52" rx="9"/>
+    <text class="s-t anchor-mid" x="665" y="292">Student</text>
+    <rect class="s-box-a" x="300" y="256" width="170" height="72" rx="9"/>
+    <text class="s-t anchor-mid" x="385" y="282">Enrolment</text>
+    <text class="s-t-sm anchor-mid" x="385" y="304">(junction object)</text>
+    <path class="s-line-t" d="M180 292 H300" marker-end="url(#a1)"/>
+    <path class="s-line-t" d="M590 292 H470" marker-end="url(#a1)"/>
+    <text class="s-t-sm anchor-mid" x="240" y="278">MD 1</text>
+    <text class="s-t-sm anchor-mid" x="530" y="278">MD 2</text>
+    <text class="s-t-sm anchor-mid" x="385" y="352">The <tspan class="s-t-a">first</tspan> master-detail = primary → controls layout, ownership &amp; sharing</text>
+
+    <!-- Hierarchical -->
+    <text class="s-t s-t-g" x="20" y="392">4 · Hierarchical (User object only)</text>
+    <rect class="s-box-g" x="300" y="400" width="170" height="34" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="385" y="417">User → Manager (self-lookup)</text>
+    <defs><marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<h3>Lookup vs Master-Detail — the table you must know</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Aspect</th><th>Lookup</th><th>Master-Detail</th></tr></thead>
+  <tbody>
+    <tr><td>Parent required?</td><td>Optional (can be made required)</td><td><strong>Always required</strong></td></tr>
+    <tr><td>Delete behaviour</td><td>Child stays (field cleared), or optionally blocks delete</td><td><strong>Cascade delete</strong> — children die with the parent</td></tr>
+    <tr><td>Ownership</td><td>Child has its own Owner field</td><td><strong>No Owner field</strong> — inherits from master</td></tr>
+    <tr><td>Sharing / security</td><td>Independent</td><td><strong>Inherited</strong> from the master record</td></tr>
+    <tr><td>Roll-up summary</td><td>❌ Not allowed</td><td>✅ Allowed (up to 25)</td></tr>
+    <tr><td>Reparenting</td><td>Allowed by default</td><td>Disallowed unless "Allow reparenting" is ticked</td></tr>
+    <tr><td>Limit per object</td><td>40 lookups</td><td>2 master-detail</td></tr>
+    <tr><td>Required on layout</td><td>No</td><td>Yes — must be populated at insert</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout warn">
+  <span class="c-ico">⚠️</span>
+  <div class="c-body"><span class="c-title">Conversion rules</span>
+    You can convert <strong>Master-Detail → Lookup</strong> only if no roll-up summaries exist on the master.
+    You can convert <strong>Lookup → Master-Detail</strong> only if <em>every</em> existing child record has that field populated.
+    Plan the model before loading data.</div>
+</div>
+
+<h3>Other relationship types</h3>
+<ul>
+  <li><strong>Self relationship</strong> — a lookup from an object to itself (Account → Parent Account).</li>
+  <li><strong>Hierarchical</strong> — special self-lookup available only on User (the Manager field).</li>
+  <li><strong>External Lookup</strong> — child (standard/custom/external) → parent <em>external</em> object, matched on the External Object's External ID.</li>
+  <li><strong>Indirect Lookup</strong> — child <em>external</em> object → parent Salesforce object, matched on a custom External ID field. See <a href="integration-events.html#salesforce-connect">Salesforce Connect</a>.</li>
+</ul>
+
+<div class="callout case">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">Use case</span>
+    A recruitment app: <em>Job Posting</em> and <em>Candidate</em> are many-to-many, so create a
+    <em>Job Application</em> junction with two master-detail fields. Now you can roll up "Number of Applicants"
+    onto Job Posting, and deleting a Job Posting cleans up its applications automatically.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="record-types">Record types, page layouts &amp; Dynamic Forms</h2>
+<p><strong>Record types</strong> let one object behave differently for different business processes — different picklist
+   values, different page layouts, different sales processes.</p>
+<div class="dgm">
+  <div class="dgm-title">How a user's screen is assembled</div>
+  <svg viewBox="0 0 760 220" role="img" aria-label="Record type and profile determine page layout">
+    <rect class="s-box-b" x="30" y="30" width="150" height="56" rx="9"/>
+    <text class="s-t anchor-mid" x="105" y="50">Profile</text><text class="s-t-sm anchor-mid" x="105" y="70">Sales Rep</text>
+    <rect class="s-box-v" x="30" y="120" width="150" height="56" rx="9"/>
+    <text class="s-t anchor-mid" x="105" y="140">Record Type</text><text class="s-t-sm anchor-mid" x="105" y="160">B2B Opportunity</text>
+    <path class="s-line-b" d="M180 58 H280 V95"/><path class="s-line-v" d="M180 148 H280 V110"/>
+    <rect class="s-box-a" x="280" y="80" width="170" height="46" rx="9"/>
+    <text class="s-t s-t-a anchor-mid" x="365" y="103">Layout Assignment</text>
+    <path class="s-line-a" d="M450 103 H540" marker-end="url(#a2)"/>
+    <rect class="s-box-g" x="540" y="60" width="180" height="86" rx="9"/>
+    <text class="s-t anchor-mid" x="630" y="86">Page Layout</text>
+    <text class="s-t-sm anchor-mid" x="630" y="108">fields · sections · buttons</text>
+    <text class="s-t-sm anchor-mid" x="630" y="128">related lists</text>
+    <text class="s-t-sm anchor-mid" x="380" y="200">Record Type also filters which picklist values appear</text>
+    <defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+<ul>
+  <li><strong>Page Layout</strong> — controls field placement, related lists, buttons. Also controls required/read-only <em>at layout level only</em>.</li>
+  <li><strong>Compact Layout</strong> — the highlights panel at the top of a record and mobile cards.</li>
+  <li><strong>Dynamic Forms</strong> — replaces the monolithic layout with individually placed fields in Lightning App Builder, each with its own visibility rule. The modern approach.</li>
+  <li><strong>Lightning Record Pages</strong> — assign by app, record type and profile; add component visibility filters.</li>
+</ul>
+
+<!-- ============================================ -->
+<h2 id="validation-rules">Validation rules</h2>
+<p>A validation rule fires on save and <strong>blocks</strong> the record when its formula evaluates to <code>TRUE</code>
+   (think: "error if true").</p>
+<pre><code class="language-apex">/* Block closing an Opportunity with no Amount */
+AND(
+  ISPICKVAL(StageName, "Closed Won"),
+  OR(ISBLANK(Amount), Amount &lt;= 0)
+)
+
+/* Only allow discount &gt; 20% for managers */
+AND(
+  Discount__c &gt; 0.20,
+  NOT($Permission.Approve_Large_Discount)
+)</code></pre>
+<div class="callout note">
+  <span class="c-ico">📐</span>
+  <div class="c-body"><span class="c-title">Useful functions</span>
+    <code>ISCHANGED()</code>, <code>PRIORVALUE()</code>, <code>ISNEW()</code>, <code>ISBLANK()</code>,
+    <code>REGEX()</code>, <code>$User.ProfileId</code>, <code>$Permission.X</code>, <code>$Setup.MyCustomSetting__c.Field__c</code>.
+    <code>ISCHANGED</code> and <code>PRIORVALUE</code> only work in validation rules, workflow and record-triggered flows — not formula fields.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="duplicate-rules">Duplicate rules &amp; matching rules</h2>
+<p>Two objects working as a pair. The <strong>matching rule</strong> defines <em>how</em> to detect a duplicate;
+   the <strong>duplicate rule</strong> defines <em>what to do</em> about it.</p>
+
+<div class="dgm">
+  <div class="dgm-title">Duplicate management flow</div>
+  <svg viewBox="0 0 780 260" role="img" aria-label="How matching rules and duplicate rules interact on save">
+    <rect class="s-box-b" x="20" y="100" width="120" height="56" rx="9"/>
+    <text class="s-t anchor-mid" x="80" y="120">User saves</text><text class="s-t-sm anchor-mid" x="80" y="140">a record</text>
+    <path class="s-line-b" d="M140 128 H200" marker-end="url(#a3)"/>
+
+    <rect class="s-box-v" x="200" y="88" width="150" height="80" rx="9"/>
+    <text class="s-t s-t-v anchor-mid" x="275" y="110">Duplicate Rule</text>
+    <text class="s-t-sm anchor-mid" x="275" y="132">active? conditions met?</text>
+    <text class="s-t-sm anchor-mid" x="275" y="150">bypass for this profile?</text>
+    <path class="s-line-v" d="M350 128 H410" marker-end="url(#a3)"/>
+
+    <rect class="s-box-t" x="410" y="88" width="150" height="80" rx="9"/>
+    <text class="s-t s-t-t anchor-mid" x="485" y="110">Matching Rule</text>
+    <text class="s-t-sm anchor-mid" x="485" y="132">exact / fuzzy compare</text>
+    <text class="s-t-sm anchor-mid" x="485" y="150">across chosen fields</text>
+
+    <path class="s-line-t" d="M560 110 H620" marker-end="url(#a3)"/>
+    <path class="s-line-t" d="M560 146 H620" marker-end="url(#a3)"/>
+    <rect class="s-box-g" x="620" y="86" width="140" height="44" rx="9"/>
+    <text class="s-t s-t-g anchor-mid" x="690" y="108">No match → Save</text>
+    <rect class="s-box-r" x="620" y="140" width="140" height="60" rx="9"/>
+    <text class="s-t s-t-r anchor-mid" x="690" y="160">Match found</text>
+    <text class="s-t-sm anchor-mid" x="690" y="182">Allow + Alert / Block</text>
+
+    <text class="s-t-sm anchor-mid" x="390" y="238">Matches are recorded as DuplicateRecordSet / DuplicateRecordItem for reporting</text>
+    <defs><marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<h3>Matching rule</h3>
+<ul>
+  <li>Choose fields and a <strong>matching method</strong> per field: <em>Exact</em> or <em>Fuzzy</em> (fuzzy handles "Bob"/"Robert", "Inc."/"Incorporated", typos).</li>
+  <li>Fields are combined with AND/OR logic; a rule can have up to 10 fields.</li>
+  <li>Standard matching rules exist for Account, Contact and Lead — activate them and they're ready.</li>
+  <li>Activation builds a matching index in the background, so it isn't instant.</li>
+</ul>
+
+<h3>Duplicate rule</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Setting</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Record-level action</strong></td><td><em>Allow</em> (with optional alert) or <em>Block</em> the save</td></tr>
+    <tr><td><strong>Alert text</strong></td><td>Custom message shown to the user</td></tr>
+    <tr><td><strong>Report</strong></td><td>Ticking "Report" logs matches so you can report on duplicates</td></tr>
+    <tr><td><strong>Conditions</strong></td><td>Only run the rule when e.g. <code>Lead Source = Web</code></td></tr>
+    <tr><td><strong>Bypass sharing rules</strong></td><td>"Compare with all records" vs only records the user can see</td></tr>
+    <tr><td><strong>Operations</strong></td><td>Run on Create and/or Edit</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout warn">
+  <span class="c-ico">⚠️</span>
+  <div class="c-body"><span class="c-title">Big gotchas</span>
+    ① Duplicate rules do <strong>not</strong> run for records created by Apex/API by default — they do run for API inserts,
+    but <em>not</em> for <code>Database.insert</code> with <code>DmlOptions.duplicateRuleHeader.allowSave = true</code>.
+    ② They don't apply to records created by Lead Convert unless configured.
+    ③ Only one duplicate rule per object runs per operation — order matters.</div>
+</div>
+
+<pre><code class="language-apex">// Saving through Apex while respecting/overriding duplicate rules
+Database.DMLOptions opts = new Database.DMLOptions();
+opts.duplicateRuleHeader.allowSave = true;         // save even if flagged
+opts.duplicateRuleHeader.runAsCurrentUser = true;  // apply sharing of running user
+
+Lead l = new Lead(LastName='Kumar', Company='Acme');
+Database.SaveResult sr = Database.insert(l, opts);
+
+// Detect duplicates without saving
+Datacloud.FindDuplicatesResult[] results =
+    Datacloud.FindDuplicates.findDuplicates(new List&lt;Lead&gt;{ l });
+for (Datacloud.FindDuplicatesResult r : results) {
+    for (Datacloud.DuplicateResult dr : r.getDuplicateResults()) {
+        for (Datacloud.MatchResult mr : dr.getMatchResults()) {
+            System.debug('Matched ' + mr.getMatchRecords().size() + ' records');
+        }
+    }
+}</code></pre>
+
+<div class="callout case">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">Use case</span>
+    Marketing uploads 5,000 leads weekly from three vendors. Activate the standard Lead matching rule on
+    Email (exact) OR First+Last+Company (fuzzy), set the duplicate rule to <em>Allow with alert + Report</em>
+    so uploads don't fail, then work the Duplicate Record Sets report to merge weekly.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="custom-settings">Custom Settings vs Custom Metadata vs Custom Labels</h2>
+<p>Three ways to avoid hard-coding values. Choosing correctly is a very common interview question.</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>Custom Setting</th><th>Custom Metadata Type</th><th>Custom Label</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Stores</strong></td><td>Config data (rows)</td><td>Config metadata (records)</td><td>Text strings</td></tr>
+    <tr><td><strong>Deployable records?</strong></td><td>❌ No — data must be re-entered</td><td>✅ <strong>Yes</strong> — records deploy with metadata</td><td>✅ Yes</td></tr>
+    <tr><td><strong>Access in Apex</strong></td><td><code>getInstance()</code> / <code>getOrgDefaults()</code> — cached, <strong>no SOQL limit</strong></td><td>SOQL or <code>getAll()</code> — <strong>no SOQL limit</strong> since API 40+</td><td><code>System.Label.Name</code></td></tr>
+    <tr><td><strong>Per user/profile values?</strong></td><td>✅ Hierarchy type (Org → Profile → User)</td><td>❌ No</td><td>❌ No</td></tr>
+    <tr><td><strong>Editable by admins in prod?</strong></td><td>✅ Yes</td><td>✅ Yes (protected ones only by the package)</td><td>Via translation workbench</td></tr>
+    <tr><td><strong>Relationships</strong></td><td>❌</td><td>✅ Can relate to other CMDT / entity definitions</td><td>❌</td></tr>
+    <tr><td><strong>Translatable</strong></td><td>❌</td><td>Labels only</td><td>✅ Built for it</td></tr>
+    <tr><td><strong>Typical use</strong></td><td>Feature toggles per user, trigger bypass switches</td><td>Integration endpoints, business rules, mapping tables</td><td>UI messages, error text</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="tabs">
+  <div class="tab-btns">
+    <button class="tab-btn active">Custom Setting</button>
+    <button class="tab-btn">Custom Metadata</button>
+    <button class="tab-btn">Custom Label</button>
+  </div>
+  <div class="tab-panel active">
+<pre><code class="language-apex">// Hierarchy custom setting: Trigger_Settings__c with checkbox Disable_Account_Trigger__c
+Trigger_Settings__c s = Trigger_Settings__c.getInstance(UserInfo.getUserId());
+if (s.Disable_Account_Trigger__c) return;   // per-user bypass, no SOQL used
+
+// Org-wide defaults
+Trigger_Settings__c org = Trigger_Settings__c.getOrgDefaults();
+
+// List custom setting: keyed by name
+Country_Code__c india = Country_Code__c.getValues('IN');
+Map&lt;String, Country_Code__c&gt; all = Country_Code__c.getAll();</code></pre>
+    <p class="dgm-cap" style="text-align:left">Hierarchy settings resolve automatically: User value → Profile value → Org default.</p>
+  </div>
+  <div class="tab-panel">
+<pre><code class="language-apex">// Custom Metadata Type: Integration_Setting__mdt
+// Fields: Endpoint__c, Timeout__c, Active__c
+
+// Option 1 — no SOQL query limit consumed
+Map&lt;String, Integration_Setting__mdt&gt; all = Integration_Setting__mdt.getAll();
+Integration_Setting__mdt cfg = Integration_Setting__mdt.getInstance('Billing_API');
+
+// Option 2 — SOQL (also free of the 100-query limit)
+Integration_Setting__mdt s =
+    [SELECT Endpoint__c, Timeout__c FROM Integration_Setting__mdt
+     WHERE DeveloperName = 'Billing_API' LIMIT 1];
+
+HttpRequest req = new HttpRequest();
+req.setEndpoint(s.Endpoint__c);
+req.setTimeout(Integer.valueOf(s.Timeout__c));</code></pre>
+    <p class="dgm-cap" style="text-align:left">Records travel with your deployment — no post-deploy data entry, no environment drift.</p>
+  </div>
+  <div class="tab-panel">
+<pre><code class="language-apex">// Apex
+String msg = System.Label.Insufficient_Permissions;
+
+// Visualforce
+// {!$Label.Insufficient_Permissions}
+
+// LWC
+import MSG from '@salesforce/label/c.Insufficient_Permissions';</code></pre>
+    <p class="dgm-cap" style="text-align:left">Max 5,000 labels per org, 1,000 characters each. Always use labels for user-facing text so it can be translated.</p>
+  </div>
+</div>
+
+<div class="callout tip">
+  <span class="c-ico">🏆</span>
+  <div class="c-body"><span class="c-title">Modern default</span>
+    Use <strong>Custom Metadata Types</strong> for anything an admin configures that should move between orgs, and
+    <strong>Hierarchy Custom Settings</strong> only when you need per-user/per-profile values (classic example: trigger bypass switches).</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="queues">Queues, public groups &amp; ownership</h2>
+<ul>
+  <li><strong>Queue</strong> — a holding area that can <em>own</em> records (Lead, Case, custom objects, Order). Members pull work from it. Also used as an approver.</li>
+  <li><strong>Public Group</strong> — a bundle of users/roles/other groups. Cannot own records; used in sharing rules, list view visibility and folder access.</li>
+  <li><strong>Queue vs Group:</strong> queues own records, groups grant access.</li>
+</ul>
+
+<!-- ============================================ -->
+<h2 id="assignment-rules">Assignment rules</h2>
+<p>Automatically route new <strong>Leads</strong> or <strong>Cases</strong> to the right owner (user or queue).</p>
+<ul class="steps">
+  <li><b>One active rule per object</b> — a rule contains many ordered <em>rule entries</em>.</li>
+  <li><b>First match wins</b> — entries are evaluated in order and evaluation stops at the first match.</li>
+  <li><b>Each entry sets</b> an owner (user or queue) plus an optional email template.</li>
+  <li><b>Default owner</b> — if nothing matches, the record goes to the Default Lead Owner / Default Case Owner set in Support Settings.</li>
+</ul>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Entry point</th><th>Does the rule run?</th></tr></thead>
+  <tbody>
+    <tr><td>Lightning UI (checkbox "Assign using active assignment rule")</td><td>Only if ticked (layout can force it on)</td></tr>
+    <tr><td>Web-to-Lead / Email-to-Case</td><td>✅ Always</td></tr>
+    <tr><td>API / Apex</td><td>❌ Not by default — you must pass the header</td></tr>
+    <tr><td>Flow</td><td>Via the "Assignment Rules" option on the record-create/update element</td></tr>
+  </tbody>
+</table>
+</div>
+
+<pre><code class="language-apex">// Firing assignment rules from Apex
+Database.DMLOptions dmo = new Database.DMLOptions();
+dmo.assignmentRuleHeader.useDefaultRule = true;   // use the active rule
+// or target a specific rule:
+// AssignmentRule ar = [SELECT Id FROM AssignmentRule WHERE SobjectType='Lead' AND Active=true LIMIT 1];
+// dmo.assignmentRuleHeader.assignmentRuleId = ar.Id;
+dmo.emailHeader.triggerUserEmail = true;          // send the notification email
+
+Lead l = new Lead(LastName='Rao', Company='Globex', Country='India');
+l.setOptions(dmo);
+insert l;</code></pre>
+
+<div class="callout note">
+  <span class="c-ico">🧭</span>
+  <div class="c-body"><span class="c-title">Related routing features</span>
+    <strong>Auto-Response Rules</strong> send an acknowledgement email to the lead/contact (also first-match-wins).
+    <strong>Escalation Rules</strong> re-assign or notify when a Case ages past a threshold.
+    <strong>Omni-Channel</strong> is the modern, skills-based alternative for real-time work routing.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="web-to-lead">Web-to-Lead</h2>
+<p>Generates an HTML form you host on your website; submissions create Lead records directly in Salesforce.</p>
+
+<div class="dgm">
+  <div class="dgm-title">Web-to-Lead end to end</div>
+  <svg viewBox="0 0 800 200" role="img" aria-label="Web to Lead flow from website form to assigned lead">
+    <rect class="s-box-b" x="15"  y="70" width="120" height="60" rx="9"/>
+    <text class="s-t anchor-mid" x="75" y="92">Website form</text><text class="s-t-sm anchor-mid" x="75" y="112">HTML from Setup</text>
+    <path class="s-line-b" d="M135 100 H185" marker-end="url(#a4)"/>
+    <rect class="s-box-v" x="185" y="70" width="130" height="60" rx="9"/>
+    <text class="s-t anchor-mid" x="250" y="92">POST to</text><text class="s-t-mono anchor-mid" x="250" y="112">WebToLead endpoint</text>
+    <path class="s-line-v" d="M315 100 H365" marker-end="url(#a4)"/>
+    <rect class="s-box-t" x="365" y="60" width="130" height="80" rx="9"/>
+    <text class="s-t anchor-mid" x="430" y="84">Lead created</text>
+    <text class="s-t-sm anchor-mid" x="430" y="106">validation rules run</text>
+    <text class="s-t-sm anchor-mid" x="430" y="124">triggers/flows fire</text>
+    <path class="s-line-t" d="M495 100 H545" marker-end="url(#a4)"/>
+    <rect class="s-box-a" x="545" y="70" width="120" height="60" rx="9"/>
+    <text class="s-t anchor-mid" x="605" y="92">Assignment</text><text class="s-t-sm anchor-mid" x="605" y="112">rule routes owner</text>
+    <path class="s-line-a" d="M665 100 H715" marker-end="url(#a4)"/>
+    <rect class="s-box-g" x="715" y="70" width="75" height="60" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="752" y="92">Auto-</text><text class="s-t-sm anchor-mid" x="752" y="110">response</text>
+    <text class="s-t-sm anchor-mid" x="400" y="178">Limit: 500 leads per day · excess goes to the default owner and triggers a warning email</text>
+    <defs><marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<pre><code class="language-html">&lt;form action="https://webto.salesforce.com/servlet/servlet.WebToLead?encoding=UTF-8" method="POST"&gt;
+  &lt;input type="hidden" name="oid"        value="00D5j000000XXXX"&gt;  &lt;!-- your Org ID --&gt;
+  &lt;input type="hidden" name="retURL"     value="https://example.com/thank-you"&gt;
+  &lt;input type="hidden" name="lead_source" value="Web"&gt;
+  &lt;input type="hidden" name="recordType" value="0125j000000YYYY"&gt;
+
+  &lt;label&gt;Last Name&lt;/label&gt;  &lt;input name="last_name"  maxlength="80" required&gt;
+  &lt;label&gt;Company&lt;/label&gt;    &lt;input name="company"    maxlength="40" required&gt;
+  &lt;label&gt;Email&lt;/label&gt;      &lt;input name="email"      maxlength="80" type="email"&gt;
+  &lt;label&gt;Budget&lt;/label&gt;     &lt;input name="00N5j00000ZZZZ"&gt;      &lt;!-- custom field id --&gt;
+
+  &lt;input type="submit" value="Submit"&gt;
+&lt;/form&gt;</code></pre>
+
+<div class="grid g2">
+  <div class="card accent-green"><h4>Setup steps</h4>
+    <ol><li>Setup → Web-to-Lead → Enable</li><li>Create Form, pick fields</li><li>Set default lead creator &amp; auto-response</li><li>Give the HTML to your web team</li><li>Add reCAPTCHA to stop spam</li></ol></div>
+  <div class="card accent-amber"><h4>Limits &amp; gotchas</h4>
+    <ul><li>500 leads/day; overflow is emailed, not lost</li><li>Field names use the API field <em>ID</em> for custom fields</li><li>No authentication — anyone can POST, so validate and use reCAPTCHA</li><li>Only Lead fields; can't create Contacts</li></ul></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="email-to-case">Email-to-Case</h2>
+<p>Turns inbound email into Cases, threading replies onto the same Case.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>Standard Email-to-Case</th><th>On-Demand Email-to-Case</th></tr></thead>
+  <tbody>
+    <tr><td>Agent required?</td><td>✅ Email agent installed behind your firewall</td><td>❌ Nothing to install</td></tr>
+    <tr><td>Attachment size</td><td>Larger (agent handles it)</td><td>Limited by email service (25 MB)</td></tr>
+    <tr><td>Email stays on your server?</td><td>✅ Yes</td><td>❌ Routed through Salesforce</td></tr>
+    <tr><td>Recommended</td><td>Only for strict compliance needs</td><td>✅ Default choice</td></tr>
+  </tbody>
+</table>
+</div>
+<ul class="steps">
+  <li><b>Enable Email-to-Case</b> in Setup and choose On-Demand.</li>
+  <li><b>Create a routing address</b> — e.g. <code>support@yourcompany.com</code>. Salesforce gives you a long generated address.</li>
+  <li><b>Forward your real mailbox</b> to that generated address (verify the forwarding).</li>
+  <li><b>Set defaults</b> — case origin, priority, record type, and the assignment rule to run.</li>
+  <li><b>Thread replies</b> — modern orgs use Lightning Threading (header-based); legacy used a thread token in the subject.</li>
+  <li><b>Handle the extras</b> — auto-response rules for acknowledgements, and Email Message records store the body/attachments.</li>
+</ul>
+<div class="callout case">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">Use case</span>
+    Support receives 300 emails a day. Email-to-Case creates the Case, an assignment rule routes billing emails to the
+    Finance queue, an auto-response sends a ticket number, and an escalation rule pings a manager if a P1 case is
+    untouched for 2 hours.</div>
+</div>
+<div class="callout warn">
+  <span class="c-ico">⚠️</span>
+  <div class="c-body"><span class="c-title">Gotcha</span>
+    Email-to-Case runs as the <strong>Automated Process</strong> user. Anything you build on top (triggers, flows)
+    must not assume a real running user, and field-level security is not applied the way it is for a UI save.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="approval-process">Approval process</h2>
+<p>A structured, multi-step sign-off with locking, history and escalation — far beyond what a flow alone gives you.</p>
+
+<div class="dgm">
+  <div class="dgm-title">Anatomy of an approval process</div>
+  <svg viewBox="0 0 790 380" role="img" aria-label="Approval process from submission through steps to final actions">
+    <rect class="s-box-b" x="300" y="10" width="190" height="46" rx="9"/>
+    <text class="s-t anchor-mid" x="395" y="27">Record submitted</text>
+    <text class="s-t-sm anchor-mid" x="395" y="45">Initial Submission Actions (lock record)</text>
+    <path class="s-line-b" d="M395 56 V86" marker-end="url(#a5)"/>
+
+    <rect class="s-box-v" x="270" y="86" width="250" height="60" rx="9"/>
+    <text class="s-t s-t-v anchor-mid" x="395" y="108">Entry Criteria met?</text>
+    <text class="s-t-sm anchor-mid" x="395" y="130">e.g. Discount__c &gt; 20%</text>
+    <path class="s-line-v" d="M395 146 V176" marker-end="url(#a5)"/>
+
+    <rect class="s-box-t" x="250" y="176" width="290" height="72" rx="9"/>
+    <text class="s-t s-t-t anchor-mid" x="395" y="198">Step 1 — Sales Manager</text>
+    <text class="s-t-sm anchor-mid" x="395" y="220">Approver: manager field / queue / named user</text>
+    <text class="s-t-sm anchor-mid" x="395" y="238">Step criteria · delegate · reject behaviour</text>
+
+    <path class="s-line-g" d="M250 212 H150 V300" marker-end="url(#a5)"/>
+    <text class="s-t-sm s-t-g anchor-mid" x="196" y="200">Approve</text>
+    <path class="s-line-r" d="M540 212 H650 V300" marker-end="url(#a5)"/>
+    <text class="s-t-sm s-t-r anchor-mid" x="600" y="200">Reject</text>
+
+    <rect class="s-box-t" x="250" y="264" width="290" height="46" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="395" y="288">Step 2 — VP (only if Amount &gt; 100k)</text>
+
+    <rect class="s-box-g" x="60"  y="300" width="180" height="62" rx="9"/>
+    <text class="s-t s-t-g anchor-mid" x="150" y="322">Final Approval Actions</text>
+    <text class="s-t-sm anchor-mid" x="150" y="344">Status=Approved · unlock · email</text>
+
+    <rect class="s-box-r" x="560" y="300" width="180" height="62" rx="9"/>
+    <text class="s-t s-t-r anchor-mid" x="650" y="322">Final Rejection Actions</text>
+    <text class="s-t-sm anchor-mid" x="650" y="344">Status=Rejected · unlock</text>
+    <defs><marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<h3>The four action buckets</h3>
+<div class="grid g4">
+  <div class="card"><h4>Initial Submission</h4><p>Runs on submit. Usually locks the record and sets Status = "Pending".</p></div>
+  <div class="card accent-green"><h4>Final Approval</h4><p>All steps approved. Set status, unlock, notify, fire outbound message.</p></div>
+  <div class="card accent-rose"><h4>Final Rejection</h4><p>Rejected. Set status back, unlock, notify submitter.</p></div>
+  <div class="card accent-amber"><h4>Recall</h4><p>Submitter withdraws. Unlock and reset.</p></div>
+</div>
+<p>Each bucket can run: <strong>Field Update</strong>, <strong>Email Alert</strong>, <strong>Task</strong>,
+   <strong>Outbound Message</strong>. (Flows can be triggered indirectly via a field update.)</p>
+
+<h3>Key configuration choices</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Option</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td>Approver type</td><td>Manager field · queue · specific user(s) · related user field · let submitter choose</td></tr>
+    <tr><td>Multiple approvers</td><td><em>Unanimous</em> (all must approve) or <em>First response</em></td></tr>
+    <tr><td>Record editability</td><td>Admins only, or admins + the current approver</td></tr>
+    <tr><td>Reject behaviour</td><td>Reject the whole request, or go back one step</td></tr>
+    <tr><td>Delegated approver</td><td>Allow an assigned delegate to approve on someone's behalf</td></tr>
+    <tr><td>Recall</td><td>Allow submitters to recall their own request</td></tr>
+  </tbody>
+</table>
+</div>
+
+<pre><code class="language-apex">// Submit a record for approval from Apex
+Approval.ProcessSubmitRequest req = new Approval.ProcessSubmitRequest();
+req.setObjectId(opp.Id);
+req.setComments('Auto-submitted: discount above threshold');
+req.setProcessDefinitionNameOrId('Discount_Approval');
+req.setSkipEntryCriteria(false);
+Approval.ProcessResult result = Approval.process(req);
+System.debug(result.isSuccess() + ' → ' + result.getInstanceStatus());
+
+// Approve / reject a pending work item
+Approval.ProcessWorkitemRequest wi = new Approval.ProcessWorkitemRequest();
+wi.setWorkitemId(workItemId);
+wi.setAction('Approve');          // 'Approve' | 'Reject' | 'Removed'
+wi.setComments('Looks good');
+Approval.process(wi);</code></pre>
+
+<div class="callout note">
+  <span class="c-ico">📊</span>
+  <div class="c-body"><span class="c-title">Objects behind the scenes</span>
+    <code>ProcessInstance</code> (one per submission), <code>ProcessInstanceStep</code> (completed steps),
+    <code>ProcessInstanceWorkitem</code> (the pending approval). Query these to build "My Pending Approvals" components
+    or approval-cycle-time reports.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="standard-objects-end-to-end">Standard objects — a real end-to-end process</h2>
+<p>This is the process every Salesforce professional should be able to narrate. It ties the standard objects together.</p>
+
+<div class="dgm">
+  <div class="dgm-title">Lead → Cash (Sales Cloud)</div>
+  <svg viewBox="0 0 800 400" role="img" aria-label="End to end sales process from campaign to order">
+    <rect class="s-box-v" x="20" y="20" width="130" height="54" rx="9"/>
+    <text class="s-t anchor-mid" x="85" y="40">Campaign</text><text class="s-t-sm anchor-mid" x="85" y="60">marketing spend</text>
+    <path class="s-line-v" d="M150 47 H210" marker-end="url(#a6)"/>
+
+    <rect class="s-box-b" x="210" y="20" width="130" height="54" rx="9"/>
+    <text class="s-t anchor-mid" x="275" y="40">Lead</text><text class="s-t-sm anchor-mid" x="275" y="60">unqualified interest</text>
+    <path class="s-line-b" d="M275 74 V110" marker-end="url(#a6)"/>
+    <text class="s-t-sm s-t-b" x="290" y="94">qualify &amp; score</text>
+
+    <rect class="s-box-a" x="190" y="110" width="170" height="46" rx="9"/>
+    <text class="s-t s-t-a anchor-mid" x="275" y="133">CONVERT</text>
+    <path class="s-line-a" d="M190 133 H120 V180" marker-end="url(#a6)"/>
+    <path class="s-line-a" d="M275 156 V180" marker-end="url(#a6)"/>
+    <path class="s-line-a" d="M360 133 H430 V180" marker-end="url(#a6)"/>
+
+    <rect class="s-box-t" x="40"  y="180" width="150" height="46" rx="9"/>
+    <text class="s-t anchor-mid" x="115" y="203">Account</text>
+    <rect class="s-box-t" x="205" y="180" width="140" height="46" rx="9"/>
+    <text class="s-t anchor-mid" x="275" y="203">Contact</text>
+    <rect class="s-box-g" x="360" y="180" width="150" height="46" rx="9"/>
+    <text class="s-t anchor-mid" x="435" y="203">Opportunity</text>
+
+    <path class="s-line-g" d="M435 226 V262" marker-end="url(#a6)"/>
+    <rect class="s-box-g" x="330" y="262" width="210" height="54" rx="9"/>
+    <text class="s-t anchor-mid" x="435" y="282">Stages → Closed Won</text>
+    <text class="s-t-sm anchor-mid" x="435" y="302">Products · Quotes · Approvals</text>
+
+    <path class="s-line-g" d="M540 289 H600" marker-end="url(#a6)"/>
+    <rect class="s-box-b" x="600" y="262" width="170" height="54" rx="9"/>
+    <text class="s-t anchor-mid" x="685" y="282">Order / Contract</text>
+    <text class="s-t-sm anchor-mid" x="685" y="302">fulfilment &amp; billing</text>
+
+    <path class="s-line-r" d="M685 316 V352" marker-end="url(#a6)"/>
+    <rect class="s-box-r" x="600" y="352" width="170" height="42" rx="9"/>
+    <text class="s-t s-t-r anchor-mid" x="685" y="373">Case (Service Cloud)</text>
+    <text class="s-t-sm anchor-mid" x="300" y="373">Lead Convert creates up to 3 records in one transaction and marks the Lead Converted (read-only)</text>
+    <defs><marker id="a6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<h3>Step by step</h3>
+<ul class="steps">
+  <li><b>Campaign</b> — marketing runs a webinar. Attendees become Campaign Members.</li>
+  <li><b>Lead</b> — an unqualified person + company in one record. Web-to-Lead creates it; an assignment rule routes it.</li>
+  <li><b>Qualification</b> — the rep works the Lead (Tasks, calls). Lead Status moves Open → Working → Qualified.</li>
+  <li><b>Conversion</b> — one click creates <strong>Account</strong> (the company), <strong>Contact</strong> (the person)
+      and optionally <strong>Opportunity</strong> (the deal). Existing Accounts/Contacts can be matched instead of duplicated.
+      Custom Lead fields must be <em>mapped</em> or the data is lost.</li>
+  <li><b>Opportunity</b> — the deal, with Amount, Close Date and Stage. Stages drive the Probability and the forecast.</li>
+  <li><b>Products &amp; Price Books</b> — add Opportunity Line Items from a Price Book to build the Amount from real products.</li>
+  <li><b>Quote</b> — a formal, versioned offer; sync a quote back to the Opportunity so amounts match.</li>
+  <li><b>Approval</b> — discount above 20%? An <a href="#approval-process">approval process</a> locks the record until a manager signs off.</li>
+  <li><b>Closed Won</b> — creates an <strong>Order</strong> or <strong>Contract</strong> for fulfilment/billing.</li>
+  <li><b>Service</b> — post-sale issues arrive as <strong>Cases</strong> via <a href="#email-to-case">Email-to-Case</a>,
+      routed by assignment rules, escalated by escalation rules, and answered with Knowledge articles.</li>
+</ul>
+
+<div class="callout warn">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Lead conversion gotchas — classic interview material</span>
+    ① Field mapping must be configured per Lead field, and data types must match.
+    ② Triggers fire on Lead (update), Account, Contact and Opportunity <strong>in the same transaction</strong> —
+    watch your limits. ③ Use <code>Trigger.isUpdate &amp;&amp; lead.isConverted &amp;&amp; !oldLead.isConverted</code>
+    to detect a conversion. ④ Converted Leads become read-only and are hidden from list views by default.</div>
+</div>
+
+<h3>Service Cloud case lifecycle</h3>
+<div class="flowchain">
+  <span class="chip b">New</span><span class="arrow">→</span>
+  <span class="chip">Assignment rule → Queue</span><span class="arrow">→</span>
+  <span class="chip v">Agent accepts (Omni-Channel)</span><span class="arrow">→</span>
+  <span class="chip a">Working / Escalated</span><span class="arrow">→</span>
+  <span class="chip t">Solution + Knowledge article</span><span class="arrow">→</span>
+  <span class="chip g">Closed</span><span class="arrow">→</span>
+  <span class="chip">CSAT survey</span>
+</div>
+
+<!-- ============================================ -->
+<h2 id="data-management">Data management tools</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>Data Import Wizard</th><th>Data Loader</th></tr></thead>
+  <tbody>
+    <tr><td>Location</td><td>In-browser, Setup</td><td>Desktop app / CLI</td></tr>
+    <tr><td>Record limit</td><td>50,000</td><td>5 million (Bulk API)</td></tr>
+    <tr><td>Objects</td><td>Accounts, Contacts, Leads, Solutions, Campaign Members, custom objects</td><td>All objects</td></tr>
+    <tr><td>Delete</td><td>❌</td><td>✅ Delete &amp; hard delete</td></tr>
+    <tr><td>Duplicate matching</td><td>✅ Built in</td><td>❌ (use upsert on External ID)</td></tr>
+    <tr><td>Can disable triggers/workflow?</td><td>❌</td><td>❌ (but can bypass with a setting-driven switch)</td></tr>
+    <tr><td>Schedulable</td><td>❌</td><td>✅ via CLI</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> How do you model a many-to-many relationship, and what decides the "primary" side?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Create a <strong>junction object</strong> with <strong>two master-detail</strong> fields, one to each
+parent. The <strong>first master-detail you create becomes the primary</strong>: it controls the junction record's
+look and feel, its ownership and its sharing, and the junction appears under that parent by default. Deleting either
+parent deletes the junction records. Classic example: Job Posting ⇄ Candidate joined by Job Application.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> Walk me through lead conversion. What are the traps?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Conversion creates an <strong>Account</strong>, a <strong>Contact</strong> and optionally an
+<strong>Opportunity</strong>, or matches existing ones. The Lead becomes <code>IsConverted = true</code> and read-only.</p>
+<p><strong>Traps:</strong> ① custom Lead fields are lost unless explicitly <em>mapped</em>, and the data types must match;
+② triggers fire on Lead, Account, Contact <em>and</em> Opportunity in one transaction, so limits are shared;
+③ validation rules on the target objects can block conversion with confusing messages;
+④ detect it in Apex with <code>lead.isConverted &amp;&amp; !oldLead.isConverted</code>;
+⑤ converted leads disappear from most list views by default.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Matching rule vs duplicate rule — which does what?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>The <strong>matching rule</strong> defines <em>how</em> to detect a duplicate — which fields to compare
+and whether each uses exact or fuzzy matching. The <strong>duplicate rule</strong> defines <em>what to do</em> about a
+match: Allow with an alert, or Block, plus conditions, which operations it runs on, and whether matches are logged for
+reporting. You always need both, and only one duplicate rule per object runs per operation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Custom Setting vs Custom Metadata Type vs Custom Label — pick one for each scenario.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><ul>
+  <li>"Integration endpoint that must differ per environment and deploy with the code" → <strong>Custom Metadata Type</strong> (records deploy, no SOQL limit consumed, relationships supported).</li>
+  <li>"Let an admin disable a trigger for one integration user during a data load" → <strong>Hierarchy Custom Setting</strong> (Org → Profile → User resolution, cached, no SOQL).</li>
+  <li>"Error message shown to users that must be translated into French" → <strong>Custom Label</strong>.</li>
+</ul>
+<p>The key discriminator: only Custom Metadata <em>records</em> travel with a deployment; Custom Setting definitions
+deploy but their data does not.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> A record saves and you have a validation rule, a before trigger and a before-save flow. What order do they run in?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Before-save flow → before trigger → validation rules.</strong> Precisely: system validation
+(step 3) → record-triggered flows configured for "fast field update" (step 4) → before triggers (step 5) → system and
+custom validation rules re-run against whatever those set (step 6) → duplicate rules (step 7) → save (step 8).</p>
+<p>The practical consequence: a value your before-save flow or before trigger writes <em>is</em> subject to validation
+rules, which surprises people who expect validation to run first. Full sequence on the
+<a href="apex-triggers.html#order-of-execution">Triggers page</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> Leads created by an integration aren't being routed to queues. Diagnose it.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Assignment rules do <strong>not</strong> run for API or Apex inserts unless the caller sets the
+header. In the UI there's a checkbox; through the API you must pass
+<code>Database.DMLOptions.assignmentRuleHeader.useDefaultRule = true</code> (or a specific rule Id).
+Web-to-Lead and Email-to-Case always run them. Also check: is the rule <em>active</em> (only one can be), does a
+higher-ordered entry match first (first match wins), and is the queue's object type correct?</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> Record Type vs Page Layout vs Dynamic Forms — how do they interact?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Record Type</strong> represents a business process variant; it filters picklist values and,
+combined with the user's <strong>Profile</strong>, determines which <strong>Page Layout</strong> is assigned. The layout
+controls field placement, related lists and buttons. <strong>Dynamic Forms</strong> supersede the monolithic layout in
+Lightning: fields are placed individually in App Builder, each with its own visibility rule, so you stop creating a new
+record type purely to hide fields.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> Queue or Public Group — which do you use, and why?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Queues own records</strong> — use one when work needs to sit in a shared bucket until
+someone takes it (unassigned Cases, Leads), or when you need a group as an <em>approver</em>.
+<strong>Public Groups grant access</strong> — they can't own anything, and are used in sharing rules, list view
+visibility and folder sharing. If the requirement contains the word "assign", think queue; if it contains "let them
+see", think group.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> Web-to-Lead is dropping leads on a big campaign day. What's happening and what do you do?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Web-to-Lead is capped at <strong>500 leads per 24 hours</strong>. Beyond that, extra submissions are
+sent to the default lead creator by email rather than created as records — so they look "lost". Options: request a limit
+increase from Salesforce, or move to the <strong>REST API</strong> / middleware posting Leads directly, which has no
+such cap. Either way add reCAPTCHA (the endpoint is unauthenticated), set an assignment rule, and use duplicate rules
+in "Allow with alert + Report" mode so bulk submissions never hard-fail.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. You need a roll-up summary of child records. What must be true?</div>
+  <button class="opt">The relationship is a Lookup</button>
+  <button class="opt" data-correct="1">The relationship is Master-Detail</button>
+  <button class="opt">The child object has a formula field</button>
+  <div class="explain">Roll-up summaries require Master-Detail. With Lookup you'd use a trigger, a record-triggered flow, or the Rollup Helper style approach.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. Config values must move from sandbox to production <em>with the deployment</em>. Best choice?</div>
+  <button class="opt">List Custom Setting</button>
+  <button class="opt" data-correct="1">Custom Metadata Type</button>
+  <button class="opt">Custom Label</button>
+  <div class="explain">Only Custom Metadata Type records deploy along with metadata. Custom Setting <em>definitions</em> deploy, but their data does not.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. Leads inserted through Apex aren't being routed to queues. Why?</div>
+  <button class="opt">Assignment rules only work on Cases</button>
+  <button class="opt">The queue is inactive</button>
+  <button class="opt" data-correct="1">Apex/API inserts don't run assignment rules unless you set DMLOptions.assignmentRuleHeader</button>
+  <div class="explain">The UI has a checkbox; the API needs the header explicitly. Web-to-Lead and Email-to-Case always run them.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Admin Essentials</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

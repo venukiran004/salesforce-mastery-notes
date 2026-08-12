@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Advanced Apex | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Apex</span> › <span>Advanced</span></div>
+  <h1>Advanced Apex</h1>
+  <p class="lede">Wrapper classes, dynamic Apex, JSON, interfaces, custom exceptions, design patterns and the
+     best-practice rules that separate demo code from production code.</p>
+</header>
+
+<!-- ============================================ -->
+<h2 id="wrapper-class">Wrapper classes</h2>
+<p>A <strong>wrapper class</strong> (also called a container class) is a custom Apex class that groups together
+   different data types into a single object — typically an sObject plus extra fields that don't exist on the record.</p>
+
+<div class="dgm">
+  <div class="dgm-title">Why you need one</div>
+  <svg viewBox="0 0 760 250" role="img" aria-label="Wrapper class combining an sObject with extra UI fields">
+    <rect class="s-box" x="30" y="60" width="170" height="110" rx="10"/>
+    <text class="s-t anchor-mid" x="115" y="84">Account (sObject)</text>
+    <text class="s-t-sm anchor-mid" x="115" y="110">Id</text>
+    <text class="s-t-sm anchor-mid" x="115" y="130">Name</text>
+    <text class="s-t-sm anchor-mid" x="115" y="150">AnnualRevenue</text>
+    <text class="s-t-sm s-t-r anchor-mid" x="115" y="196">Can't add a checkbox</text>
+    <text class="s-t-sm s-t-r anchor-mid" x="115" y="214">that isn't a real field</text>
+
+    <text class="s-t s-t-a anchor-mid" x="270" y="115">+</text>
+
+    <rect class="s-box-a" x="320" y="60" width="170" height="110" rx="10"/>
+    <text class="s-t anchor-mid" x="405" y="84">UI-only data</text>
+    <text class="s-t-sm anchor-mid" x="405" y="110">isSelected (Boolean)</text>
+    <text class="s-t-sm anchor-mid" x="405" y="130">rank (Integer)</text>
+    <text class="s-t-sm anchor-mid" x="405" y="150">warningMessage (String)</text>
+
+    <path class="s-line-v" d="M500 115 H560" marker-end="url(#w1)"/>
+
+    <rect class="s-box-v" x="560" y="50" width="180" height="130" rx="10"/>
+    <text class="s-t s-t-v anchor-mid" x="650" y="76">AccountWrapper</text>
+    <text class="s-t-sm anchor-mid" x="650" y="102">public Account record;</text>
+    <text class="s-t-sm anchor-mid" x="650" y="122">public Boolean isSelected;</text>
+    <text class="s-t-sm anchor-mid" x="650" y="142">public Integer rank;</text>
+    <text class="s-t-sm s-t-g anchor-mid" x="650" y="166">One clean object for the UI</text>
+    <defs><marker id="w1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<h3>The classic: a selectable list</h3>
+<pre><code class="language-apex">public with sharing class AccountSelectionController {
+
+    // The wrapper — usually an inner class
+    public class AccountWrapper {
+        @AuraEnabled public Account record      { get; set; }
+        @AuraEnabled public Boolean isSelected  { get; set; }
+        @AuraEnabled public Integer contactCount{ get; set; }
+        @AuraEnabled public String  healthLabel { get; set; }
+
+        public AccountWrapper(Account a, Integer contacts) {
+            this.record       = a;
+            this.isSelected   = false;
+            this.contactCount = contacts;
+            this.healthLabel  = contacts &gt; 5 ? 'Healthy' : 'At Risk';
+        }
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static List&lt;AccountWrapper&gt; getAccounts() {
+        List&lt;AccountWrapper&gt; wrappers = new List&lt;AccountWrapper&gt;();
+        for (Account a : [SELECT Id, Name, Industry, AnnualRevenue,
+                                 (SELECT Id FROM Contacts)
+                          FROM Account
+                          WHERE AnnualRevenue != null
+                          WITH USER_MODE
+                          ORDER BY AnnualRevenue DESC
+                          LIMIT 200]) {
+            wrappers.add(new AccountWrapper(a, a.Contacts.size()));
+        }
+        return wrappers;
+    }
+}</code></pre>
+
+<div class="callout note">
+  <span class="c-ico">🔖</span>
+  <div class="c-body"><span class="c-title">Rules for LWC-facing wrappers</span>
+    Every field you want in JavaScript must be <code>@AuraEnabled</code> and <code>public</code>.
+    The class itself must be <code>public</code> (or <code>global</code> in a package). Inner classes are fine and
+    keep things tidy. Use <code>{ get; set; }</code> properties or plain public fields — both serialise.</div>
+</div>
+
+<h3>Wrapper + Comparable for custom sorting</h3>
+<pre><code class="language-apex">public class OpportunityScore implements Comparable {
+    public Opportunity opp;
+    public Decimal score;
+
+    public OpportunityScore(Opportunity o, Decimal s) { opp = o; score = s; }
+
+    // Required by Comparable: -1 (before), 0 (same), 1 (after)
+    public Integer compareTo(Object other) {
+        OpportunityScore o = (OpportunityScore) other;
+        if (score == o.score)  return 0;
+        return score &gt; o.score ? -1 : 1;        // descending
+    }
+}
+
+List&lt;OpportunityScore&gt; scores = buildScores();
+scores.sort();                                   // uses compareTo automatically</code></pre>
+
+<div class="callout case">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">Use cases for wrappers</span>
+    ① A datatable with checkboxes ("select accounts to merge").
+    ② Combining data from two objects into one row (Account + its latest Case).
+    ③ Adding calculated values (age, health score, RAG status) without creating formula fields.
+    ④ Shaping a JSON response for an external API.
+    ⑤ Sorting by something SOQL can't order by.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="advanced-concepts">Advanced concepts</h2>
+
+<h3>Dynamic Apex &amp; Schema describe</h3>
+<p>Write code that adapts to metadata at runtime instead of hard-coding object and field names.</p>
+<pre><code class="language-apex">// ---------- Global describe: every object in the org ----------
+Map&lt;String, Schema.SObjectType&gt; globalDescribe = Schema.getGlobalDescribe();
+Schema.SObjectType accType = globalDescribe.get('Account');
+
+// ---------- Object describe ----------
+Schema.DescribeSObjectResult d = accType.getDescribe();
+System.debug(d.getLabel());          // Account
+System.debug(d.getKeyPrefix());      // 001
+System.debug(d.isCreateable());      // CRUD check
+System.debug(d.isAccessible());
+
+// ---------- Field describe ----------
+Map&lt;String, Schema.SObjectField&gt; fieldMap = d.fields.getMap();
+for (String apiName : fieldMap.keySet()) {
+    Schema.DescribeFieldResult f = fieldMap.get(apiName).getDescribe();
+    System.debug(f.getLabel() + ' | ' + f.getType() + ' | len=' + f.getLength()
+                 + ' | updateable=' + f.isUpdateable() + ' | accessible=' + f.isAccessible());
+}
+
+// ---------- Picklist values ----------
+for (Schema.PicklistEntry pe : Account.Industry.getDescribe().getPicklistValues()) {
+    System.debug(pe.getLabel() + ' = ' + pe.getValue() + ' active=' + pe.isActive());
+}
+
+// ---------- Record types ----------
+Map&lt;String, Schema.RecordTypeInfo&gt; rts = accType.getDescribe().getRecordTypeInfosByDeveloperName();
+Id b2bRtId = rts.get('B2B').getRecordTypeId();
+
+// ---------- Generic, object-agnostic code ----------
+public static List&lt;sObject&gt; getRecent(String objectName, Integer howMany) {
+    Schema.SObjectType t = Schema.getGlobalDescribe().get(objectName);
+    if (t == null) throw new IllegalArgumentException('Unknown object: ' + objectName);
+
+    String soql = 'SELECT Id, Name FROM ' + String.escapeSingleQuotes(objectName) +
+                  ' ORDER BY CreatedDate DESC LIMIT :howMany';
+    return Database.query(soql);
+}
+
+// ---------- Dynamic instantiation ----------
+sObject rec = accType.newSObject();
+rec.put('Name', 'Dynamic Account');
+rec.put('Industry', 'Retail');
+insert rec;
+String name = (String) rec.get('Name');
+
+// ---------- Dynamic class loading (plug-in pattern) ----------
+Type handlerType = Type.forName('MyNamespace', 'DiscountStrategyPremium');
+DiscountStrategy strategy = (DiscountStrategy) handlerType.newInstance();</code></pre>
+
+<div class="callout warn">
+  <span class="c-ico">🐌</span>
+  <div class="c-body"><span class="c-title">Performance</span>
+    <code>Schema.getGlobalDescribe()</code> is expensive in orgs with thousands of objects — it can consume real CPU
+    time. Prefer <code>Account.SObjectType.getDescribe()</code> when you know the object, and cache describes in a
+    static variable for the transaction.</div>
+</div>
+
+<h3>Field Sets — dynamic without code changes</h3>
+<pre><code class="language-apex">// Admin edits the field set; your code adapts automatically
+Schema.FieldSet fs = Schema.SObjectType.Account.fieldSets.Invoice_Fields;
+List&lt;String&gt; fieldNames = new List&lt;String&gt;();
+for (Schema.FieldSetMember m : fs.getFields()) {
+    fieldNames.add(m.getFieldPath());
+    System.debug(m.getLabel() + ' required=' + m.getRequired());
+}
+String soql = 'SELECT Id, ' + String.join(fieldNames, ',') + ' FROM Account LIMIT 50';
+List&lt;Account&gt; accs = Database.query(soql);</code></pre>
+
+<h3>JSON</h3>
+<pre><code class="language-apex">// ---------- Serialize ----------
+Account a = [SELECT Id, Name, Industry FROM Account LIMIT 1];
+String json       = JSON.serialize(a);
+String prettyJson = JSON.serializePretty(a);
+String noNulls    = JSON.serialize(a, true);           // suppress nulls
+
+// ---------- Deserialize (typed) ----------
+Account back = (Account) JSON.deserialize(json, Account.class);
+List&lt;Account&gt; list = (List&lt;Account&gt;) JSON.deserialize(jsonArray, List&lt;Account&gt;.class);
+
+// ---------- Deserialize (untyped) — for unknown/awkward shapes ----------
+Map&lt;String, Object&gt; parsed = (Map&lt;String, Object&gt;) JSON.deserializeUntyped(responseBody);
+List&lt;Object&gt; records = (List&lt;Object&gt;) parsed.get('records');
+for (Object o : records) {
+    Map&lt;String, Object&gt; rec = (Map&lt;String, Object&gt;) o;
+    System.debug(rec.get('id') + ' → ' + rec.get('status'));
+}
+
+// ---------- Strict deserialize: throws on unknown attributes ----------
+MyDto dto = (MyDto) JSON.deserializeStrict(body, MyDto.class);
+
+// ---------- Handling reserved words / different names ----------
+public class OrderDto {
+    public String orderNumber;
+    public Decimal total;
+    // JSON key "class" is a reserved word — deserializeUntyped, or rename in a wrapper
+}
+
+// ---------- Streaming generator: full control of output ----------
+JSONGenerator gen = JSON.createGenerator(true);
+gen.writeStartObject();
+gen.writeStringField('accountName', a.Name);
+gen.writeNumberField('revenue', 150000);
+gen.writeFieldName('contacts');
+gen.writeStartArray();
+for (Contact c : contacts) {
+    gen.writeStartObject();
+    gen.writeStringField('name', c.LastName);
+    gen.writeEndObject();
+}
+gen.writeEndArray();
+gen.writeEndObject();
+String payload = gen.getAsString();</code></pre>
+
+<h3>Custom exceptions</h3>
+<pre><code class="language-apex">// Any class ending in "Exception" and extending Exception
+public class InvoiceException extends Exception {}
+
+public class ValidationException extends Exception {
+    public List&lt;String&gt; failedFields = new List&lt;String&gt;();
+}
+
+// Throwing
+if (invoice.Amount__c &lt;= 0) {
+    throw new InvoiceException('Amount must be positive for ' + invoice.Name);
+}
+
+// Chaining the cause
+try {
+    doWork();
+} catch (DmlException e) {
+    throw new InvoiceException('Could not save invoice', e);   // preserves the stack
+}
+
+// Catching in the right order — specific first
+try {
+    riskyOperation();
+} catch (DmlException e) {
+    System.debug(e.getDmlMessage(0) + ' on record ' + e.getDmlId(0)
+                 + ' field ' + e.getDmlFieldNames(0));
+} catch (QueryException e) {
+    System.debug('Bad query: ' + e.getMessage());
+} catch (CalloutException e) {
+    System.debug('Integration down: ' + e.getMessage());
+} catch (Exception e) {
+    System.debug(e.getTypeName() + ': ' + e.getMessage()
+                 + '\nLine ' + e.getLineNumber() + '\n' + e.getStackTraceString());
+    throw e;                                   // rethrow if you can't handle it
+} finally {
+    cleanup();                                 // always runs
+}</code></pre>
+<div class="callout danger">
+  <span class="c-ico">🚫</span>
+  <div class="c-body"><span class="c-title">You cannot catch these</span>
+    <code>LimitException</code> (governor limits) is <strong>uncatchable</strong> — you cannot try/catch your way out
+    of "Too many SOQL queries". Neither can you catch assertion failures. Design within limits instead;
+    check <code>Limits.getQueries()</code> proactively.</div>
+</div>
+
+<h3>Key system interfaces</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Interface</th><th>Method to implement</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><code>Comparable</code></td><td><code>Integer compareTo(Object)</code></td><td>Custom sort order for <code>list.sort()</code></td></tr>
+    <tr><td><code>Queueable</code></td><td><code>void execute(QueueableContext)</code></td><td>Async job — see <a href="async-apex.html">Async Apex</a></td></tr>
+    <tr><td><code>Database.Batchable</code></td><td><code>start / execute / finish</code></td><td>Large-volume processing</td></tr>
+    <tr><td><code>Schedulable</code></td><td><code>void execute(SchedulableContext)</code></td><td>Cron jobs</td></tr>
+    <tr><td><code>Iterable&lt;T&gt;</code> / <code>Iterator&lt;T&gt;</code></td><td><code>iterator()</code> / <code>hasNext(), next()</code></td><td>Custom iteration, non-SOQL batch sources</td></tr>
+    <tr><td><code>Callable</code></td><td><code>Object call(String, Map&lt;String,Object&gt;)</code></td><td>Loose coupling across packages/namespaces</td></tr>
+    <tr><td><code>HttpCalloutMock</code></td><td><code>HttpResponse respond(HttpRequest)</code></td><td>Testing callouts</td></tr>
+    <tr><td><code>StubProvider</code></td><td><code>Object handleMethodCall(...)</code></td><td>Apex Stub API for mocking</td></tr>
+    <tr><td><code>Database.AllowsCallouts</code></td><td>(marker)</td><td>Permit callouts in async code</td></tr>
+    <tr><td><code>Database.Stateful</code></td><td>(marker)</td><td>Keep instance state across batch chunks</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h4>Custom iterator</h4>
+<pre><code class="language-apex">public class EvenNumberIterator implements Iterator&lt;Integer&gt;, Iterable&lt;Integer&gt; {
+    private Integer current = 0, max;
+    public EvenNumberIterator(Integer max) { this.max = max; }
+
+    public Boolean hasNext() { return current + 2 &lt;= max; }
+    public Integer next()    { current += 2; return current; }
+    public Iterator&lt;Integer&gt; iterator() { return this; }
+}
+
+for (Integer i : new EvenNumberIterator(10)) System.debug(i);   // 2 4 6 8 10</code></pre>
+
+<h3>Static vs instance — and initialisation order</h3>
+<pre><code class="language-apex">public class Counter {
+    public static Integer transactionCount = 0;     // ONE per transaction
+    public Integer instanceCount = 0;               // one per object
+
+    static  { transactionCount = 100; }             // static initialiser — runs once
+    { instanceCount = 5; }                          // instance initialiser — runs per new
+
+    public Counter() { instanceCount++; }           // constructor runs last
+}</code></pre>
+<ul>
+  <li><strong>Static variables live for the whole transaction</strong> and are shared by every instance — that's why they work as recursion guards and caches.</li>
+  <li>Statics are <strong>not</strong> shared between transactions, users or async jobs. A <code>@future</code> call starts with fresh statics.</li>
+  <li>Order: static initialiser → instance initialiser → constructor.</li>
+</ul>
+
+<h3>Platform Cache — a real cross-transaction cache</h3>
+<pre><code class="language-apex">// Org cache: shared by all users. Session cache: per user session.
+Cache.OrgPartition part = Cache.Org.getPartition('local.Config');
+
+String value = (String) part.get('exchangeRate');
+if (value == null) {
+    value = fetchFromExternalService();
+    part.put('exchangeRate', value, 3600);           // TTL in seconds (max 48h org / 8h session)
+}
+part.remove('exchangeRate');
+Boolean cached = part.contains('exchangeRate');</code></pre>
+
+<h3>Custom Permissions</h3>
+<pre><code class="language-apex">// Define in Setup, assign via Permission Set — then check anywhere
+if (FeatureManagement.checkPermission('Approve_Large_Discount')) { /* ... */ }
+
+// Also usable in validation rules and formulas: $Permission.Approve_Large_Discount</code></pre>
+
+<h3>Design patterns that matter in Apex</h3>
+<div class="grid g2">
+  <div class="card accent-violet"><h4>Selector / Service / Domain</h4>
+    <p>Separation of concerns (the "Enterprise Patterns"/fflib approach):</p>
+    <ul><li><strong>Selector</strong> — all SOQL for an object</li>
+        <li><strong>Domain</strong> — behaviour of records of one object (trigger logic)</li>
+        <li><strong>Service</strong> — cross-object business processes</li>
+        <li><strong>Unit of Work</strong> — batches DML and manages relationships</li></ul></div>
+  <div class="card accent-teal"><h4>Singleton</h4>
+    <pre style="font-size:12px;background:none;padding:0;color:var(--text-dim)">public class Config {
+  private static Config inst;
+  private Config() { load(); }
+  public static Config get() {
+    if (inst == null) inst = new Config();
+    return inst;
+  }
+}</pre>
+    <p>One expensive setup per transaction — ideal for configuration and describe caching.</p></div>
+  <div class="card accent-amber"><h4>Strategy</h4>
+    <p>An interface plus interchangeable implementations selected at runtime (often via Custom Metadata + <code>Type.forName</code>). Perfect for "different discount rules per country".</p></div>
+  <div class="card accent-green"><h4>Factory</h4>
+    <p>A class that decides which concrete implementation to build, keeping <code>new</code> out of your business logic and making mocking trivial.</p></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="best-practices">Apex best practices</h2>
+
+<div class="dgm">
+  <div class="dgm-title">The layered architecture to aim for</div>
+  <svg viewBox="0 0 760 290" role="img" aria-label="Layered Apex architecture from trigger to selector">
+    <rect class="s-box-b" x="230" y="10" width="300" height="42" rx="9"/>
+    <text class="s-t anchor-mid" x="380" y="31">Entry points — Trigger · LWC · REST · Batch</text>
+    <path class="s-line" d="M380 52 V76" marker-end="url(#p1)"/>
+    <rect class="s-box-v" x="230" y="76" width="300" height="42" rx="9"/>
+    <text class="s-t anchor-mid" x="380" y="97">Handler / Controller — routing only, no logic</text>
+    <path class="s-line" d="M380 118 V142" marker-end="url(#p1)"/>
+    <rect class="s-box-t" x="230" y="142" width="300" height="42" rx="9"/>
+    <text class="s-t anchor-mid" x="380" y="163">Service — business logic, bulk-safe, reusable</text>
+    <path class="s-line" d="M380 184 V208" marker-end="url(#p1)"/>
+    <rect class="s-box-g" x="230" y="208" width="300" height="42" rx="9"/>
+    <text class="s-t anchor-mid" x="380" y="229">Selector — all SOQL lives here</text>
+    <text class="s-t-sm anchor-mid" x="380" y="274">Each layer is independently testable and mockable</text>
+    <defs><marker id="p1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<div class="grid g2">
+  <div class="card accent-green"><h4>✅ Always</h4>
+    <ul>
+      <li><strong>Bulkify</strong> — every method takes and returns collections</li>
+      <li><strong>One trigger per object</strong>, logic in a handler</li>
+      <li>Query with <code>WITH USER_MODE</code> and DML with <code>AccessLevel.USER_MODE</code> where the user's access should apply</li>
+      <li>Use <code>Database.method(list, false)</code> when partial success is acceptable, and log the failures</li>
+      <li>Declare classes <code>with sharing</code> or <code>inherited sharing</code></li>
+      <li>Use constants and Custom Metadata instead of magic numbers and hard-coded Ids</li>
+      <li>Handle exceptions where you can act on them; log the rest to a custom object</li>
+      <li>Name things for what they do: <code>OpportunityDiscountService.applyTierCap()</code></li>
+      <li>Write meaningful assertions with messages: <code>Assert.areEqual(exp, act, 'why')</code></li>
+      <li>Keep methods short and single-purpose</li>
+    </ul></div>
+  <div class="card accent-rose"><h4>❌ Never</h4>
+    <ul>
+      <li>SOQL, SOSL, DML or callouts inside a loop</li>
+      <li><code>@isTest(SeeAllData=true)</code> unless you have no choice</li>
+      <li>Hard-coded record Ids, profile Ids or usernames</li>
+      <li>Empty catch blocks that swallow errors</li>
+      <li><code>List&lt;Account&gt; a = [SELECT …];  a[0]</code> without a size check</li>
+      <li>Business logic in the trigger body</li>
+      <li>Assuming <code>Trigger.new.size() == 1</code></li>
+      <li><code>without sharing</code> "to make it work"</li>
+      <li>Duplicating logic between a flow and a trigger on one object</li>
+      <li>Chasing 75% coverage with assertion-free tests</li>
+    </ul></div>
+</div>
+
+<h3>Performance checklist</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
+  <tbody>
+    <tr><td>Too many SOQL queries: 101</td><td>Query in a loop</td><td>Query once with <code>IN :ids</code>, use a Map</td></tr>
+    <tr><td>Too many DML statements: 151</td><td>DML in a loop</td><td>Collect into a list, one DML after</td></tr>
+    <tr><td>Apex CPU time limit exceeded</td><td>Nested loops, huge describes, heavy string ops</td><td>Use Maps for lookups, avoid <code>getGlobalDescribe</code>, move work async</td></tr>
+    <tr><td>Apex heap size too large</td><td>Loading too many records/large text</td><td>SOQL for loop, query fewer fields, use <code>Database.QueryLocator</code></td></tr>
+    <tr><td>Non-selective query</td><td>Filtering on unindexed fields on a big object</td><td>Filter on indexed fields; request a custom index</td></tr>
+    <tr><td>Uncommitted work pending</td><td>Callout after DML</td><td>Move the callout to Queueable/@future</td></tr>
+    <tr><td>Maximum trigger depth exceeded</td><td>Recursion</td><td>See <a href="apex-triggers.html#recursion">recursion control</a></td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout tip">
+  <span class="c-ico">📈</span>
+  <div class="c-body"><span class="c-title">Instrument your code</span>
+    <pre style="margin:8px 0 0;background:none;padding:0;color:inherit"><code class="language-apex">System.debug('SOQL ' + Limits.getQueries() + '/' + Limits.getLimitQueries()
+    + ' | DML ' + Limits.getDmlStatements() + '/' + Limits.getLimitDmlStatements()
+    + ' | CPU ' + Limits.getCpuTime() + '/' + Limits.getLimitCpuTime()
+    + ' | Heap ' + Limits.getHeapSize());</code></pre></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> What is a wrapper class and when did you last need one?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A custom Apex class that bundles an sObject with data that isn't a field on it — a selection
+checkbox, a computed score, values from a second object. It exists because you can't invent fields at runtime and
+shouldn't pollute the schema with UI-only state.</p>
+<p>Typical answer: "a datatable where users tick rows to merge, with a calculated health label per row. The wrapper had
+<code>@AuraEnabled public Account record</code>, <code>isSelected</code> and <code>healthLabel</code>, returned from a
+<code>cacheable=true</code> Apex method." Every field exposed to LWC must be <code>public</code> and
+<code>@AuraEnabled</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> How do you sort a list by two fields, descending then ascending?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Implement <code>Comparable</code> on a wrapper and handle both keys in <code>compareTo</code>:</p>
+<pre><code class="language-apex">public Integer compareTo(Object other) {
+    OppWrapper o = (OppWrapper) other;
+    if (amount != o.amount) return amount &gt; o.amount ? -1 : 1;   // desc
+    return closeDate &lt; o.closeDate ? -1 : (closeDate == o.closeDate ? 0 : 1);  // asc
+}</code></pre>
+<p>Then call <code>list.sort()</code>. Prefer <code>ORDER BY</code> in SOQL when the fields are queryable — Comparable is
+for computed values SOQL can't order by.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Why can't you catch a <code>LimitException</code>?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Because the platform must be able to terminate a runaway transaction unconditionally — if you could
+catch "Too many SOQL queries" you could keep consuming shared resources. It's uncatchable by design, as are assertion
+failures in tests.</p>
+<p>The correct approach is prevention: check <code>Limits.getQueries()</code> / <code>getCpuTime()</code> before an
+expensive block and hand off to a Queueable when you're near the ceiling.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Explain static variables and give a legitimate use.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A static exists <strong>once per transaction</strong>, shared across all instances of the class. It is
+<em>not</em> shared across transactions, users or async jobs — a <code>@future</code> call starts with fresh statics.</p>
+<p>Legitimate uses: a recursion guard in a trigger, and caching an expensive <code>Schema.describe</code> or
+configuration lookup for the duration of the transaction. Initialisation order is: static initialiser → instance
+initialiser → constructor.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> When is Dynamic Apex worth the complexity, and what does it cost?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Worth it for genuinely generic components: a Field-Set-driven table, an object-agnostic audit
+framework, or a strategy pattern where <code>Type.forName()</code> instantiates a handler named in Custom Metadata.</p>
+<p><strong>Costs:</strong> <code>Schema.getGlobalDescribe()</code> is expensive in large orgs and counts against the 100
+describe limit — cache it in a static; dynamic SOQL loses compile-time safety and opens injection risk unless you bind;
+and the code is harder to read and debug. If you know the object, use <code>Account.SObjectType.getDescribe()</code>
+instead of the global describe.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> Compare <code>with sharing</code>, <code>without sharing</code> and <code>inherited sharing</code>.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>with sharing</code> enforces the running user's <em>record</em> access (not FLS or CRUD).
+<code>without sharing</code> runs in system context — a deliberate elevation, e.g. a service that must aggregate across
+all records. <code>inherited sharing</code> adopts the caller's mode and defaults to <em>with sharing</em> when entered
+directly, which makes it the safest choice for reusable service classes.</p>
+<p>The trap: a class with <strong>no keyword</strong> inherits from its caller, and runs <strong>without sharing</strong>
+when it is itself the entry point. Omitting the keyword is a bug, not a style preference. Triggers always run in system
+context regardless.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> How would you design a rule engine where discount caps vary by country and change often?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Strategy pattern driven by Custom Metadata.</strong> Define an interface
+<code>DiscountStrategy</code> with <code>Decimal cap(Opportunity o)</code>. Create one implementing class per rule
+variant. Add a <code>Discount_Rule__mdt</code> record per country holding the Apex class name, then resolve it at
+runtime:</p>
+<pre><code class="language-apex">Discount_Rule__mdt cfg = Discount_Rule__mdt.getInstance(countryCode);
+DiscountStrategy s = (DiscountStrategy) Type.forName(cfg.Apex_Class__c).newInstance();
+Decimal cap = s.cap(opp);</code></pre>
+<p>Admins change thresholds without a deploy, new countries need only a metadata record, and each strategy is unit
+testable in isolation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> What's the difference between <code>JSON.deserialize</code>, <code>deserializeUntyped</code> and <code>deserializeStrict</code>?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>deserialize(json, MyType.class)</code> maps into a typed class and <strong>ignores unknown
+keys</strong>. <code>deserializeStrict</code> does the same but <strong>throws</strong> if the JSON contains a field your
+class doesn't declare — useful to detect an upstream API change. <code>deserializeUntyped</code> returns
+<code>Map&lt;String, Object&gt;</code> / <code>List&lt;Object&gt;</code> and needs casting as you walk it — the right
+choice for unpredictable payloads, or when a JSON key collides with an Apex reserved word such as
+<code>class</code> or <code>currency</code>.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. You need a datatable with checkboxes plus a calculated "risk" label per row. What do you build?</div>
+  <button class="opt">A formula field on the object</button>
+  <button class="opt" data-correct="1">A wrapper class with @AuraEnabled fields returned from Apex</button>
+  <button class="opt">A separate custom object</button>
+  <div class="explain">Selection state and derived values are UI concerns — a wrapper keeps them out of your schema.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. Which of these can you <em>not</em> catch in Apex?</div>
+  <button class="opt">DmlException</button>
+  <button class="opt">CalloutException</button>
+  <button class="opt" data-correct="1">LimitException</button>
+  <div class="explain">Governor limit exceptions are uncatchable by design — the platform must be able to terminate a runaway transaction.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. Your code must work for any object name passed in at runtime. Which feature?</div>
+  <button class="opt">Wrapper classes</button>
+  <button class="opt" data-correct="1">Dynamic Apex — Schema describe + Database.query</button>
+  <button class="opt">Custom metadata types</button>
+  <div class="explain">Schema describe plus dynamic SOQL lets one class serve any object. Add <code>String.escapeSingleQuotes</code> or bind maps to stay injection-safe.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Advanced Apex</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

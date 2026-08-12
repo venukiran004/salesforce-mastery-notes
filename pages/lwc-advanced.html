@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LWC Data &amp; Events | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>UI</span> › <span>LWC Data &amp; Events</span></div>
+  <h1>LWC — Data &amp; Communication</h1>
+  <p class="lede">Wire service, Apex imports, Lightning Data Service, all four component-communication patterns,
+     navigation, toasts, and the concepts most tutorials skip.</p>
+</header>
+
+<!-- ============================================ -->
+<h2 id="data-options">Four ways to get data</h2>
+<div class="dgm">
+  <div class="dgm-title">Choosing a data strategy</div>
+  <svg viewBox="0 0 800 300" role="img" aria-label="Decision guide for LWC data access approaches">
+    <rect class="s-box-b" x="20" y="30" width="180" height="110" rx="10"/>
+    <text class="s-t s-t-b anchor-mid" x="110" y="54">Base components</text>
+    <text class="s-t-sm anchor-mid" x="110" y="78">record-form</text>
+    <text class="s-t-sm anchor-mid" x="110" y="96">record-edit-form</text>
+    <text class="s-t-sm anchor-mid" x="110" y="114">record-view-form</text>
+    <text class="s-t-sm s-t-g anchor-mid" x="110" y="160">Zero code, zero Apex</text>
+
+    <rect class="s-box-v" x="215" y="30" width="180" height="110" rx="10"/>
+    <text class="s-t s-t-v anchor-mid" x="305" y="54">LDS wire adapters</text>
+    <text class="s-t-sm anchor-mid" x="305" y="78">getRecord</text>
+    <text class="s-t-sm anchor-mid" x="305" y="96">createRecord</text>
+    <text class="s-t-sm anchor-mid" x="305" y="114">getRelatedListRecords</text>
+    <text class="s-t-sm s-t-g anchor-mid" x="305" y="160">Cached, FLS-aware</text>
+
+    <rect class="s-box-t" x="410" y="30" width="180" height="110" rx="10"/>
+    <text class="s-t s-t-t anchor-mid" x="500" y="54">@wire Apex</text>
+    <text class="s-t-sm anchor-mid" x="500" y="78">cacheable=true</text>
+    <text class="s-t-sm anchor-mid" x="500" y="96">reactive parameters</text>
+    <text class="s-t-sm anchor-mid" x="500" y="114">read-only result</text>
+    <text class="s-t-sm s-t-g anchor-mid" x="500" y="160">Custom queries, cached</text>
+
+    <rect class="s-box-a" x="605" y="30" width="180" height="110" rx="10"/>
+    <text class="s-t s-t-a anchor-mid" x="695" y="54">Imperative Apex</text>
+    <text class="s-t-sm anchor-mid" x="695" y="78">called on demand</text>
+    <text class="s-t-sm anchor-mid" x="695" y="96">DML allowed</text>
+    <text class="s-t-sm anchor-mid" x="695" y="114">full control</text>
+    <text class="s-t-sm s-t-g anchor-mid" x="695" y="160">Writes &amp; button clicks</text>
+
+    <rect class="s-box" x="80" y="200" width="640" height="76" rx="10"/>
+    <text class="s-t anchor-mid" x="400" y="224">Rule of thumb</text>
+    <text class="s-t-sm anchor-mid" x="400" y="248">Work left to right. Only drop to Apex when LDS genuinely cannot do it —</text>
+    <text class="s-t-sm anchor-mid" x="400" y="268">LDS gives you caching, FLS enforcement and automatic UI refresh for free.</text>
+  </svg>
+</div>
+
+<!-- ============================================ -->
+<h2 id="wire-service">Wire service</h2>
+<p><code>@wire</code> is a <strong>reactive</strong>, read-only data binding to a Salesforce data source. When its
+   parameters change, it re-executes automatically and re-renders your component.</p>
+
+<pre data-file="wireDemo.js"><code class="language-js">import { LightningElement, api, wire } from 'lwc';
+import { getRecord, getFieldValue } from 'lightning/uiRecordApi';
+import getContacts from '@salesforce/apex/ContactController.getContactsByAccount';
+import NAME_FIELD from '@salesforce/schema/Account.Name';
+import REVENUE_FIELD from '@salesforce/schema/Account.AnnualRevenue';
+
+const FIELDS = [NAME_FIELD, REVENUE_FIELD];
+
+export default class WireDemo extends LightningElement {
+    @api recordId;
+    searchKey = '';
+
+    /* ---------- 1. Wire to a PROPERTY : simplest ---------- */
+    @wire(getRecord, { recordId: '$recordId', fields: FIELDS })
+    account;                         // → { data, error }
+
+    get accountName() {
+        return getFieldValue(this.account.data, NAME_FIELD);
+    }
+
+    /* ---------- 2. Wire to a FUNCTION : when you need logic ---------- */
+    contacts = [];
+    error;
+
+    @wire(getContacts, { accountId: '$recordId', searchKey: '$searchKey' })
+    wiredContacts({ data, error }) {
+        if (data) {
+            // Wire results are IMMUTABLE — clone before modifying
+            this.contacts = data.map(c =&gt; ({ ...c, fullName: `${c.FirstName} ${c.LastName}` }));
+            this.error = undefined;
+        } else if (error) {
+            this.error = error;
+            this.contacts = [];
+        }
+    }
+
+    handleSearch(event) {
+        this.searchKey = event.target.value;   // reactive → the wire re-runs
+    }
+}</code></pre>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Concept</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Reactive parameters</strong></td><td>Prefix with <code>$</code>: <code>{ recordId: '$recordId' }</code>. Without <code>$</code> the value is a literal, evaluated once</td></tr>
+    <tr><td><strong>Wire to property</strong></td><td>Gives you <code>{ data, error }</code>. Great for passing straight to a template</td></tr>
+    <tr><td><strong>Wire to function</strong></td><td>Gives you a hook to transform, filter or trigger side effects</td></tr>
+    <tr><td><strong>Timing</strong></td><td>Wires fire <strong>before</strong> <code>connectedCallback</code> completes and again whenever a reactive param changes. They may fire with <code>undefined</code> data first</td></tr>
+    <tr><td><strong>Immutability</strong></td><td>The result is a read-only Proxy. Spread/clone before editing</td></tr>
+    <tr><td><strong>Caching</strong></td><td>Apex must be <code>@AuraEnabled(cacheable=true)</code>; results are cached client-side</td></tr>
+    <tr><td><strong>No DML</strong></td><td>A cacheable method cannot perform DML. Use imperative Apex for writes</td></tr>
+    <tr><td><strong>Refreshing</strong></td><td><code>refreshApex(this.wiredResult)</code> — you must keep the whole wired result to do this</td></tr>
+  </tbody>
+</table>
+</div>
+
+<pre data-file="refresh.js"><code class="language-js">import { refreshApex } from '@salesforce/apex';
+import { notifyRecordUpdateAvailable } from 'lightning/uiRecordApi';
+
+export default class RefreshDemo extends LightningElement {
+    wiredContactsResult;             // keep the FULL result, not just data
+
+    @wire(getContacts, { accountId: '$recordId' })
+    wired(result) {
+        this.wiredContactsResult = result;
+        if (result.data) this.contacts = result.data;
+    }
+
+    async handleAfterSave() {
+        await refreshApex(this.wiredContactsResult);        // refresh Apex wire
+        notifyRecordUpdateAvailable([{ recordId: this.recordId }]);  // refresh LDS cache
+    }
+}</code></pre>
+
+<div class="callout warn">
+  <span class="c-ico">🧊</span>
+  <div class="c-body"><span class="c-title">"Cannot assign to read only property"</span>
+    You tried to mutate wire data directly. Always clone:
+    <code>const rows = data.map(r =&gt; ({ ...r }));</code> — and note a shallow spread doesn't deep-clone nested
+    objects; use <code>structuredClone(data)</code> or <code>JSON.parse(JSON.stringify(data))</code> when needed.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="importing-apex">Importing Apex methods</h2>
+
+<h3>The Apex side</h3>
+<pre data-file="ContactController.cls"><code class="language-apex">public with sharing class ContactController {
+
+    // cacheable=true → usable with @wire, but NO DML allowed
+    @AuraEnabled(cacheable=true)
+    public static List&lt;Contact&gt; getContactsByAccount(Id accountId, String searchKey) {
+        String key = '%' + (searchKey == null ? '' : searchKey) + '%';
+        return [
+            SELECT Id, FirstName, LastName, Email, Title
+            FROM Contact
+            WHERE AccountId = :accountId
+              AND (LastName LIKE :key OR FirstName LIKE :key)
+            WITH USER_MODE
+            ORDER BY LastName
+            LIMIT 200
+        ];
+    }
+
+    // No cacheable → imperative only, DML allowed
+    @AuraEnabled
+    public static Contact createContact(String firstName, String lastName, Id accountId) {
+        try {
+            Contact c = new Contact(FirstName = firstName, LastName = lastName, AccountId = accountId);
+            insert as user c;
+            return c;
+        } catch (DmlException e) {
+            // AuraHandledException gives the LWC a clean message instead of a stack trace
+            throw new AuraHandledException(e.getDmlMessage(0));
+        }
+    }
+
+    // Passing a complex object from JS: parameter names must match the JSON keys
+    @AuraEnabled
+    public static void saveRows(List&lt;RowInput&gt; rows) { /* ... */ }
+
+    public class RowInput {
+        @AuraEnabled public Id recordId    { get; set; }
+        @AuraEnabled public Decimal amount { get; set; }
+    }
+}</code></pre>
+
+<h3>The JavaScript side — imperative calls</h3>
+<pre data-file="imperative.js"><code class="language-js">import { LightningElement, api } from 'lwc';
+import createContact from '@salesforce/apex/ContactController.createContact';
+import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+
+export default class ContactCreator extends LightningElement {
+    @api recordId;
+    firstName = '';
+    lastName  = '';
+    isLoading = false;
+
+    // Promise style
+    handleSavePromise() {
+        createContact({ firstName: this.firstName, lastName: this.lastName, accountId: this.recordId })
+            .then(result =&gt; {
+                this.showToast('Success', `Created ${result.LastName}`, 'success');
+                this.dispatchEvent(new CustomEvent('created', { detail: result.Id }));
+            })
+            .catch(error =&gt; {
+                this.showToast('Error', this.reduceError(error), 'error');
+            })
+            .finally(() =&gt; { this.isLoading = false; });
+    }
+
+    // async/await style — usually cleaner
+    async handleSave() {
+        this.isLoading = true;
+        try {
+            const result = await createContact({
+                firstName: this.firstName,
+                lastName : this.lastName,
+                accountId: this.recordId
+            });
+            this.showToast('Success', `Created ${result.LastName}`, 'success');
+        } catch (error) {
+            this.showToast('Error', this.reduceError(error), 'error');
+        } finally {
+            this.isLoading = false;
+        }
+    }
+
+    reduceError(error) {
+        return error?.body?.message            // AuraHandledException
+            ?? error?.body?.pageErrors?.[0]?.message
+            ?? error?.message
+            ?? 'Unknown error';
+    }
+
+    showToast(title, message, variant) {
+        this.dispatchEvent(new ShowToastEvent({ title, message, variant }));
+    }
+}</code></pre>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th><code>@wire</code> Apex</th><th>Imperative Apex</th></tr></thead>
+  <tbody>
+    <tr><td>When it runs</td><td>Automatically, and on parameter change</td><td>Only when you call it</td></tr>
+    <tr><td>Requires <code>cacheable=true</code></td><td>✅ Yes</td><td>❌ No</td></tr>
+    <tr><td>DML allowed</td><td>❌</td><td>✅</td></tr>
+    <tr><td>Result mutable</td><td>❌ Read-only</td><td>✅</td></tr>
+    <tr><td>Best for</td><td>Displaying data that follows a record/parameter</td><td>Button clicks, saves, anything with side effects</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout danger">
+  <span class="c-ico">🔐</span>
+  <div class="c-body"><span class="c-title">@AuraEnabled methods bypass nothing by accident — but they do bypass a lot by default</span>
+    They run in <strong>system context for FLS</strong> unless you enforce it. Always declare the class
+    <code>with sharing</code> <em>and</em> use <code>WITH USER_MODE</code> / <code>as user</code> /
+    <code>stripInaccessible</code>. This is the most common Salesforce security-review failure.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="lightning-data-service">Lightning Data Service (LDS)</h2>
+<p>LDS is a shared, client-side record cache. Any component using it gets automatic FLS enforcement, cache sharing and
+   <strong>UI refresh across every component on the page</strong> when a record changes — with no Apex at all.</p>
+
+<div class="dgm">
+  <div class="dgm-title">Why LDS beats Apex for simple record work</div>
+  <svg viewBox="0 0 780 260" role="img" aria-label="LDS shared cache versus separate Apex calls">
+    <text class="s-t s-t-r" x="20" y="20">Without LDS — 3 components, 3 server round trips, no sync</text>
+    <rect class="s-box" x="20" y="32" width="110" height="42" rx="7"/><text class="s-t-sm anchor-mid" x="75" y="53">Cmp A</text>
+    <rect class="s-box" x="145" y="32" width="110" height="42" rx="7"/><text class="s-t-sm anchor-mid" x="200" y="53">Cmp B</text>
+    <rect class="s-box" x="270" y="32" width="110" height="42" rx="7"/><text class="s-t-sm anchor-mid" x="325" y="53">Cmp C</text>
+    <path class="s-line-r" d="M75 74 V104 M200 74 V104 M325 74 V104" marker-end="url(#u1)"/>
+    <rect class="s-box-r" x="20" y="104" width="360" height="36" rx="7"/>
+    <text class="s-t-sm anchor-mid" x="200" y="122">Server — 3 separate Apex queries</text>
+
+    <text class="s-t s-t-g" x="420" y="20">With LDS — one cache, one request, all in sync</text>
+    <rect class="s-box" x="420" y="32" width="105" height="42" rx="7"/><text class="s-t-sm anchor-mid" x="472" y="53">Cmp A</text>
+    <rect class="s-box" x="537" y="32" width="105" height="42" rx="7"/><text class="s-t-sm anchor-mid" x="589" y="53">Cmp B</text>
+    <rect class="s-box" x="654" y="32" width="105" height="42" rx="7"/><text class="s-t-sm anchor-mid" x="706" y="53">Cmp C</text>
+    <path class="s-line-g" d="M472 74 V104 M589 74 V104 M706 74 V104" marker-end="url(#u1)"/>
+    <rect class="s-box-g" x="420" y="104" width="339" height="36" rx="7"/>
+    <text class="s-t-sm anchor-mid" x="589" y="122">Lightning Data Service cache</text>
+    <path class="s-line-g" d="M589 140 V168" marker-end="url(#u1)"/>
+    <rect class="s-box-b" x="500" y="168" width="180" height="36" rx="7"/>
+    <text class="s-t-sm anchor-mid" x="590" y="186">Server — 1 request</text>
+
+    <text class="s-t-sm anchor-mid" x="390" y="238">Update the record in one component and every other component refreshes automatically</text>
+    <defs><marker id="u1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<h3>Base components — no JavaScript at all</h3>
+<pre data-file="lds.html"><code class="language-html">&lt;template&gt;
+    &lt;!-- Full CRUD form, zero JS --&gt;
+    &lt;lightning-record-form
+        record-id={recordId}
+        object-api-name="Account"
+        fields={fields}
+        columns="2"
+        mode="edit"
+        onsuccess={handleSuccess}&gt;
+    &lt;/lightning-record-form&gt;
+
+    &lt;!-- More control over layout --&gt;
+    &lt;lightning-record-edit-form
+        record-id={recordId}
+        object-api-name="Account"
+        onsuccess={handleSuccess}
+        onerror={handleError}&gt;
+        &lt;lightning-messages&gt;&lt;/lightning-messages&gt;
+        &lt;lightning-input-field field-name="Name"&gt;&lt;/lightning-input-field&gt;
+        &lt;lightning-input-field field-name="Industry"&gt;&lt;/lightning-input-field&gt;
+        &lt;lightning-button type="submit" label="Save" variant="brand"&gt;&lt;/lightning-button&gt;
+    &lt;/lightning-record-edit-form&gt;
+
+    &lt;!-- Read-only --&gt;
+    &lt;lightning-record-view-form record-id={recordId} object-api-name="Account"&gt;
+        &lt;lightning-output-field field-name="Name"&gt;&lt;/lightning-output-field&gt;
+    &lt;/lightning-record-view-form&gt;
+&lt;/template&gt;</code></pre>
+
+<h3>LDS wire adapters &amp; functions</h3>
+<pre data-file="ldsApi.js"><code class="language-js">import { LightningElement, api, wire } from 'lwc';
+import { getRecord, getFieldValue, getFieldDisplayValue,
+         createRecord, updateRecord, deleteRecord,
+         notifyRecordUpdateAvailable } from 'lightning/uiRecordApi';
+import { getObjectInfo, getPicklistValues } from 'lightning/uiObjectInfoApi';
+import { getRelatedListRecords } from 'lightning/uiRelatedListApi';
+import ACCOUNT_OBJECT from '@salesforce/schema/Account';
+import NAME_FIELD from '@salesforce/schema/Account.Name';
+import INDUSTRY_FIELD from '@salesforce/schema/Account.Industry';
+
+export default class LdsApi extends LightningElement {
+    @api recordId;
+
+    /* ---------- READ ---------- */
+    @wire(getRecord, { recordId: '$recordId', fields: [NAME_FIELD, INDUSTRY_FIELD] })
+    account;
+    get name() { return getFieldValue(this.account.data, NAME_FIELD); }
+
+    /* ---------- SCHEMA / PICKLISTS ---------- */
+    @wire(getObjectInfo, { objectApiName: ACCOUNT_OBJECT })
+    objectInfo;
+
+    @wire(getPicklistValues, {
+        recordTypeId: '$objectInfo.data.defaultRecordTypeId',
+        fieldApiName: INDUSTRY_FIELD
+    })
+    industryOptions;
+
+    /* ---------- RELATED LIST ---------- */
+    @wire(getRelatedListRecords, {
+        parentRecordId: '$recordId',
+        relatedListId : 'Contacts',
+        fields        : ['Contact.Name', 'Contact.Email'],
+        pageSize      : 10
+    })
+    contacts;
+
+    /* ---------- CREATE ---------- */
+    async handleCreate() {
+        const fields = {};
+        fields[NAME_FIELD.fieldApiName] = 'New Account';
+        const record = await createRecord({ apiName: ACCOUNT_OBJECT.objectApiName, fields });
+        console.log('Created', record.id);
+    }
+
+    /* ---------- UPDATE ---------- */
+    async handleUpdate() {
+        await updateRecord({ fields: { Id: this.recordId, [NAME_FIELD.fieldApiName]: 'Renamed' } });
+    }
+
+    /* ---------- DELETE ---------- */
+    async handleDelete() {
+        await deleteRecord(this.recordId);
+    }
+}</code></pre>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>LDS can't…</th><th>So use…</th></tr></thead>
+  <tbody>
+    <tr><td>Query many records with complex filters</td><td>Apex with SOQL</td></tr>
+    <tr><td>Aggregate (SUM, COUNT, GROUP BY)</td><td>Apex</td></tr>
+    <tr><td>Work with non-supported objects (Task/Event have limits, external objects, some setup objects)</td><td>Apex</td></tr>
+    <tr><td>Do multi-record transactional DML</td><td>Apex</td></tr>
+    <tr><td>Run in Experience Cloud guest context for some adapters</td><td>Apex (with care)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="events">Events &amp; component communication</h2>
+
+<div class="dgm">
+  <div class="dgm-title">Pick the right communication pattern</div>
+  <svg viewBox="0 0 800 340" role="img" aria-label="Four LWC component communication patterns">
+    <!-- parent to child -->
+    <rect class="s-box-b" x="20" y="20" width="360" height="140" rx="10"/>
+    <text class="s-t s-t-b" x="40" y="44">1 · Parent → Child</text>
+    <rect class="s-box" x="50" y="58" width="120" height="38" rx="7"/><text class="s-t-sm anchor-mid" x="110" y="77">Parent</text>
+    <path class="s-line-b" d="M170 77 H250" marker-end="url(#e1)"/>
+    <text class="s-t-mono s-t-b anchor-mid" x="210" y="64">@api</text>
+    <rect class="s-box" x="250" y="58" width="110" height="38" rx="7"/><text class="s-t-sm anchor-mid" x="305" y="77">Child</text>
+    <text class="s-t-sm" x="50" y="122">Public properties &amp; public methods</text>
+    <text class="s-t-sm" x="50" y="142">Direct, synchronous, type-safe</text>
+
+    <!-- child to parent -->
+    <rect class="s-box-v" x="420" y="20" width="360" height="140" rx="10"/>
+    <text class="s-t s-t-v" x="440" y="44">2 · Child → Parent</text>
+    <rect class="s-box" x="450" y="58" width="120" height="38" rx="7"/><text class="s-t-sm anchor-mid" x="510" y="77">Parent</text>
+    <path class="s-line-v" d="M650 77 H570" marker-end="url(#e1)"/>
+    <text class="s-t-mono s-t-v anchor-mid" x="610" y="64">CustomEvent</text>
+    <rect class="s-box" x="650" y="58" width="110" height="38" rx="7"/><text class="s-t-sm anchor-mid" x="705" y="77">Child</text>
+    <text class="s-t-sm" x="450" y="122">dispatchEvent(new CustomEvent('x', {detail}))</text>
+    <text class="s-t-sm" x="450" y="142">Parent listens with onx={handler}</text>
+
+    <!-- pubsub -->
+    <rect class="s-box-t" x="20" y="180" width="360" height="140" rx="10"/>
+    <text class="s-t s-t-t" x="40" y="204">3 · Pub-Sub (same page, unrelated)</text>
+    <rect class="s-box" x="50" y="218" width="90" height="34" rx="7"/><text class="s-t-sm anchor-mid" x="95" y="235">Cmp A</text>
+    <rect class="s-box-t" x="160" y="218" width="90" height="34" rx="7"/><text class="s-t-sm anchor-mid" x="205" y="235">pubsub.js</text>
+    <rect class="s-box" x="270" y="218" width="90" height="34" rx="7"/><text class="s-t-sm anchor-mid" x="315" y="235">Cmp B</text>
+    <path class="s-line-t" d="M140 235 H160 M250 235 H270"/>
+    <text class="s-t-sm" x="50" y="278">Legacy singleton module — LWC-to-LWC only</text>
+    <text class="s-t-sm s-t-r" x="50" y="298">Superseded by LMS</text>
+
+    <!-- LMS -->
+    <rect class="s-box-g" x="420" y="180" width="360" height="140" rx="10"/>
+    <text class="s-t s-t-g" x="440" y="204">4 · Lightning Message Service</text>
+    <rect class="s-box" x="440" y="218" width="80" height="34" rx="7"/><text class="s-t-sm anchor-mid" x="480" y="235">LWC</text>
+    <rect class="s-box" x="530" y="218" width="80" height="34" rx="7"/><text class="s-t-sm anchor-mid" x="570" y="235">Aura</text>
+    <rect class="s-box" x="620" y="218" width="80" height="34" rx="7"/><text class="s-t-sm anchor-mid" x="660" y="235">VF page</text>
+    <path class="s-line-g" d="M480 252 V270 H660 V252 M570 252 V270"/>
+    <text class="s-t-sm s-t-g anchor-mid" x="570" y="288">Message Channel — works across ALL technologies &amp; the whole page</text>
+    <defs><marker id="e1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<!-- ============================================ -->
+<h3 id="parent-to-child">Parent → Child</h3>
+<pre data-file="parent.html"><code class="language-html">&lt;template&gt;
+    &lt;!-- kebab-case in markup, camelCase in JS --&gt;
+    &lt;c-child-cmp
+        record-id={selectedId}
+        title="Contact details"
+        items={itemList}&gt;
+    &lt;/c-child-cmp&gt;
+
+    &lt;lightning-button label="Refresh child" onclick={callChildMethod}&gt;&lt;/lightning-button&gt;
+&lt;/template&gt;</code></pre>
+<pre data-file="parent.js"><code class="language-js">export default class Parent extends LightningElement {
+    selectedId;
+    itemList = [];
+
+    // Calling a PUBLIC METHOD on the child
+    callChildMethod() {
+        const child = this.template.querySelector('c-child-cmp');
+        child.refresh();                 // @api refresh() on the child
+        // or with a ref:  this.refs.childCmp.refresh();
+    }
+}</code></pre>
+<pre data-file="childCmp.js"><code class="language-js">import { LightningElement, api } from 'lwc';
+
+export default class ChildCmp extends LightningElement {
+    @api recordId;
+    @api title;
+    @api items = [];
+
+    @api
+    refresh() {
+        this.loadData();
+    }
+}</code></pre>
+
+<!-- ============================================ -->
+<h3 id="child-to-parent">Child → Parent</h3>
+<pre data-file="childCmp2.js"><code class="language-js">export default class ChildCmp extends LightningElement {
+
+    handleSelect(event) {
+        const contactId = event.currentTarget.dataset.id;
+
+        // 1. Simple notification
+        this.dispatchEvent(new CustomEvent('select'));
+
+        // 2. With a payload — the detail must be primitive or a plain object
+        this.dispatchEvent(new CustomEvent('contactselect', {
+            detail: { contactId, source: 'list' }
+        }));
+
+        // 3. Bubbling across multiple levels
+        this.dispatchEvent(new CustomEvent('deepevent', {
+            detail: { contactId },
+            bubbles: true,       // travel up the DOM tree
+            composed: true       // cross shadow boundaries
+        }));
+    }
+}</code></pre>
+<pre data-file="parent2.html"><code class="language-html">&lt;template&gt;
+    &lt;!-- on + lowercase event name. NO camelCase, NO hyphens in the event name --&gt;
+    &lt;c-child-cmp oncontactselect={handleContactSelect}&gt;&lt;/c-child-cmp&gt;
+&lt;/template&gt;</code></pre>
+<pre data-file="parent2.js"><code class="language-js">handleContactSelect(event) {
+    const { contactId, source } = event.detail;
+    this.selectedId = contactId;
+}</code></pre>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th><code>bubbles</code></th><th><code>composed</code></th><th>Travels</th><th>Use for</th></tr></thead>
+  <tbody>
+    <tr><td>false</td><td>false</td><td>Only the immediate parent <em>(default)</em></td><td><strong>99% of cases</strong> — keeps components decoupled</td></tr>
+    <tr><td>true</td><td>false</td><td>Up the DOM, stops at the shadow boundary</td><td>Within one component's own tree</td></tr>
+    <tr><td>true</td><td>true</td><td>All the way to the document</td><td>Rare — deeply nested notification. Leaks implementation details</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout warn">
+  <span class="c-ico">🔤</span>
+  <div class="c-body"><span class="c-title">Event naming rules</span>
+    Must be <strong>all lowercase</strong>, no hyphens, no underscores, and must not clash with a standard DOM event
+    name. <code>contactselect</code> ✅ · <code>contactSelect</code> ❌ · <code>contact-select</code> ❌.
+    Also: never pass an object you'll later mutate — send a copy, because the receiver gets the same reference.</div>
+</div>
+
+<!-- ============================================ -->
+<h3 id="pub-sub">Publish-Subscribe (pubsub)</h3>
+<p>Before LMS existed, unrelated components on the same page communicated through a shared singleton JS module.
+   It's <strong>legacy</strong> — you'll meet it in older codebases, and interviewers still ask about it.</p>
+<pre data-file="pubsub.js"><code class="language-js">// pubsub.js — a shared LWC service module
+const events = {};
+
+export const register = (eventName, callback) =&gt; {
+    if (!events[eventName]) events[eventName] = [];
+    events[eventName].push(callback);
+};
+
+export const unregister = (eventName, callback) =&gt; {
+    if (events[eventName]) {
+        events[eventName] = events[eventName].filter(cb =&gt; cb !== callback);
+    }
+};
+
+export const fire = (eventName, payload) =&gt; {
+    (events[eventName] || []).forEach(cb =&gt; cb(payload));
+};</code></pre>
+<pre data-file="publisher.js"><code class="language-js">import { fire } from 'c/pubsub';
+handleClick() { fire('accountSelected', { accountId: this.accountId }); }</code></pre>
+<pre data-file="subscriber.js"><code class="language-js">import { register, unregister } from 'c/pubsub';
+
+connectedCallback() {
+    this.handler = (payload) =&gt; { this.accountId = payload.accountId; };
+    register('accountSelected', this.handler);
+}
+disconnectedCallback() {
+    unregister('accountSelected', this.handler);   // ALWAYS clean up
+}</code></pre>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Limitation of pubsub</th><th>How LMS fixes it</th></tr></thead>
+  <tbody>
+    <tr><td>LWC-to-LWC only</td><td>LMS works across LWC, Aura and Visualforce</td></tr>
+    <tr><td>Doesn't cross Lightning page regions reliably</td><td>LMS spans the whole page, including utility bar and console tabs</td></tr>
+    <tr><td>No schema — payload is untyped</td><td>Message Channel declares its fields as metadata</td></tr>
+    <tr><td>You maintain the module yourself</td><td>Platform-provided and supported</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h3 id="lms">Lightning Message Service (LMS)</h3>
+<p>The supported way for <strong>any</strong> components anywhere on the page to talk — across technologies and DOM
+   hierarchies.</p>
+
+<pre data-file="AccountChannel.messageChannel-meta.xml"><code class="language-xml">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;LightningMessageChannel xmlns="http://soap.sforce.com/2006/04/metadata"&gt;
+    &lt;masterLabel&gt;Account Channel&lt;/masterLabel&gt;
+    &lt;isExposed&gt;true&lt;/isExposed&gt;
+    &lt;description&gt;Broadcasts the currently selected Account&lt;/description&gt;
+    &lt;lightningMessageFields&gt;
+        &lt;fieldName&gt;accountId&lt;/fieldName&gt;
+        &lt;description&gt;The selected Account Id&lt;/description&gt;
+    &lt;/lightningMessageFields&gt;
+    &lt;lightningMessageFields&gt;
+        &lt;fieldName&gt;accountName&lt;/fieldName&gt;
+        &lt;description&gt;The selected Account name&lt;/description&gt;
+    &lt;/lightningMessageFields&gt;
+&lt;/LightningMessageChannel&gt;</code></pre>
+
+<pre data-file="publisherLms.js"><code class="language-js">import { LightningElement, wire } from 'lwc';
+import { publish, MessageContext } from 'lightning/messageService';
+import ACCOUNT_CHANNEL from '@salesforce/messageChannel/AccountChannel__c';
+
+export default class AccountListLms extends LightningElement {
+    @wire(MessageContext) messageContext;
+
+    handleSelect(event) {
+        publish(this.messageContext, ACCOUNT_CHANNEL, {
+            accountId  : event.currentTarget.dataset.id,
+            accountName: event.currentTarget.dataset.name
+        });
+    }
+}</code></pre>
+
+<pre data-file="subscriberLms.js"><code class="language-js">import { LightningElement, wire } from 'lwc';
+import { subscribe, unsubscribe, MessageContext, APPLICATION_SCOPE }
+       from 'lightning/messageService';
+import ACCOUNT_CHANNEL from '@salesforce/messageChannel/AccountChannel__c';
+
+export default class AccountDetailLms extends LightningElement {
+    subscription = null;
+    accountId;
+
+    @wire(MessageContext) messageContext;
+
+    connectedCallback() {
+        if (this.subscription) return;
+        this.subscription = subscribe(
+            this.messageContext,
+            ACCOUNT_CHANNEL,
+            (message) =&gt; this.handleMessage(message),
+            { scope: APPLICATION_SCOPE }      // receive even from other tabs/regions
+        );
+    }
+
+    disconnectedCallback() {
+        unsubscribe(this.subscription);
+        this.subscription = null;
+    }
+
+    handleMessage(message) {
+        this.accountId = message.accountId;
+    }
+}</code></pre>
+
+<div class="callout note">
+  <span class="c-ico">🎚️</span>
+  <div class="c-body"><span class="c-title">Scope matters</span>
+    Default scope = <strong>active area</strong> (the current console tab/region only).
+    <code>APPLICATION_SCOPE</code> = the whole application, including inactive console tabs and the utility bar.
+    Choose deliberately — application scope in a console app can produce surprising cross-tab updates.</div>
+</div>
+
+<h4>Communication decision table</h4>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Relationship</th><th>Use</th></tr></thead>
+  <tbody>
+    <tr><td>Parent → child</td><td><code>@api</code> property or public method</td></tr>
+    <tr><td>Child → parent</td><td><code>CustomEvent</code></td></tr>
+    <tr><td>Grandchild → grandparent</td><td><code>CustomEvent</code> with <code>bubbles: true</code>, re-dispatched by the middle component (cleaner), or <code>composed: true</code></td></tr>
+    <tr><td>Sibling components</td><td>Bubble up to the common parent, which passes down — or LMS</td></tr>
+    <tr><td>Unrelated, anywhere on the page</td><td><strong>LMS</strong></td></tr>
+    <tr><td>LWC ⇄ Aura ⇄ Visualforce</td><td><strong>LMS</strong></td></tr>
+    <tr><td>Server-driven (another user's action)</td><td><a href="integration-events.html#platform-events">Platform Events</a> + <code>empApi</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="navigation">Navigation</h2>
+<pre data-file="nav.js"><code class="language-js">import { LightningElement } from 'lwc';
+import { NavigationMixin } from 'lightning/navigation';
+
+// Note the mixin syntax
+export default class NavExample extends NavigationMixin(LightningElement) {
+
+    // 1 · To a record page
+    goToRecord(recordId) {
+        this[NavigationMixin.Navigate]({
+            type: 'standard__recordPage',
+            attributes: { recordId, objectApiName: 'Account', actionName: 'view' }
+        });
+    }
+
+    // 2 · To a NEW record page, with prefilled values
+    createContact() {
+        this[NavigationMixin.Navigate]({
+            type: 'standard__objectPage',
+            attributes: { objectApiName: 'Contact', actionName: 'new' },
+            state: { defaultFieldValues: 'LastName=Kumar,AccountId=001xx000003DGb2AAG' }
+        });
+    }
+
+    // 3 · To a list view
+    goToListView() {
+        this[NavigationMixin.Navigate]({
+            type: 'standard__objectPage',
+            attributes: { objectApiName: 'Account', actionName: 'list' },
+            state: { filterName: 'Recent' }
+        });
+    }
+
+    // 4 · To a custom tab / Lightning component / web page / file
+    goToTab()  { this[NavigationMixin.Navigate]({ type: 'standard__navItemPage', attributes: { apiName: 'My_Tab' } }); }
+    goToPage() { this[NavigationMixin.Navigate]({ type: 'standard__webPage', attributes: { url: 'https://example.com' } }); }
+    goToCmp()  { this[NavigationMixin.Navigate]({ type: 'standard__component',
+                    attributes: { componentName: 'c__myAuraCmp' }, state: { c__recordId: this.recordId } }); }
+
+    // 5 · Generate a URL instead of navigating (for &lt;a href&gt;)
+    connectedCallback() {
+        this[NavigationMixin.GenerateUrl]({
+            type: 'standard__recordPage',
+            attributes: { recordId: this.recordId, actionName: 'view' }
+        }).then(url =&gt; { this.recordUrl = url; });
+    }
+}</code></pre>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Page type</th><th>Goes to</th></tr></thead>
+  <tbody>
+    <tr><td><code>standard__recordPage</code></td><td>A record (view / edit / clone)</td></tr>
+    <tr><td><code>standard__objectPage</code></td><td>Object home, list view, or new-record screen</td></tr>
+    <tr><td><code>standard__navItemPage</code></td><td>A custom tab</td></tr>
+    <tr><td><code>standard__component</code></td><td>An Aura component (LWC can't be a direct target)</td></tr>
+    <tr><td><code>standard__webPage</code></td><td>Any external URL</td></tr>
+    <tr><td><code>standard__namedPage</code></td><td>Home, Chatter, and other standard pages</td></tr>
+    <tr><td><code>comm__namedPage</code></td><td>Experience Cloud pages</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Toasts &amp; other platform events</h3>
+<pre data-file="toast.js"><code class="language-js">import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+
+this.dispatchEvent(new ShowToastEvent({
+    title  : 'Saved',
+    message: 'Account {0} was updated. {1}',
+    messageData: ['Acme', { url: '/lightning/r/001xx/view', label: 'View it' }],
+    variant: 'success',              // success | error | warning | info
+    mode   : 'dismissable'           // dismissable | pester | sticky
+}));</code></pre>
+<div class="callout warn">
+  <span class="c-ico">📵</span>
+  <div class="c-body"><span class="c-title">Toasts don't work everywhere</span>
+    <code>ShowToastEvent</code> is unsupported in Experience Cloud (LWR) sites and in standalone LWC apps.
+    Fall back to an inline message component there.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="more-concepts">More concepts worth knowing</h2>
+
+<div class="grid g2">
+  <div class="card accent-violet"><h4>lightning-datatable</h4>
+    <p>Inline editing, sorting, row actions, infinite loading, and custom data types via a subclass.</p>
+    <pre style="font-size:12px;background:none;padding:0;color:var(--text-dim)">columns = [
+ {label:'Name', fieldName:'Name', sortable:true},
+ {label:'Amount', fieldName:'Amount',
+  type:'currency', editable:true},
+ {type:'action', typeAttributes:
+  {rowActions: this.getRowActions}}
+];</pre></div>
+
+  <div class="card accent-teal"><h4>Streaming with empApi</h4>
+    <p>Subscribe to Platform Events / CDC in the browser for real-time UI updates.</p>
+    <pre style="font-size:12px;background:none;padding:0;color:var(--text-dim)">import {subscribe, onError}
+  from 'lightning/empApi';
+subscribe('/event/Order__e', -1,
+  (msg) =&gt; this.handle(msg));</pre>
+    <p>See <a href="integration-events.html#platform-events">Platform Events</a>.</p></div>
+
+  <div class="card accent-amber"><h4>Error handling utility</h4>
+    <p>Apex/LDS/wire errors all have different shapes. Use a shared <code>reduceErrors()</code> helper
+       (the standard one from lwc-recipes) so every component reports errors consistently.</p></div>
+
+  <div class="card accent-green"><h4>Static resources &amp; third-party JS</h4>
+    <pre style="font-size:12px;background:none;padding:0;color:var(--text-dim)">import { loadScript, loadStyle }
+  from 'lightning/platformResourceLoader';
+import CHARTJS from '@salesforce/resourceUrl/chartjs';
+
+renderedCallback() {
+  if (this.loaded) return;
+  this.loaded = true;
+  loadScript(this, CHARTJS + '/chart.js')
+    .then(() =&gt; this.initChart());
+}</pre></div>
+
+  <div class="card accent-rose"><h4>User &amp; permission imports</h4>
+    <pre style="font-size:12px;background:none;padding:0;color:var(--text-dim)">import Id from '@salesforce/user/Id';
+import isGuest from
+  '@salesforce/user/isGuest';
+import hasPerm from
+  '@salesforce/customPermission/Approve';
+import LABEL from
+  '@salesforce/label/c.Welcome_Message';</pre></div>
+
+  <div class="card"><h4>Quick Actions &amp; screen embedding</h4>
+    <p>An LWC can be a <strong>Screen Action</strong> or <strong>Headless Action</strong> quick action
+       (<code>lightning__RecordAction</code> target). Headless actions implement <code>@api invoke()</code> and run
+       with no UI. LWCs can also be embedded in Screen Flows via <code>lightning__FlowScreen</code>.</p></div>
+</div>
+
+<h3>Jest testing an LWC</h3>
+<pre data-file="__tests__/accountList.test.js"><code class="language-js">import { createElement } from 'lwc';
+import AccountList from 'c/accountList';
+import getAccounts from '@salesforce/apex/AccountController.getAccounts';
+
+jest.mock(
+    '@salesforce/apex/AccountController.getAccounts',
+    () =&gt; ({ default: jest.fn() }),
+    { virtual: true }
+);
+
+describe('c-account-list', () =&gt; {
+    afterEach(() =&gt; {
+        while (document.body.firstChild) document.body.removeChild(document.body.firstChild);
+        jest.clearAllMocks();
+    });
+
+    it('renders one row per account', async () =&gt; {
+        getAccounts.mockResolvedValue([
+            { Id: '001', Name: 'Acme' },
+            { Id: '002', Name: 'Globex' }
+        ]);
+
+        const element = createElement('c-account-list', { is: AccountList });
+        document.body.appendChild(element);
+        await Promise.resolve();       // let the microtask queue flush
+
+        const rows = element.shadowRoot.querySelectorAll('li');
+        expect(rows.length).toBe(2);
+        expect(rows[0].textContent).toContain('Acme');
+    });
+});</code></pre>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> @wire versus imperative Apex — give me the decision rule.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>@wire</strong> is reactive and automatic: it runs on load and again whenever a
+<code>$</code>-prefixed parameter changes. It requires <code>cacheable=true</code>, returns <strong>read-only</strong>
+data and <strong>cannot do DML</strong>. Use it for displaying data that follows a record or a filter.</p>
+<p><strong>Imperative</strong> runs only when you call it, allows DML, returns mutable data and gives you full control of
+loading and error state. Use it for saves, deletes and button clicks. Short version: <em>reads that follow a record →
+wire; writes and user-initiated actions → imperative</em>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> Why does modifying wired data throw "Cannot assign to read only property"?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Wire results are immutable Proxies — the framework caches and may share them across components, so
+mutation is blocked. Clone before changing: <code>const rows = data.map(r =&gt; ({ ...r }));</code>.</p>
+<p>Note a spread is a <strong>shallow</strong> copy — nested objects are still frozen. For deep structures use
+<code>structuredClone(data)</code> or <code>JSON.parse(JSON.stringify(data))</code>. Same reason
+<code>console.log</code> of wire data looks unhelpful until you clone it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> After an imperative save, the wired list is stale. Fix it properly.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Store the <strong>entire wired result</strong>, not just <code>data</code>, then call
+<code>refreshApex(this.wiredResult)</code>. For records managed by LDS, also call
+<code>notifyRecordUpdateAvailable([{ recordId }])</code> so every other component on the page refreshes too.</p>
+<p>Why the naive approach fails: the wire cache is only invalidated automatically when a reactive parameter changes.
+Re-assigning a local array doesn't touch the cache, so a page refresh brings the stale data straight back.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Describe all four communication patterns and when each applies.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><ul>
+  <li><strong>Parent → Child</strong>: <code>@api</code> property, or an <code>@api</code> method the parent calls via
+      <code>querySelector</code>/<code>refs</code>.</li>
+  <li><strong>Child → Parent</strong>: <code>dispatchEvent(new CustomEvent('name', { detail }))</code>, parent listens
+      with <code>onname={handler}</code>.</li>
+  <li><strong>Siblings</strong>: bubble to the common parent which passes back down — or LMS if there's no shared
+      ancestor you control.</li>
+  <li><strong>Anywhere on the page, across LWC / Aura / Visualforce</strong>: <strong>Lightning Message Service</strong>.</li>
+</ul>
+<p>Pub-sub is the legacy predecessor to LMS: LWC-only, no schema, and unreliable across page regions.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> What are the event naming rules, and what do <code>bubbles</code> and <code>composed</code> do?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Event names must be <strong>all lowercase</strong>, with no hyphens or underscores, and must not clash
+with a standard DOM event. <code>contactselect</code> ✅, <code>contactSelect</code> ❌, <code>contact-select</code> ❌ —
+because the <code>on</code> + name handler syntax is case-insensitive in HTML.</p>
+<p><code>bubbles: false, composed: false</code> (the default) reaches only the immediate parent — correct for ~99% of
+cases and keeps components decoupled. <code>bubbles: true</code> travels up the DOM but stops at the shadow boundary.
+<code>composed: true</code> escapes the shadow boundary entirely and reaches the document — powerful but it leaks your
+internals and makes the component hard to reason about.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> Why prefer Lightning Data Service over Apex?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A <strong>shared client-side cache</strong>: three components asking for the same record produce one
+server request, and when any of them updates it, <strong>all of them refresh automatically</strong>. You also get FLS
+and sharing enforcement for free, and no Apex class or test to maintain.</p>
+<p>Drop to Apex when LDS can't do it: multi-record queries with complex filters, aggregates, unsupported objects, or
+multi-record transactional DML.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> How do you secure an <code>@AuraEnabled</code> method?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>They run in <strong>system context for FLS by default</strong> — nothing is enforced for you, which
+is why this is the most common security-review failure in LWC projects. Do all of:</p>
+<ul>
+  <li>Declare the class <code>with sharing</code>.</li>
+  <li>Enforce FLS/CRUD: <code>WITH USER_MODE</code> on queries, <code>insert as user</code> or
+      <code>AccessLevel.USER_MODE</code> on DML, or <code>Security.stripInaccessible()</code> before returning.</li>
+  <li>Bind all SOQL variables; validate every input — the client can call the method with any arguments.</li>
+  <li>Throw <code>AuraHandledException</code> so the UI gets a clean message rather than a stack trace.</li>
+</ul></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> How do you get real-time updates into an LWC when another user changes data?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Subscribe to a <strong>Platform Event</strong> or <strong>Change Data Capture</strong> channel with
+<code>lightning/empApi</code>: <code>subscribe('/event/Order_Shipped__e', -1, callback)</code> in
+<code>connectedCallback</code>, and <code>unsubscribe</code> in <code>disconnectedCallback</code>.</p>
+<p>Never poll with <code>setInterval</code> — it burns API calls, scales badly with user count, and still isn't
+real-time. Use replay id <code>-1</code> for new events only, <code>-2</code> to replay the retained window after a
+reconnect.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> LMS scope — what's the difference and why does it matter?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The default is <strong>active area</strong>: the subscriber only receives messages published in the
+same console tab or page region. <code>APPLICATION_SCOPE</code> receives messages from anywhere in the application,
+including inactive console tabs and the utility bar.</p>
+<p>It matters in Service Console: with application scope, selecting an account in one tab can update a component in a
+different tab, which is either exactly what you wanted or a confusing bug. Choose deliberately.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. Two components in different regions of a record page must share a selection. Best approach?</div>
+  <button class="opt">CustomEvent with bubbles and composed</button>
+  <button class="opt" data-correct="1">Lightning Message Service</button>
+  <button class="opt">A global JavaScript variable</button>
+  <div class="explain">Events only travel up their own DOM tree — components in separate page regions have no common ancestor you control. LMS is designed for exactly this.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. Your <code>@wire</code> Apex method needs to insert a record. What happens?</div>
+  <button class="opt">It works fine</button>
+  <button class="opt" data-correct="1">It fails — <code>cacheable=true</code> forbids DML; call it imperatively instead</button>
+  <button class="opt">You must add @track</button>
+  <div class="explain">Cacheable methods must be side-effect free so the framework can cache and replay them. Any write must be an imperative call.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. After saving via Apex, your <code>@wire</code> list doesn't refresh. Fix?</div>
+  <button class="opt">Reload the page</button>
+  <button class="opt" data-correct="1">Store the full wired result and call <code>refreshApex(this.wiredResult)</code></button>
+  <button class="opt">Add bubbles: true to the save event</button>
+  <div class="explain">The wire cache is only invalidated when a reactive parameter changes or you explicitly refresh it. For LDS-managed records, also call <code>notifyRecordUpdateAvailable()</code>.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · LWC Data &amp; Events</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Integration Patterns &amp; Approach | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Integration</span> › <span>Patterns</span></div>
+  <h1>Integration Patterns &amp; Approach</h1>
+  <p class="lede">The six canonical patterns, the technology that implements each one, and a repeatable method for
+     designing any integration from a blank page.</p>
+</header>
+
+<!-- ============================================ -->
+<h2 id="integration-patterns">The six patterns</h2>
+<p>Almost every Salesforce integration is one of six shapes. Naming the pattern first — before choosing a technology —
+   is what separates a design from a guess.</p>
+
+<div class="dgm">
+  <div class="dgm-title">Pattern map: direction × timing</div>
+  <svg viewBox="0 0 790 380" role="img" aria-label="Integration patterns arranged by direction and timing">
+    <text class="s-t-sm anchor-mid" x="230" y="24">SYNCHRONOUS  (caller waits)</text>
+    <text class="s-t-sm anchor-mid" x="580" y="24">ASYNCHRONOUS  (fire and continue)</text>
+    <text class="s-t-sm" x="10" y="110" transform="rotate(-90 22 110)">OUTBOUND</text>
+    <text class="s-t-sm" x="10" y="270" transform="rotate(-90 22 270)">INBOUND</text>
+
+    <rect class="s-box-b" x="60" y="40" width="330" height="100" rx="10"/>
+    <text class="s-t s-t-b" x="80" y="64">1 · Request and Reply</text>
+    <text class="s-t-sm" x="80" y="88">Salesforce calls out and WAITS for the answer</text>
+    <text class="s-t-sm" x="80" y="108">Apex REST/SOAP callout · External Services</text>
+    <text class="s-t-sm s-t-a" x="80" y="128">"Check credit score before saving the Opportunity"</text>
+
+    <rect class="s-box-v" x="410" y="40" width="330" height="100" rx="10"/>
+    <text class="s-t s-t-v" x="430" y="64">2 · Fire and Forget</text>
+    <text class="s-t-sm" x="430" y="88">Salesforce notifies and moves on</text>
+    <text class="s-t-sm" x="430" y="108">Platform Events · Outbound Message · Queueable</text>
+    <text class="s-t-sm s-t-a" x="430" y="128">"Tell the warehouse the order shipped"</text>
+
+    <rect class="s-box-t" x="60" y="160" width="330" height="100" rx="10"/>
+    <text class="s-t s-t-t" x="80" y="184">3 · Remote Call-In</text>
+    <text class="s-t-sm" x="80" y="208">External system creates/reads/updates in Salesforce</text>
+    <text class="s-t-sm" x="80" y="228">REST/SOAP API · Apex REST · Composite</text>
+    <text class="s-t-sm s-t-a" x="80" y="248">"The web store creates a Lead"</text>
+
+    <rect class="s-box-a" x="410" y="160" width="330" height="100" rx="10"/>
+    <text class="s-t s-t-a" x="430" y="184">4 · Batch Data Synchronisation</text>
+    <text class="s-t-sm" x="430" y="208">Bulk movement on a schedule, either direction</text>
+    <text class="s-t-sm" x="430" y="228">Bulk API 2.0 · Batch Apex · ETL tool · CDC</text>
+    <text class="s-t-sm s-t-a" x="430" y="248">"Load 2 M products nightly from the ERP"</text>
+
+    <rect class="s-box-g" x="60" y="280" width="330" height="86" rx="10"/>
+    <text class="s-t s-t-g" x="80" y="304">5 · UI Update on Data Change</text>
+    <text class="s-t-sm" x="80" y="326">Push a change to the browser in real time</text>
+    <text class="s-t-sm" x="80" y="344">Platform Events + empApi · CDC · LMS</text>
+    <text class="s-t-sm s-t-a" x="80" y="362">"Refresh the console when a case is reassigned"</text>
+
+    <rect class="s-box-r" x="410" y="280" width="330" height="86" rx="10"/>
+    <text class="s-t s-t-r" x="430" y="304">6 · Data Virtualisation</text>
+    <text class="s-t-sm" x="430" y="326">Read external data live, never copy it</text>
+    <text class="s-t-sm" x="430" y="344">Salesforce Connect · external objects · Apex adapter</text>
+    <text class="s-t-sm s-t-a" x="430" y="362">"Show 12 M SAP invoices on the Account"</text>
+  </svg>
+</div>
+
+<!-- ---------------------------------- -->
+<h3>1 · Remote Process Invocation — Request and Reply</h3>
+<div class="grid g2">
+  <div class="card accent-blue"><h4>Shape</h4>
+    <p>Salesforce calls a remote system, <strong>waits</strong> for the response, and uses the result immediately —
+       often storing it or blocking the user's action based on it.</p>
+    <p><strong>Implement with:</strong> Apex HTTP callout (REST), WSDL2Apex (SOAP), External Services, or a Flow HTTP
+       callout action.</p></div>
+  <div class="card accent-amber"><h4>Design considerations</h4>
+    <ul><li>The user is waiting — set an aggressive timeout (5–15 s)</li>
+        <li>Counts against 100 callouts / 120 s per transaction</li>
+        <li>Cannot follow DML in the same transaction</li>
+        <li>What happens if the remote system is down? Define the fallback <em>before</em> you build</li>
+        <li>Consider caching the response in Platform Cache</li></ul></div>
+</div>
+<div class="callout case"><span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">Use case</span>
+    A rep clicks "Validate Address". Salesforce calls a postal API and populates the standardised address before the
+    record saves. The rep must see the result now, so it has to be synchronous.</div></div>
+
+<!-- ---------------------------------- -->
+<h3>2 · Remote Process Invocation — Fire and Forget</h3>
+<div class="grid g2">
+  <div class="card accent-violet"><h4>Shape</h4>
+    <p>Salesforce notifies a remote system and continues without waiting. The remote system may act later; Salesforce
+       doesn't need the answer to complete its work.</p>
+    <p><strong>Implement with:</strong> Platform Events (best), Outbound Messages (no-code + retry), Queueable/@future
+       callouts, or a record-triggered Flow on an asynchronous path.</p></div>
+  <div class="card accent-green"><h4>Why it's usually the right default</h4>
+    <ul><li>The user isn't blocked by a slow third party</li>
+        <li>Failures don't roll back the Salesforce transaction</li>
+        <li>You can retry independently</li>
+        <li>Multiple consumers can subscribe with no extra work</li></ul></div>
+</div>
+<div class="callout case"><span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">Use case</span>
+    On Closed Won, publish <code>Order_Placed__e</code>. The ERP, the billing platform and the analytics pipeline each
+    subscribe. Adding a fourth consumer next year needs zero changes in Salesforce.</div></div>
+
+<!-- ---------------------------------- -->
+<h3>3 · Remote Call-In</h3>
+<div class="grid g2">
+  <div class="card accent-teal"><h4>Shape</h4>
+    <p>The <strong>external system initiates</strong>: it creates, reads, updates or deletes Salesforce data.</p>
+    <p><strong>Implement with:</strong> standard REST/SOAP API, Apex REST for custom logic, Composite API to bundle
+       operations, Bulk API for volume, or publishing a Platform Event into Salesforce.</p></div>
+  <div class="card accent-rose"><h4>Design considerations</h4>
+    <ul><li>Use a dedicated <strong>integration user</strong> with a least-privilege permission set — never an admin</li>
+        <li>Prefer <strong>upsert by External Id</strong> so calls are idempotent and replay-safe</li>
+        <li>Watch the daily API request allocation</li>
+        <li>Version your Apex REST endpoints (<code>/v1/orders</code>) so you can evolve them</li>
+        <li>Return meaningful HTTP status codes and error bodies</li></ul></div>
+</div>
+
+<!-- ---------------------------------- -->
+<h3>4 · Batch Data Synchronisation</h3>
+<div class="grid g2">
+  <div class="card accent-amber"><h4>Shape</h4>
+    <p>Large volumes moved on a schedule, in either direction. Latency of minutes or hours is acceptable.</p>
+    <p><strong>Implement with:</strong> Bulk API 2.0 (in/out), Batch Apex + callouts (out), an ETL/iPaaS tool
+       (Informatica, MuleSoft, Talend, Jitterbit), or CDC for a delta-based feed.</p></div>
+  <div class="card accent-teal"><h4>Design considerations</h4>
+    <ul><li><strong>Delta not full load</strong> — filter on <code>SystemModstamp &gt; lastRunTime</code></li>
+        <li>Use External Ids for matching, never Name</li>
+        <li>Run off-peak; consider deferring sharing recalculation</li>
+        <li>Disable/bypass triggers for the migration user if the logic isn't needed</li>
+        <li>Plan for partial failure: capture failed rows and reprocess</li>
+        <li>Sort by parent Id to avoid <code>UNABLE_TO_LOCK_ROW</code></li></ul></div>
+</div>
+
+<!-- ---------------------------------- -->
+<h3>5 · UI Update Based on Data Changes</h3>
+<div class="grid g2">
+  <div class="card accent-green"><h4>Shape</h4>
+    <p>The browser updates in real time when data changes elsewhere — without the user refreshing.</p>
+    <p><strong>Implement with:</strong> Platform Events or CDC subscribed via <code>lightning/empApi</code> in an LWC;
+       LMS for same-page component sync.</p></div>
+  <div class="card accent-violet"><h4>Design considerations</h4>
+    <ul><li>Never poll on a timer — it burns API calls and scales badly</li>
+        <li>Filter events client-side to what this user cares about</li>
+        <li>Unsubscribe in <code>disconnectedCallback</code></li>
+        <li>Handle reconnection and replay after a dropped connection</li></ul></div>
+</div>
+
+<!-- ---------------------------------- -->
+<h3>6 · Data Virtualisation</h3>
+<div class="grid g2">
+  <div class="card accent-rose"><h4>Shape</h4>
+    <p>Salesforce displays external data live, on demand, without ever storing it.</p>
+    <p><strong>Implement with:</strong> <a href="integration-events.html#salesforce-connect">Salesforce Connect</a>
+       (OData, Cross-Org, custom Apex adapter), or an LWC that calls out and renders the result.</p></div>
+  <div class="card accent-amber"><h4>Design considerations</h4>
+    <ul><li>Every page view hits the external system — how fast and how reliable is it?</li>
+        <li>No triggers, flows or full reporting on external objects</li>
+        <li>Callout allocations apply per hour</li>
+        <li>If the source is down, the page shows an error</li></ul></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="decision-matrix">Decision matrix</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Question</th><th>Answer → Pattern</th><th>Technology</th></tr></thead>
+  <tbody>
+    <tr><td>Does the user need the answer <em>right now</em>?</td><td>Yes → Request &amp; Reply</td><td>Apex callout · External Services</td></tr>
+    <tr><td>Can the work happen later?</td><td>Yes → Fire &amp; Forget</td><td>Platform Events · Queueable · Outbound Message</td></tr>
+    <tr><td>Who starts the conversation — them?</td><td>Remote Call-In</td><td>REST/SOAP API · Apex REST · Composite</td></tr>
+    <tr><td>More than ~10,000 records?</td><td>Batch Sync</td><td>Bulk API 2.0 · Batch Apex · ETL</td></tr>
+    <tr><td>Must the screen update without a refresh?</td><td>UI Update</td><td>empApi + Platform Event/CDC</td></tr>
+    <tr><td>Is the data huge, rarely used and owned elsewhere?</td><td>Data Virtualisation</td><td>Salesforce Connect</td></tr>
+    <tr><td>Do multiple systems need the same notification?</td><td>Fire &amp; Forget (pub/sub)</td><td>Platform Events</td></tr>
+    <tr><td>Is guaranteed delivery essential with no code?</td><td>Fire &amp; Forget</td><td>Outbound Message (24 h retry)</td></tr>
+    <tr><td>Do you need to replicate every change downstream?</td><td>Batch Sync (delta)</td><td>Change Data Capture</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="integration-approach">A repeatable integration approach</h2>
+<p>Work through these eight steps in order. Most failed integrations skipped steps 1–3 and jumped straight to code.</p>
+
+<div class="dgm">
+  <div class="dgm-title">The eight-step method</div>
+  <svg viewBox="0 0 790 300" role="img" aria-label="Eight step integration design approach">
+    <rect class="s-box-b" x="20" y="30" width="170" height="54" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="105" y="50">1 · Define the</text><text class="s-t-sm anchor-mid" x="105" y="68">business outcome</text>
+    <path class="s-line-b" d="M190 57 H215" marker-end="url(#ap1)"/>
+    <rect class="s-box-b" x="215" y="30" width="170" height="54" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="300" y="50">2 · Identify systems,</text><text class="s-t-sm anchor-mid" x="300" y="68">direction &amp; owner</text>
+    <path class="s-line-b" d="M385 57 H410" marker-end="url(#ap1)"/>
+    <rect class="s-box-v" x="410" y="30" width="170" height="54" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="495" y="50">3 · Volume, frequency</text><text class="s-t-sm anchor-mid" x="495" y="68">&amp; latency budget</text>
+    <path class="s-line-v" d="M580 57 H605" marker-end="url(#ap1)"/>
+    <rect class="s-box-v" x="605" y="30" width="165" height="54" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="687" y="50">4 · Choose</text><text class="s-t-sm anchor-mid" x="687" y="68">the pattern</text>
+
+    <path class="s-line-v" d="M687 84 V112" marker-end="url(#ap1)"/>
+    <rect class="s-box-t" x="605" y="112" width="165" height="54" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="687" y="132">5 · Choose the</text><text class="s-t-sm anchor-mid" x="687" y="150">technology</text>
+    <path class="s-line-t" d="M605 139 H580" marker-end="url(#ap1)"/>
+    <rect class="s-box-t" x="410" y="112" width="170" height="54" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="495" y="132">6 · Security:</text><text class="s-t-sm anchor-mid" x="495" y="150">auth, user, secrets</text>
+    <path class="s-line-t" d="M410 139 H385" marker-end="url(#ap1)"/>
+    <rect class="s-box-a" x="215" y="112" width="170" height="54" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="300" y="132">7 · Errors, retries,</text><text class="s-t-sm anchor-mid" x="300" y="150">idempotency</text>
+    <path class="s-line-a" d="M215 139 H190" marker-end="url(#ap1)"/>
+    <rect class="s-box-g" x="20" y="112" width="170" height="54" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="105" y="132">8 · Monitoring</text><text class="s-t-sm anchor-mid" x="105" y="150">&amp; alerting</text>
+
+    <rect class="s-box" x="120" y="204" width="550" height="70" rx="10"/>
+    <text class="s-t anchor-mid" x="395" y="228">The three questions that decide almost everything</text>
+    <text class="s-t-sm anchor-mid" x="395" y="252">Who initiates? · Does the caller need an answer now? · How many records, how often?</text>
+    <defs><marker id="ap1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<ul class="steps">
+  <li><b>Define the business outcome</b> — not "integrate with SAP" but "a rep must see live credit limits so they stop
+      quoting customers who are on hold". Write the acceptance criteria first.</li>
+  <li><b>Identify the systems, direction and system of record</b> — which system <em>owns</em> each field?
+      Two-way sync without a clear owner is how you get infinite update loops and data corruption.</li>
+  <li><b>Quantify volume, frequency and latency</b> — 50 records a day or 5 million a night? Must it be under a second,
+      or is an hour fine? These numbers eliminate most options immediately.</li>
+  <li><b>Choose the pattern</b> from the six above. Say it out loud: "this is fire-and-forget, outbound."</li>
+  <li><b>Choose the technology</b> that implements that pattern, and check it against your limits.</li>
+  <li><b>Design the security</b> — Named Credential, OAuth flow (JWT for server-to-server), a dedicated integration
+      user with a least-privilege permission set, and no secrets in code.</li>
+  <li><b>Design failure handling</b> — retry with backoff, idempotency via External Id or event UUID, an error log
+      object, and a dead-letter path for what can never succeed.</li>
+  <li><b>Design monitoring</b> — how will you know at 3am that it broke? Error log reports, email alerts,
+      an integration health dashboard, and correlation ids in every payload.</li>
+</ul>
+
+<h3>The design checklist</h3>
+<div class="grid g2">
+  <div class="card accent-teal"><h4>Data</h4>
+    <ul><li>Field-level mapping document (both directions)</li><li>External Id on every synced object</li>
+        <li>Data type and picklist value alignment</li><li>Timezone and date format handling</li>
+        <li>What happens on delete? Soft delete or ignore?</li><li>Initial data load plan, separate from the ongoing sync</li></ul></div>
+  <div class="card accent-rose"><h4>Resilience</h4>
+    <ul><li>Idempotency — is replaying a message safe?</li><li>Retry policy and maximum attempts</li>
+        <li>Circuit breaker if the remote system is down</li><li>Error log object + alerting</li>
+        <li>Loop prevention on bidirectional syncs (flag field or commit-user check)</li><li>Reconciliation report to catch silent drift</li></ul></div>
+  <div class="card accent-violet"><h4>Security</h4>
+    <ul><li>Named Credentials, never hard-coded secrets</li><li>JWT or Client Credentials for server-to-server</li>
+        <li>Dedicated integration user, least privilege</li><li>Encrypt sensitive fields at rest if required</li>
+        <li>Log who called what, and when</li><li>IP restrictions where practical</li></ul></div>
+  <div class="card accent-amber"><h4>Operations</h4>
+    <ul><li>Runbook: how to replay a failed batch</li><li>Sandbox endpoints separate from production (Custom Metadata)</li>
+        <li>Load test at realistic volumes</li><li>Version your endpoints</li>
+        <li>Document the contract and share it with the other team</li><li>Track API allocation consumption over time</li></ul></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="middleware">Point-to-point vs middleware</h2>
+<div class="dgm">
+  <div class="dgm-title">When to introduce an integration layer</div>
+  <svg viewBox="0 0 790 260" role="img" aria-label="Spaghetti point to point integration versus hub and spoke middleware">
+    <text class="s-t s-t-r" x="30" y="22">Point-to-point at scale — n×(n−1)/2 connections</text>
+    <circle class="s-box-r" cx="90"  cy="70"  r="26"/><text class="s-t-sm anchor-mid" x="90"  y="70">SF</text>
+    <circle class="s-box"   cx="220" cy="60"  r="26"/><text class="s-t-sm anchor-mid" x="220" y="60">ERP</text>
+    <circle class="s-box"   cx="250" cy="150" r="26"/><text class="s-t-sm anchor-mid" x="250" y="150">Bill</text>
+    <circle class="s-box"   cx="120" cy="180" r="26"/><text class="s-t-sm anchor-mid" x="120" y="180">WMS</text>
+    <circle class="s-box"   cx="60"  cy="130" r="24"/><text class="s-t-sm anchor-mid" x="60"  y="130">BI</text>
+    <path class="s-line-r" d="M90 70 L220 60 M90 70 L250 150 M90 70 L120 180 M90 70 L60 130
+                              M220 60 L250 150 M220 60 L120 180 M250 150 L120 180 M120 180 L60 130 M220 60 L60 130"/>
+    <text class="s-t-sm s-t-r" x="30" y="228">10 connections for 5 systems. Every change ripples everywhere.</text>
+
+    <text class="s-t s-t-g" x="440" y="22">Hub and spoke — n connections</text>
+    <rect class="s-box-g" x="560" y="96" width="110" height="52" rx="10"/>
+    <text class="s-t-sm anchor-mid" x="615" y="115">Middleware</text><text class="s-t-sm anchor-mid" x="615" y="133">MuleSoft / iPaaS</text>
+    <circle class="s-box-b" cx="460" cy="60"  r="26"/><text class="s-t-sm anchor-mid" x="460" y="60">SF</text>
+    <circle class="s-box"   cx="460" cy="180" r="26"/><text class="s-t-sm anchor-mid" x="460" y="180">ERP</text>
+    <circle class="s-box"   cx="740" cy="50"  r="26"/><text class="s-t-sm anchor-mid" x="740" y="50">Bill</text>
+    <circle class="s-box"   cx="750" cy="130" r="26"/><text class="s-t-sm anchor-mid" x="750" y="130">WMS</text>
+    <circle class="s-box"   cx="700" cy="205" r="26"/><text class="s-t-sm anchor-mid" x="700" y="205">BI</text>
+    <path class="s-line-g" d="M486 66 L560 106 M486 174 L560 140 M670 108 L716 60 M670 122 L724 130 M660 148 L682 186"/>
+    <text class="s-t-sm s-t-g" x="440" y="240">One place for mapping, transformation, retry, auth and monitoring</text>
+  </svg>
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Go point-to-point when…</th><th>Introduce middleware when…</th></tr></thead>
+  <tbody>
+    <tr><td>1–3 integrations total</td><td>Many systems, growing</td></tr>
+    <tr><td>Simple, stable payloads</td><td>Complex transformation or orchestration</td></tr>
+    <tr><td>Same team owns both ends</td><td>Different teams, different release cycles</td></tr>
+    <tr><td>No budget for a platform</td><td>You need central monitoring, throttling and retry</td></tr>
+    <tr><td>Latency is critical (one fewer hop)</td><td>Protocol mediation is needed (SOAP ⇄ REST ⇄ files)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="anti-patterns">Anti-patterns to avoid</h2>
+<div class="grid g2">
+  <div class="card accent-rose"><h4>❌ Common mistakes</h4>
+    <ul>
+      <li><strong>Synchronous callouts in triggers</strong> — couples the user's save to a third party's uptime</li>
+      <li><strong>Polling on a timer</strong> instead of subscribing to events</li>
+      <li><strong>Two-way sync with no system of record</strong> — guaranteed conflicts and loops</li>
+      <li><strong>Matching on Name</strong> instead of an External Id</li>
+      <li><strong>Full data loads</strong> every night when a delta would do</li>
+      <li><strong>Hard-coded endpoints and secrets</strong> instead of Named Credentials + Custom Metadata</li>
+      <li><strong>Using an admin account</strong> as the integration user</li>
+      <li><strong>Swallowing errors</strong> — silent failure is worse than a loud one</li>
+      <li><strong>No idempotency</strong> — a retry creates a duplicate order</li>
+      <li><strong>Building it all in Apex</strong> when a Named Credential + External Service would do</li>
+    </ul></div>
+  <div class="card accent-green"><h4>✅ Signs of a good design</h4>
+    <ul>
+      <li>You can name the pattern in one sentence</li>
+      <li>Replaying any message is harmless</li>
+      <li>The remote system going down degrades gracefully</li>
+      <li>Failures land in a log with enough context to reprocess</li>
+      <li>Adding a new consumer needs no change to the publisher</li>
+      <li>Secrets live in Named Credentials only</li>
+      <li>Sandbox and production differ only by configuration</li>
+      <li>There's a dashboard someone actually looks at</li>
+      <li>The contract is documented and versioned</li>
+    </ul></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="worked-example">Worked example: end-to-end design</h2>
+<div class="callout case">
+  <span class="c-ico">📋</span>
+  <div class="c-body"><span class="c-title">The requirement</span>
+    "When a Salesforce Opportunity is Closed Won, create the sales order in SAP, store the SAP order number back on the
+    Opportunity, and let service agents see live order status on the Account. About 400 orders a day; SAP occasionally
+    goes down for maintenance."</div>
+</div>
+
+<ul class="steps">
+  <li><b>Outcome</b> — no manual re-keying of orders; agents answer "where is my order?" without leaving Salesforce.</li>
+  <li><b>Systems &amp; direction</b> — Salesforce → SAP (create order, outbound) and SAP → Salesforce (status, read).
+      SAP is the system of record for orders; Salesforce owns the opportunity.</li>
+  <li><b>Volume &amp; latency</b> — 400/day outbound (tiny); order status read on demand; SAP has planned downtime, so
+      the outbound path must tolerate failure.</li>
+  <li><b>Patterns</b> — outbound order creation is <strong>Fire and Forget</strong> (with a callback for the order
+      number). Live status display is <strong>Data Virtualisation</strong>.</li>
+  <li><b>Technology</b> — a record-triggered Flow publishes <code>Order_Ready__e</code>; an Apex trigger on that event
+      enqueues a Queueable that POSTs to SAP via a Named Credential and writes back the SAP number. For status, a
+      Salesforce Connect OData external object <code>SAP_Order__x</code> with an Indirect Lookup to Account.</li>
+  <li><b>Security</b> — JWT Bearer flow into SAP via an External Credential; a dedicated
+      <em>SAP Integration</em> user in Salesforce with a least-privilege permission set.</li>
+  <li><b>Resilience</b> — the Queueable retries 3 times with growing delay on 5xx; the SAP call carries the Opportunity
+      Id as an idempotency key so a retry never double-creates; permanent failures write an
+      <code>Integration_Error__c</code> record.</li>
+  <li><b>Monitoring</b> — a report on <code>Integration_Error__c</code> created today, an email alert to the
+      integration team, and a dashboard component showing failure count by day.</li>
+</ul>
+
+<div class="flowchain">
+  <span class="chip b">Closed Won</span><span class="arrow">→</span>
+  <span class="chip v">Flow publishes event</span><span class="arrow">→</span>
+  <span class="chip t">Event trigger → Queueable</span><span class="arrow">→</span>
+  <span class="chip a">POST to SAP (Named Cred)</span><span class="arrow">→</span>
+  <span class="chip g">Write back SAP order #</span><span class="arrow">→</span>
+  <span class="chip r">Errors → log + alert</span>
+</div>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Name the six integration patterns and one example of each.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><ol>
+  <li><strong>Request &amp; Reply</strong> — live credit check before the Opportunity saves.</li>
+  <li><strong>Fire &amp; Forget</strong> — publish an event when an order ships.</li>
+  <li><strong>Remote Call-In</strong> — the web store creates a Lead through the REST API.</li>
+  <li><strong>Batch Data Synchronisation</strong> — nightly 2 M product load via Bulk API.</li>
+  <li><strong>UI Update on Data Change</strong> — console refreshes via empApi + Platform Event.</li>
+  <li><strong>Data Virtualisation</strong> — SAP invoices shown live through Salesforce Connect.</li>
+</ol></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> What three questions decide the pattern?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Who initiates?</strong> (inbound or outbound) · <strong>Does the caller need the answer
+now?</strong> (synchronous or asynchronous) · <strong>How many records, how often?</strong> (real-time or batch).</p>
+<p>Answer those three and the pattern — and usually the technology — falls out. Everything else is detail. The mistake
+juniors make is starting from the technology ("we'll use Apex callouts") before answering these.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Why is Fire &amp; Forget usually the better default over Request &amp; Reply?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Because it decouples you from someone else's uptime and latency. The user isn't blocked by a slow
+third party; a remote failure doesn't roll back the Salesforce transaction; you can retry independently; and additional
+consumers can subscribe later with <strong>no change to the publisher</strong>.</p>
+<p>Only use Request &amp; Reply when the answer genuinely changes what happens next in the current transaction — a credit
+check that blocks the save, an address validation the user must see.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Design a two-way sync between Salesforce and an ERP. What worries you most?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The first question is <strong>which system is the system of record for each field</strong>. Without
+that agreed field-by-field, you get update loops and silent data corruption — this is the answer interviewers want.</p>
+<p>Then: loop prevention (filter on <code>commitUser</code> in CDC, or a flag field); conflict resolution (last-write-wins,
+or source-of-truth per field); idempotency via External Ids; a reconciliation job to catch drift; and a
+<strong>correlation id</strong> in every payload so you can trace one record's journey across both systems.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> When do you introduce middleware instead of point-to-point?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Point-to-point is fine for 1–3 stable integrations owned by one team. Introduce middleware
+(MuleSoft, an iPaaS, an ESB) when: the number of connections is growing — <em>n</em> systems point-to-point needs
+<em>n(n−1)/2</em> links; you need complex transformation or orchestration; different teams release on different
+cadences; you need <strong>central monitoring, throttling and retry</strong>; or you must mediate protocols
+(SOAP ⇄ REST ⇄ files). The cost is an extra hop of latency and a platform to run.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> What does "idempotent" mean here, and how do you achieve it?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Processing the same message twice produces the same result as processing it once — essential because
+networks time out and event delivery is at-least-once.</p>
+<p><strong>Inbound:</strong> upsert on an External Id rather than insert. <strong>Outbound:</strong> send an idempotency
+key (the record Id or a UUID) the receiver checks. <strong>Event subscribers:</strong> de-duplicate on
+<code>EventUuid</code>, or make the action naturally repeatable — set a status rather than increment a counter.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> Name five integration anti-patterns you'd flag in a design review.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><ol>
+  <li><strong>Synchronous callouts in triggers</strong> — couples the user's save to a third party.</li>
+  <li><strong>Polling on a timer</strong> instead of subscribing to events.</li>
+  <li><strong>Two-way sync with no system of record</strong> — guaranteed loops and conflicts.</li>
+  <li><strong>Matching on Name</strong> instead of an External Id.</li>
+  <li><strong>Hard-coded endpoints and secrets</strong> rather than Named Credentials plus Custom Metadata.</li>
+  <li><strong>An admin account as the integration user</strong>, and <strong>swallowed errors</strong> with no log or alert.</li>
+</ol></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> How would you monitor an integration in production?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Log every permanent failure to an <code>Integration_Error__c</code> object with the payload, status
+code, correlation id and timestamp. Build a report and dashboard on today's errors, and an email alert or Slack
+notification when the count crosses a threshold.</p>
+<p>Add: <code>AsyncApexJob</code> monitoring for failed Queueable/Batch jobs, the Outbound Message delivery queue if
+used, API usage tracking against the daily allocation (<code>GET /limits</code>), and a scheduled
+<strong>reconciliation</strong> job comparing record counts between systems — because the failure mode nobody catches is
+the one that fails silently.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. A rep must see a live credit score before the Opportunity can be saved. Which pattern?</div>
+  <button class="opt">Fire and Forget</button>
+  <button class="opt" data-correct="1">Request and Reply</button>
+  <button class="opt">Batch Data Synchronisation</button>
+  <div class="explain">The answer is needed to complete the current action, so the call must be synchronous.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. Four different systems all need to know when an order ships. Best design?</div>
+  <button class="opt">Four Apex callouts in the trigger</button>
+  <button class="opt" data-correct="1">Publish one Platform Event and let each system subscribe</button>
+  <button class="opt">A nightly batch export</button>
+  <div class="explain">Pub/sub decouples the publisher from consumers — adding a fifth system later requires no Salesforce change.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. 12 million historical invoices, viewed rarely, owned by SAP. What do you do?</div>
+  <button class="opt">Bulk load them into a custom object nightly</button>
+  <button class="opt" data-correct="1">Salesforce Connect with external objects — data virtualisation</button>
+  <button class="opt">Store them as files</button>
+  <div class="explain">Rarely-read, high-volume, externally-owned data is the textbook case for virtualisation: no storage cost and never stale.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Integration Patterns</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

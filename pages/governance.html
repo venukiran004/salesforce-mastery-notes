@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Governance, Ecosystem &amp; Localisation | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Ship</span> › <span>Governance</span></div>
+  <h1>Governance, Ecosystem &amp; Localisation</h1>
+  <p class="lede">The organisational side of Salesforce — how change is controlled, how many orgs you should have,
+     the wider product ecosystem, and how to run one platform across many countries.</p>
+</header>
+
+<!-- ============================================ -->
+<h2 id="governance">Governance &amp; the Centre of Excellence</h2>
+<p>Every org that becomes unmaintainable got there one reasonable-sounding request at a time. Governance is the process
+   that stops it.</p>
+
+<div class="dgm">
+  <div class="dgm-title">A change lifecycle that scales</div>
+  <svg viewBox="0 0 790 250" role="img" aria-label="Governance change lifecycle from intake to review">
+    <rect class="s-box-b" x="20" y="40" width="130" height="56" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="85" y="60">1 · Intake</text>
+    <text class="s-t-sm anchor-mid" x="85" y="80">one front door</text>
+    <path class="s-line-b" d="M150 68 H195" marker-end="url(#gv1)"/>
+
+    <rect class="s-box-v" x="195" y="40" width="140" height="56" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="265" y="60">2 · Triage</text>
+    <text class="s-t-sm anchor-mid" x="265" y="80">value vs effort vs risk</text>
+    <path class="s-line-v" d="M335 68 H380" marker-end="url(#gv1)"/>
+
+    <rect class="s-box-t" x="380" y="40" width="150" height="56" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="455" y="60">3 · Design review</text>
+    <text class="s-t-sm anchor-mid" x="455" y="80">clicks vs code · reuse</text>
+    <path class="s-line-t" d="M530 68 H575" marker-end="url(#gv1)"/>
+
+    <rect class="s-box-a" x="575" y="40" width="150" height="56" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="650" y="60">4 · Build &amp; review</text>
+    <text class="s-t-sm anchor-mid" x="650" y="80">PR + tests + scanner</text>
+
+    <path class="s-line-a" d="M650 96 V130" marker-end="url(#gv1)"/>
+    <rect class="s-box-g" x="500" y="130" width="225" height="50" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="612" y="150">5 · Release on a cadence</text>
+    <text class="s-t-sm anchor-mid" x="612" y="168">validated, with a rollback plan</text>
+    <path class="s-line-g" d="M500 155 H330" marker-end="url(#gv1)"/>
+
+    <rect class="s-box-r" x="150" y="130" width="180" height="50" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="240" y="150">6 · Adoption review</text>
+    <text class="s-t-sm anchor-mid" x="240" y="168">is it actually used?</text>
+    <path class="s-line-r s-dash" d="M150 155 H85 V96" marker-end="url(#gv1)"/>
+
+    <text class="s-t-sm s-t-r anchor-mid" x="395" y="222">Without step 6 you accumulate features nobody uses — and technical debt you still have to maintain.</text>
+    <defs><marker id="gv1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<div class="grid g2">
+  <div class="card accent-blue"><h4>What a CoE owns</h4>
+    <ul><li>A single <strong>intake process</strong> — no side-door requests to a friendly admin</li>
+        <li>Prioritisation against business value, not volume of shouting</li>
+        <li><strong>Design standards</strong>: naming, one automation tool per concern per object, when Apex is justified</li>
+        <li>Release cadence and environment strategy</li>
+        <li>Security review and permission model ownership</li>
+        <li>Documentation and a data dictionary</li>
+        <li>Adoption metrics and technical-debt backlog</li></ul></div>
+  <div class="card accent-rose"><h4>Symptoms of no governance</h4>
+    <ul><li>Fifteen flows and three triggers on Account, order unknown</li>
+        <li>200 profiles, nobody knows which are used</li>
+        <li>Fields created for one report three years ago, never populated</li>
+        <li>Two teams building the same integration</li>
+        <li>Changes made directly in production</li>
+        <li>Nobody can say what a field means</li>
+        <li>Every release breaks something unrelated</li></ul></div>
+</div>
+
+<h3>Technical debt you can measure</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Signal</th><th>Where to find it</th></tr></thead>
+  <tbody>
+    <tr><td>Unused fields, layouts, reports</td><td><strong>Salesforce Optimizer</strong> report</td></tr>
+    <tr><td>Insecure settings</td><td><strong>Security Health Check</strong> score</td></tr>
+    <tr><td>Code quality issues</td><td><code>sf scanner run</code> (PMD + ESLint)</td></tr>
+    <tr><td>Low or fake test coverage</td><td>Coverage per class, plus assertion-free test detection in review</td></tr>
+    <tr><td>Automation sprawl</td><td>Count flows + triggers per object; anything &gt; 2 needs justification</td></tr>
+    <tr><td>Permission sprawl</td><td>Profiles in use vs profiles existing; users with Modify All Data</td></tr>
+    <tr><td>API limit pressure</td><td><code>GET /limits</code> trended over time</td></tr>
+    <tr><td>Slow pages</td><td>Lightning Usage App — EPT by page and profile</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="well-architected">Well-Architected thinking</h2>
+<p>Salesforce publishes a Well-Architected framework. Whatever the branding, these are the questions a reviewer asks:</p>
+<div class="grid g3">
+  <div class="card accent-green"><h4>Trusted</h4><p>Is it <strong>secure</strong> (least privilege, FLS enforced, secrets in Named Credentials), <strong>compliant</strong> (consent, retention, auditability) and <strong>reliable</strong> (error handling, retries, monitoring)?</p></div>
+  <div class="card accent-blue"><h4>Easy</h4><p>Is it <strong>intentional</strong> (solves a stated business outcome), <strong>automated</strong> (CI/CD, tests) and <strong>resilient</strong> to change — can the next person understand and modify it?</p></div>
+  <div class="card accent-violet"><h4>Adaptable</h4><p>Is it <strong>composable</strong> (loosely coupled, reusable) and <strong>scalable</strong> (bulk-safe, within limits at 10× today's volume)?</p></div>
+</div>
+<div class="callout tip">
+  <span class="c-ico">🏛️</span>
+  <div class="c-body"><span class="c-title">The senior signal</span>
+    Junior answers describe <em>what a feature does</em>. Senior answers describe <strong>trade-offs</strong>: "Batch
+    Apex handles the volume, but it's asynchronous so the user won't see the result immediately — if they need
+    confirmation, we should publish a platform event and update the UI via empApi." Practise articulating the cost of
+    your choice, not just the choice.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="org-strategy">Single org or multi-org?</h2>
+<div class="vs">
+  <div class="card accent-green"><h4>Single org</h4>
+    <ul><li>One view of the customer across business units</li>
+        <li>Shared objects, automation and reporting</li>
+        <li>Cheaper licences and less duplicated build</li>
+        <li>One release process</li>
+        <li><strong>Risk:</strong> shared governor limits, shared namespace, one business unit's change affects everyone, and org-wide limits (custom objects, fields, code size) become real</li></ul></div>
+  <div class="vs-mid">vs</div>
+  <div class="card accent-amber"><h4>Multi-org</h4>
+    <ul><li>Autonomy and isolation per region or business unit</li>
+        <li>Independent release cycles and limits</li>
+        <li>Sometimes required by data residency or regulation</li>
+        <li><strong>Cost:</strong> duplicated build and admin, no single customer view, cross-org integration, and a proliferation of near-identical solutions</li></ul></div>
+</div>
+<p>Middle grounds: <strong>Divisions</strong> to partition a very large single org; <strong>Salesforce Connect
+   cross-org adapter</strong> to read another org's data; <strong>Data Cloud</strong> to unify profiles across orgs;
+   and <strong>unlocked packages</strong> to share a common codebase between orgs.</p>
+
+<!-- ============================================ -->
+<h2 id="appexchange">AppExchange, packaging &amp; ISVs</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Topic</th><th>What to know</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Before installing anything</strong></td><td>Check the security review status, the reviews, the last-updated date, what objects and permissions it demands, and whether it adds triggers to your objects</td></tr>
+    <tr><td><strong>Managed package</strong></td><td>Namespaced, upgradeable, code hidden, IP protected. Its Apex runs in its own namespace with its <em>own</em> governor limits in some contexts — but shares the transaction</td></tr>
+    <tr><td><strong>Unlocked package</strong></td><td>Your own modularisation — versioned, upgradeable, code visible. The modern way to structure a large internal codebase</td></tr>
+    <tr><td><strong>Unmanaged package</strong></td><td>A one-off template; becomes ordinary metadata on install and can't be upgraded</td></tr>
+    <tr><td><strong>Security Review</strong></td><td>Mandatory for AppExchange listing — static analysis plus manual testing. The most common failures are missing CRUD/FLS enforcement and SOQL injection</td></tr>
+    <tr><td><strong>Trial/LMA</strong></td><td>ISVs use the License Management App to track subscribers and licences</td></tr>
+    <tr><td><strong>Package uninstall risk</strong></td><td>Removing a package deletes its objects and data — export first, and check nothing of yours references it</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout warn">
+  <span class="c-ico">📦</span>
+  <div class="c-body"><span class="c-title">Managed packages and your limits</span>
+    A package's Apex consumes SOQL, DML and CPU in the <strong>same transaction</strong> as your code. When a
+    well-written trigger suddenly throws "Too many SOQL queries: 101", check
+    <code>LIMIT_USAGE_FOR_NS</code> in the <a href="debugging.html#debug-logs">debug log</a> — it attributes usage per
+    namespace and will tell you whether the package is the cause.</div>
+</div>
+
+<h3>The wider product ecosystem</h3>
+<div class="grid g3">
+  <div class="card"><h4>MuleSoft</h4><p>API-led integration and iPaaS. Where you go when point-to-point stops scaling — see <a href="integration-patterns.html#middleware">middleware</a>.</p></div>
+  <div class="card accent-violet"><h4>Tableau</h4><p>Enterprise BI across all sources — see <a href="analytics.html#tableau">CRM Analytics vs Tableau</a>.</p></div>
+  <div class="card accent-teal"><h4>Slack</h4><p>Deeply integrated: Slack apps, workflow triggers from Salesforce records, Sales/Service Elevate.</p></div>
+  <div class="card accent-amber"><h4>Heroku</h4><p>Run custom apps and services in any language, with Heroku Connect for bidirectional data sync to Salesforce.</p></div>
+  <div class="card accent-green"><h4>Data Cloud</h4><p>The unified customer data layer — see <a href="einstein-ai.html#data-cloud">Data Cloud</a>.</p></div>
+  <div class="card accent-rose"><h4>Commerce Cloud</h4><p>B2B and B2C storefronts, with Order Management bridging into Service.</p></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="localisation">Localisation &amp; multi-country orgs</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Feature</th><th>What it handles</th><th>Watch out for</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Multi-Currency</strong></td><td>Records carry a currency; amounts convert to the corporate currency for reporting</td><td><strong>Cannot be disabled</strong> once enabled. Adds <code>CurrencyIsoCode</code> everywhere and <code>convertCurrency()</code> in SOQL</td></tr>
+    <tr><td><strong>Advanced Currency Management</strong></td><td><strong>Dated exchange rates</strong> so historical opportunities use the rate at the time</td><td>Applies to Opportunities and their roll-ups; not to all objects</td></tr>
+    <tr><td><strong>Translation Workbench</strong></td><td>Translates picklist values, field labels, custom labels, validation messages, record types</td><td>Doesn't translate <em>data</em> — only metadata</td></tr>
+    <tr><td><strong>Custom Labels</strong></td><td>All user-facing strings in code, translatable</td><td>Only works if developers actually use them instead of hard-coded text</td></tr>
+    <tr><td><strong>Locale &amp; Language</strong></td><td>Per-user date, number and name formats; UI language</td><td>Locale ≠ language. Date parsing bugs in integrations almost always trace here</td></tr>
+    <tr><td><strong>Time zones</strong></td><td>Datetime stored in GMT, displayed per user</td><td>Use <code>format()</code> vs <code>formatGMT()</code> deliberately; scheduled jobs run in the scheduling user's zone</td></tr>
+    <tr><td><strong>Fiscal Years</strong></td><td>Standard (offset months) or Custom (bespoke period structure)</td><td>Custom fiscal years cannot easily be reverted and change every period-based report</td></tr>
+    <tr><td><strong>State &amp; Country Picklists</strong></td><td>Standardised, validated address values</td><td>Enabling requires a data-cleanup project; integrations must send valid ISO codes</td></tr>
+  </tbody>
+</table>
+</div>
+<pre><code class="language-apex">// Multi-currency in SOQL and Apex
+List&lt;Opportunity&gt; opps = [
+    SELECT Id, Name, Amount, CurrencyIsoCode,
+           convertCurrency(Amount) corporateAmount     // converted to corporate currency
+    FROM Opportunity
+    WHERE CloseDate = THIS_YEAR
+];
+
+// Formatting for the running user's locale
+Datetime dt = System.now();
+System.debug(dt.format());                 // user's timezone and locale
+System.debug(dt.formatGMT('yyyy-MM-dd'));  // deterministic — use this for integrations
+
+// Never hard-code user-facing text
+String msg = System.Label.Insufficient_Permissions;</code></pre>
+
+<div class="callout danger">
+  <span class="c-ico">⚠️</span>
+  <div class="c-body"><span class="c-title">Irreversible settings — decide once, carefully</span>
+    <strong>Multi-Currency</strong>, <strong>Person Accounts</strong>, <strong>Custom Fiscal Years</strong>,
+    <strong>Divisions</strong> and <strong>Territory Management</strong> are all extremely difficult or impossible to
+    turn off. Prototype in a scratch or developer org, and get architectural sign-off before enabling any of them in a
+    production org.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> An org has 15 flows and 3 triggers on Account. What's your plan?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Measure first</strong> — a debug log's <code>CUMULATIVE_LIMIT_USAGE</code> shows what's
+actually expensive. Then consolidate: one trigger per object with a handler; one before-save and one after-save
+record-triggered flow, branching internally; move same-record field updates to before-save; tighten entry criteria to
+"only when a record is updated to meet the condition"; and delete logic duplicated between a flow and a trigger.</p>
+<p>Then prevent recurrence: a governance standard of <strong>one automation tool per concern per object</strong>,
+enforced in design review. The technical fix without the process fix just delays the same problem.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> Single org or multi-org — how do you advise?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Default to <strong>single org</strong>: one customer view, shared automation and reporting, lower
+cost, one release process. Justify multi-org only for genuine drivers — data residency or regulatory isolation,
+completely unrelated businesses with no shared customers, an acquisition with its own release cadence, or org-wide
+limits genuinely exhausted.</p>
+<p>Mention the middle grounds: Divisions to partition a large org, Salesforce Connect's cross-org adapter, Data Cloud to
+unify profiles, and unlocked packages to share a codebase. And be explicit about the multi-org cost: duplicated build,
+duplicated admin and permanent cross-org integration.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> What would you check before installing an AppExchange package?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Security review status and date, customer reviews, when it was last updated, and the vendor's
+viability. Then technically: what objects, fields and <strong>permissions</strong> it requires; whether it installs
+triggers on your standard objects (a governor-limit and ordering risk); its licence model; how it's upgraded; and
+whether uninstalling it would delete data you need.</p>
+<p>Always install into a sandbox first, run your regression tests, and check the debug log's
+<code>LIMIT_USAGE_FOR_NS</code> to see what it consumes in your busiest transactions.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Which platform settings are effectively irreversible?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Multi-Currency</strong>, <strong>Person Accounts</strong>, <strong>Custom Fiscal
+Years</strong>, <strong>Divisions</strong>, <strong>Territory Management</strong> and enabling
+<strong>State &amp; Country Picklists</strong> (reversible only with significant pain). Also, once
+<strong>My Domain</strong> is deployed you can't go back to instance URLs.</p>
+<p>The right process: prototype in a scratch or Developer org, document the impact on reporting, integrations and data
+model, get architectural sign-off, and schedule it as its own change rather than bundling it into a release.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> How do you run one org across 12 countries?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Data:</strong> Multi-Currency with Advanced Currency Management for dated rates; State
+&amp; Country picklists for clean addresses; consistent ISO codes in integrations.
+<strong>UI:</strong> Translation Workbench for metadata, Custom Labels for every user-facing string, per-user locale and
+language.
+<strong>Process:</strong> record types and Dynamic Forms where processes genuinely differ, resisting the urge to fork
+everything.
+<strong>Access:</strong> role hierarchy or territories aligned to geography, with restriction rules if some data must
+not cross borders.
+<strong>Operations:</strong> a release window that works across time zones, and datetime handling using
+<code>formatGMT()</code> in integrations.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> How do you measure technical debt in an org?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Make it numeric so it can be prioritised: <strong>Salesforce Optimizer</strong> for unused fields,
+layouts and reports; <strong>Security Health Check</strong> score; <code>sf scanner</code> findings; test coverage
+<em>with</em> assertion quality; automation count per object; profiles in use vs existing; users with Modify All Data;
+API consumption trend; and page EPT from the Lightning Usage App.</p>
+<p>Then put the worst items in the same backlog as feature work — debt that isn't on the roadmap never gets fixed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> A stakeholder wants a change deployed straight to production today. Response?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Separate <em>urgency</em> from <em>process</em>. Establish whether it's genuinely a production
+incident or just impatience. If it's an incident, use the documented <strong>hotfix path</strong> — branch from the
+production tag, validate with tests, deploy, then merge back so the fix isn't lost in the next release.</p>
+<p>If it isn't, explain the cost concretely: unvalidated changes have broken unrelated automation before, and there's no
+rollback. Offer the next scheduled release, or a same-day validated deploy if the change is small and testable. Saying
+"no, because process" without offering a path is how governance gets bypassed.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. Which of these can you NOT turn off once enabled?</div>
+  <button class="opt">Chatter</button>
+  <button class="opt" data-correct="1">Multi-Currency</button>
+  <button class="opt">Field History Tracking</button>
+  <div class="explain">Multi-Currency, Person Accounts, Custom Fiscal Years, Divisions and Territory Management are all effectively permanent — prototype elsewhere first.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. A managed package trigger is consuming your SOQL limit. How do you prove it?</div>
+  <button class="opt">Uninstall the package and retest</button>
+  <button class="opt" data-correct="1">Read LIMIT_USAGE_FOR_NS in the debug log — it attributes usage per namespace</button>
+  <button class="opt">Contact Salesforce Support</button>
+  <div class="explain">The per-namespace breakdown separates your consumption from each installed package's, which is the evidence you need for the vendor.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. What's the strongest argument for a single org?</div>
+  <button class="opt">It's technically simpler to build</button>
+  <button class="opt" data-correct="1">One view of the customer, plus shared automation, reporting and lower total cost</button>
+  <button class="opt">Governor limits are higher</button>
+  <div class="explain">Limits are actually an argument <em>against</em> a single org at extreme scale — the real case is the unified customer view and avoiding duplicated build and admin.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Governance &amp; Ecosystem</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

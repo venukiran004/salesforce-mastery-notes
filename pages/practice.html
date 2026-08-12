@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Practice Q&amp;A Bank | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Practice</span></div>
+  <h1>Practice Q&amp;A Bank</h1>
+  <p class="lede">65 interview and scenario questions with full answers, grouped by topic. Click a question to reveal
+     the answer. Print this page (<kbd>Ctrl</kbd>+<kbd>P</kbd>) and every answer expands automatically.</p>
+</header>
+
+<div class="callout tip">
+  <span class="c-ico">🎓</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Read the question, answer it <em>out loud</em> as if in an interview, then open the answer and compare.
+    Saying it out loud exposes the gaps that silent reading hides. Ten more trigger-specific scenarios are on the
+    <a href="apex-triggers.html#practice">Triggers page</a>.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="admin">Admin &amp; configuration</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Lookup vs Master-Detail — give five differences.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><ol>
+  <li><strong>Required</strong>: master-detail is mandatory; lookup is optional.</li>
+  <li><strong>Delete</strong>: master-detail cascades (children deleted); lookup leaves the child (or blocks the delete).</li>
+  <li><strong>Ownership &amp; sharing</strong>: a detail record has no Owner and inherits sharing from the master.</li>
+  <li><strong>Roll-up summary</strong>: only master-detail supports it.</li>
+  <li><strong>Limits</strong>: 2 master-detail vs 40 lookups per object; reparenting is disallowed by default on master-detail.</li>
+</ol><p>See <a href="admin.html#relationships">Relationships</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> When would you choose Custom Metadata over a Custom Setting?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Choose <strong>Custom Metadata Types</strong> when the configuration <em>records</em> must deploy with your
+metadata — integration endpoints, business rules, mapping tables. They're deployable, packageable, queryable without
+consuming SOQL limits, and can have relationships.</p>
+<p>Choose a <strong>Hierarchy Custom Setting</strong> only when you need <strong>per-user or per-profile</strong> values —
+the classic case being a trigger bypass switch you can flip for one integration user during a data load.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> A duplicate rule isn't firing for records created by an integration. Why?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Several possibilities: the rule's <em>conditions</em> exclude those records; the integration passes
+<code>DmlOptions.duplicateRuleHeader.allowSave = true</code>; the matching rule is still indexing after activation; the
+rule is set to run on Create only and this is an update; or another duplicate rule on the object takes precedence
+(only one runs per operation).</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Explain the difference between a Queue and a Public Group.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A <strong>Queue</strong> can <em>own</em> records — members pull work from it, and it can be an approver.
+A <strong>Public Group</strong> cannot own anything; it's a bundle of users/roles used to grant access in sharing rules,
+list view visibility and folder sharing. Mnemonic: <em>queues own, groups grant</em>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> How do you find all Accounts with no Opportunities?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Report on Accounts with a <strong>cross filter</strong> "without Opportunities". Alternatively create a
+custom report type "Accounts <em>with or without</em> Opportunities" and filter <code>Opportunity ID equals ""</code>.
+In Apex: <code>SELECT Id FROM Account WHERE Id NOT IN (SELECT AccountId FROM Opportunity)</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> Walk me through the Lead conversion process and its gotchas.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Converting a Lead creates an <strong>Account</strong>, a <strong>Contact</strong> and optionally an
+<strong>Opportunity</strong>, marks the Lead <code>IsConverted = true</code> and makes it read-only. Existing
+Account/Contact records can be matched instead of created.</p>
+<p><strong>Gotchas:</strong> custom Lead fields must be explicitly <em>mapped</em> or the data is lost; data types must
+match; triggers fire on all four objects in one transaction (watch your limits); detect it in Apex with
+<code>lead.isConverted &amp;&amp; !oldLead.isConverted</code>; and validation rules on the target objects can block the
+conversion in confusing ways.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> Design a Web-to-Lead flow that handles 500+ leads a day.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Web-to-Lead is capped at <strong>500 leads/day</strong> — overflow goes to the default lead owner
+with a warning email, so above that volume you should switch to the <strong>REST API</strong> (or a middleware layer)
+posting Leads directly. Either way: add reCAPTCHA, set <code>lead_source</code>, run an assignment rule to route by
+territory, add an auto-response rule for acknowledgement, and activate duplicate/matching rules set to
+"Allow with alert + Report" so uploads never hard-fail.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> What are the four action buckets of an approval process?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Initial Submission</strong> (usually locks the record), <strong>Final Approval</strong>,
+<strong>Final Rejection</strong> and <strong>Recall</strong>. Each can run a Field Update, Email Alert, Task or
+Outbound Message.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> Difference between a Validation Rule and a Duplicate Rule?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A <strong>validation rule</strong> checks the values <em>within</em> the record being saved and blocks
+the save when its formula returns TRUE. A <strong>duplicate rule</strong> compares the record against <em>other
+records</em> using a matching rule, and can block or just warn. Validation rules run at step 6 of the order of
+execution; duplicate rules at step 7.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> Email-to-Case: On-Demand vs Standard?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>On-Demand</strong> needs no software — email is routed through Salesforce. It's the default
+choice. <strong>Standard</strong> requires an email agent installed behind your firewall, which keeps message bodies on
+your own servers and supports larger attachments; choose it only for strict compliance requirements.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> Roll-up summary alternatives when you only have a Lookup?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><ol><li>A record-triggered flow on the child that recalculates the parent.</li>
+<li>An Apex trigger with an aggregate query (handle insert, update <em>including reparenting</em>, delete and undelete).</li>
+<li>Convert the lookup to master-detail if the data model allows it.</li>
+<li>A scheduled Batch Apex recalculation for non-real-time needs.</li>
+<li>A declarative AppExchange rollup tool.</li></ol></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> When would you use a Record Type versus separate objects?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Use <strong>record types</strong> when the data is fundamentally the same entity with different
+processes, picklist values or layouts — e.g. B2B vs B2C Opportunities that both roll into one pipeline report.
+Use <strong>separate objects</strong> when the fields barely overlap, security differs sharply, or you'd never report
+across them together. Over-using record types leads to bloated layouts; over-using objects makes reporting painful.</p></div></details>
+
+<!-- ============================================================ -->
+<h2 id="security-q">Security &amp; sharing</h2>
+
+<details class="acc"><summary><span class="q-num">13</span> Explain the record access hierarchy in order.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>OWD (the restrictive baseline) → record ownership → role hierarchy → sharing rules (owner-based
+and criteria-based) → manual sharing → teams → territories → Apex managed sharing → implicit sharing. Everything after
+OWD is <strong>additive</strong>; the only subtractive control is a <strong>Restriction Rule</strong>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> Profile vs Permission Set vs Permission Set Group vs Role.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Profile</strong> — exactly one per user, the baseline of what they can <em>do</em>.
+<strong>Permission Set</strong> — many per user, adds capability, never removes.
+<strong>Permission Set Group</strong> — a bundle for a job function, and a Muting Permission Set inside it can subtract.
+<strong>Role</strong> — nothing to do with permissions; it controls record <em>visibility</em> through the hierarchy.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> Does <code>with sharing</code> enforce field-level security?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>No.</strong> It only enforces record-level sharing — which rows the user can see.
+FLS and object CRUD need explicit enforcement: <code>WITH USER_MODE</code> on queries,
+<code>AccessLevel.USER_MODE</code> on DML, <code>Security.stripInaccessible()</code>, or describe checks like
+<code>isAccessible()</code>. This is the single most common security-review failure.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> A user can see a record nobody can explain. How do you diagnose it?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Open the record and click the <strong>Sharing</strong> button — it lists every reason for access.
+Then check: View All / Modify All on the object, View All Data, the role hierarchy, criteria-based sharing rules,
+implicit sharing from a parent Account, team membership, and Apex shares
+(<code>SELECT UserOrGroupId, RowCause FROM AccountShare WHERE AccountId = …</code>).</p></div></details>
+
+<details class="acc"><summary><span class="q-num">17</span> What happens to manual shares when the record owner changes?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Manual shares (<code>RowCause = 'Manual'</code>) are <strong>deleted automatically</strong>.
+Apex managed shares with a <strong>custom Apex Sharing Reason</strong> survive an owner change — which is precisely why
+you define one instead of using Manual in code.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> OWD is Private. How do you give a support team read access to all Cases?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Options, in order of preference: (1) a <strong>criteria-based or owner-based sharing rule</strong>
+sharing Cases with a Support public group; (2) place the team under a role branch that already has access;
+(3) grant <strong>View All</strong> on Case via a permission set if they genuinely need every case.
+Avoid View All Data — it grants everything on every object.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">19</span> What is implicit sharing?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Built-in, non-configurable sharing between Accounts and their child Contacts, Cases and
+Opportunities. Access to a child grants <strong>Read on the parent Account</strong>; access to an Account grants access
+to children according to the Account's related-object settings. It can't be turned off and explains many
+"why can they see this?" mysteries.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> Restriction Rule vs Scoping Rule?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A <strong>Restriction Rule</strong> actually <em>removes</em> access that sharing granted — real
+security, applied to list views, reports, SOQL and the API. A <strong>Scoping Rule</strong> only changes the
+<em>default filter</em> a user sees; they can still switch it. Scoping is UX, restriction is security.</p></div></details>
+
+<!-- ============================================================ -->
+<h2 id="apex-q">Apex</h2>
+
+<details class="acc"><summary><span class="q-num">21</span> When would you use a Set instead of a List?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>When you need uniqueness or fast membership tests. <code>Set.contains()</code> is O(1);
+<code>List.contains()</code> is O(n) and will cause a CPU timeout inside a loop over thousands of records. Sets are
+also the natural container for collecting Ids to use in <code>WHERE Id IN :ids</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> Explain SOQL vs SOSL with a scenario for each.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>SOQL</strong> queries one object (plus relationships) in the database — "all open Cases for
+Account X created this month". <strong>SOSL</strong> searches the <em>text index</em> across many unrelated objects —
+"find 'acme' in Accounts, Contacts, Cases and Leads for a global search box". Limits differ: 100 SOQL / 50,000 rows vs
+20 SOSL / 2,000 records.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> How do you query a parent field and a child list in one go?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body">
+<pre><code class="language-apex">SELECT Id, Name, Owner.Email,                    // child → parent, dot notation, 5 levels
+       (SELECT LastName FROM Contacts),          // parent → child, subquery, 1 level
+       (SELECT Amount__c FROM Invoices__r)       // custom child relationship uses __r
+FROM Account WHERE Id IN :accIds</code></pre></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> DML statement vs Database method — when do you use each?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>insert list;</code> is all-or-nothing and throws a <code>DmlException</code> — right when
+everything must succeed together. <code>Database.insert(list, false)</code> allows partial success and returns
+<code>SaveResult[]</code> so you can log the failures and continue — right for bulk loads and integrations.
+Database methods also accept <code>DMLOptions</code> for assignment rules, duplicate rules and email headers.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> What is a wrapper class and when have you used one?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A custom class combining an sObject with extra data that doesn't exist as a field — a selection
+checkbox, a computed score, data from a second object. Typical use: an LWC datatable with checkboxes and a calculated
+"health" label, returned from Apex with <code>@AuraEnabled</code> members. See
+<a href="apex-advanced.html#wrapper-class">wrapper classes</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> How do you sort a List of custom objects by a custom rule?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Implement <code>Comparable</code> and its <code>Integer compareTo(Object other)</code> method
+(return −1, 0 or 1), then call <code>list.sort()</code>. For sObjects, use <code>ORDER BY</code> in SOQL where possible;
+for multiple sort strategies over the same type, build a Map keyed by the sort value or use a comparator wrapper.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> Why can't you catch a LimitException?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Because the platform must be able to terminate a runaway transaction unconditionally — if you
+could catch it, you could keep consuming resources. Prevent instead: check <code>Limits.getQueries()</code> before
+expensive operations and hand off to async when approaching the limit.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> Explain static variables in Apex and one practical use.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A static variable exists once per <strong>transaction</strong> and is shared by every instance of
+the class. It is <em>not</em> shared between transactions, users, or async jobs (a <code>@future</code> call starts
+fresh). Practical uses: recursion guards in triggers, and caching an expensive describe or configuration lookup for the
+duration of the transaction.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> What is Dynamic Apex and when is it worth the complexity?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Code that discovers metadata at runtime — <code>Schema.getGlobalDescribe()</code>, field describes,
+<code>Database.query()</code> with a built string, <code>sObject.get()/put()</code>, <code>Type.forName()</code>.
+Worth it for genuinely generic utilities (a field-set-driven table, an object-agnostic audit framework, a plug-in
+architecture driven by Custom Metadata). Not worth it when you know the object — it costs CPU time and readability, and
+opens SOQL injection risk if you don't bind or escape.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> How do you prevent SOQL injection?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Use <strong>bind variables</strong> (<code>WHERE Name = :userInput</code>) — they can't be injected.
+If you must build a string, use <code>Database.queryWithBinds()</code> with a bind map, or
+<code>String.escapeSingleQuotes()</code> as a minimum. Also validate that dynamic object/field names come from a
+whitelist, since escaping doesn't protect the FROM clause.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> What's a MIXED_DML_OPERATION error and how do you fix it?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>You performed DML on a <em>setup</em> object (User, Group, PermissionSetAssignment, UserRole…) and a
+non-setup object in the same transaction. Fix by moving one of them into an async context
+(<code>@future</code>/Queueable), or in tests by wrapping the setup DML in
+<code>System.runAs(new User(Id = UserInfo.getUserId())) { … }</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> Explain <code>with sharing</code>, <code>without sharing</code> and <code>inherited sharing</code>.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>with sharing</code> enforces the running user's record access. <code>without sharing</code> runs
+in system context. <code>inherited sharing</code> takes the caller's mode and defaults to <em>with sharing</em> when
+entered directly — making it the safest default for reusable service classes. A class with no keyword defaults to
+<em>without sharing</em> when it's the entry point, which is why omitting it is a bug, not a style choice.</p></div></details>
+
+<!-- ============================================================ -->
+<h2 id="async-q">Async Apex &amp; testing</h2>
+
+<details class="acc"><summary><span class="q-num">33</span> Compare @future, Queueable, Batch and Schedulable.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>@future</strong> — primitives only, no chaining, no job Id. Legacy.
+<strong>Queueable</strong> — accepts sObjects and complex types, returns a job Id, chainable, supports Finalizers.
+The modern default. <strong>Batch</strong> — up to 50 M records via QueryLocator, fresh limits per 200-record chunk,
+<code>Database.Stateful</code> for state. <strong>Schedulable</strong> — cron-based; usually just launches a Batch or
+Queueable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> Why can't you call a callout after DML, and what are the two fixes?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Salesforce won't hold an open database transaction while waiting on an external system, so it
+throws "You have uncommitted work pending". Fix by moving the callout to <code>@future(callout=true)</code> or a
+<code>Queueable implements Database.AllowsCallouts</code> — both run after commit. For flows, use an
+<strong>asynchronous path</strong>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> What is a Transaction Finalizer and what problem does it solve?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A class implementing <code>Finalizer</code>, attached inside a Queueable with
+<code>System.attachFinalizer()</code>. It runs in its <strong>own transaction</strong> after the job finishes —
+including after an <em>unhandled</em> exception. Before finalizers, an unhandled exception rolled back the job's
+transaction along with any error log you'd inserted, leaving you blind. A finalizer can also enqueue one retry.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> How many records can Batch Apex process, and what determines the chunk size?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Up to <strong>50 million</strong> records via <code>Database.QueryLocator</code>. Scope size is set in
+<code>Database.executeBatch(batch, size)</code>, from 1 to 2,000, defaulting to 200. Use a smaller scope when each
+record does heavy work or a callout, because each chunk gets its own governor limits but callouts are capped at 100 per
+chunk.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> Why does <code>Test.stopTest()</code> matter?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>It restores governor limits <em>and</em> forces any asynchronous work queued since
+<code>startTest()</code> to execute synchronously. Assertions on async results must come <strong>after</strong>
+<code>stopTest()</code>, or you'll be asserting on work that hasn't run.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> How do you test a class that makes an HTTP callout?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Implement <code>HttpCalloutMock</code> (or use <code>StaticResourceCalloutMock</code>) and register it
+with <code>Test.setMock(HttpCalloutMock.class, new MyMock())</code> before invoking the code. Write separate tests for
+200, 4xx and 5xx responses — the failure paths are what mocks make testable. For SOAP, implement
+<code>WebServiceMock</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> Is 75% coverage a quality target?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No — it's a <em>deployment gate</em>. Coverage measures which lines executed, not whether behaviour is
+correct. A loop calling a method 100 times with no assertions gives high coverage and zero confidence. Aim for
+meaningful assertions, bulk tests with 200 records, negative paths, and <code>runAs</code> tests for permissions.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> Why avoid <code>SeeAllData=true</code>?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>It makes tests depend on org data, so they pass in your sandbox and fail in production (or after
+someone deletes a record). Create your own data with a <code>TestDataFactory</code>. The rare exceptions are objects
+tests can't create, such as the standard Pricebook — and even there,
+<code>Test.getStandardPricebookId()</code> is the better answer.</p></div></details>
+
+<!-- ============================================================ -->
+<h2 id="lwc-q">Lightning Web Components</h2>
+
+<details class="acc"><summary><span class="q-num">41</span> List the lifecycle hooks in firing order for a parent with a child.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Parent <code>constructor</code> → parent <code>connectedCallback</code> → parent <code>render</code> →
+child <code>constructor</code> → child <code>connectedCallback</code> → child <code>render</code> →
+<strong>child <code>renderedCallback</code></strong> → <strong>parent <code>renderedCallback</code></strong>.
+Rendering flows top-down; <code>renderedCallback</code> fires bottom-up.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> Your <code>renderedCallback</code> causes an infinite loop. Why and how do you fix it?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>You changed a reactive property inside it, which triggers a re-render, which calls
+<code>renderedCallback</code> again. Fix with a boolean guard (<code>if (this.initialised) return;</code>), or move the
+work to <code>connectedCallback</code> if it doesn't need the DOM.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> Why doesn't the UI update after <code>this.items.push(x)</code>?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>LWC reactivity for fields is reference-based: mutating an array doesn't change its reference.
+Reassign — <code>this.items = [...this.items, x]</code> — or decorate the field with <code>@track</code> to make its
+internals deeply reactive.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> What is Shadow DOM and name three consequences.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>An encapsulated DOM tree attached to the component's host element. Consequences:
+(1) CSS doesn't leak in or out, so global styles won't hit your markup; (2) <code>document.querySelector</code> can't
+see inside — use <code>this.template.querySelector()</code> or <code>lwc:ref</code>; (3) events are
+<em>retargeted</em> at the boundary, so listeners outside see the host as the target. Also: third-party libraries
+expecting global DOM access may need Light DOM.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> All four communication patterns — when do you use each?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Parent→Child</strong>: <code>@api</code> property or public method.
+<strong>Child→Parent</strong>: <code>CustomEvent</code> with a <code>detail</code> payload.
+<strong>Siblings</strong>: bubble to the common parent, or use LMS.
+<strong>Anywhere on the page / across LWC, Aura and Visualforce</strong>: <strong>Lightning Message Service</strong>.
+Pub-sub is the legacy predecessor of LMS and is LWC-only.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> @wire vs imperative Apex.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>@wire</code> is reactive and automatic, requires <code>cacheable=true</code>, returns
+read-only data and cannot perform DML. Imperative calls run only when invoked, allow DML, and give mutable results plus
+full control over loading and error states. Reads that follow a record → wire; writes and button clicks → imperative.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> Your wired list doesn't refresh after a save. Fix?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Store the <em>entire</em> wired result (not just <code>data</code>) and call
+<code>refreshApex(this.wiredResult)</code>. For LDS-managed records also call
+<code>notifyRecordUpdateAvailable([{recordId}])</code>. The wire cache is only invalidated automatically when a
+reactive parameter changes.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> Why use Lightning Data Service over Apex?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Shared client-side cache (one server request serves every component), automatic FLS and sharing
+enforcement, automatic UI refresh across all components when a record changes, and no Apex or test class to maintain.
+Drop to Apex only when you need complex queries, aggregates, multi-record transactions or unsupported objects.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> What are the rules for the <code>key</code> in <code>for:each</code>?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>It's mandatory, goes on the <strong>first element inside</strong> the loop, and must be a unique
+<em>primitive</em> — never an object, and avoid the array index if the list can reorder. Without a stable key LWC
+reuses the wrong DOM nodes, producing subtle rendering bugs.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> How do you securely expose Apex to LWC?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Declare the class <code>with sharing</code>, mark methods <code>@AuraEnabled</code>
+(<code>cacheable=true</code> for reads), enforce FLS with <code>WITH USER_MODE</code> / <code>insert as user</code> /
+<code>Security.stripInaccessible</code>, validate all inputs, bind SOQL variables, and throw
+<code>AuraHandledException</code> so the client gets a clean message instead of a stack trace. Remember
+<code>@AuraEnabled</code> methods run in system context for FLS by default — nothing is enforced for you.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">51</span> Can an LWC contain an Aura component?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No. Aura can contain LWC, but not the reverse. This one-way rule dictates that migrations proceed
+leaf-first: convert the innermost components to LWC, keep the Aura shell, and replace the shell last.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> How do you get real-time updates into an LWC?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Subscribe to a Platform Event or Change Data Capture channel with
+<code>lightning/empApi</code> in <code>connectedCallback</code>, and unsubscribe in
+<code>disconnectedCallback</code>. Never poll on a <code>setInterval</code> — it burns API calls and doesn't scale.</p></div></details>
+
+<!-- ============================================================ -->
+<h2 id="integration-q">Integration</h2>
+
+<details class="acc"><summary><span class="q-num">53</span> Inbound vs outbound — what changes in your design?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Inbound</strong>: Salesforce is the server. You configure a Connected App, an OAuth flow,
+a least-privilege integration user, and watch your daily API allocation. <strong>Outbound</strong>: Salesforce is the
+client. You configure a Named Credential, handle the 100-callout/120-second limits, and deal with the
+DML-before-callout restriction.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> Name the six integration patterns with an example each.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><ol>
+  <li><strong>Request &amp; Reply</strong> — live credit check before saving an Opportunity.</li>
+  <li><strong>Fire &amp; Forget</strong> — publish an event when an order ships.</li>
+  <li><strong>Remote Call-In</strong> — the web store creates a Lead via REST.</li>
+  <li><strong>Batch Data Sync</strong> — nightly 2 M product load via Bulk API.</li>
+  <li><strong>UI Update on Data Change</strong> — console refreshes via empApi.</li>
+  <li><strong>Data Virtualisation</strong> — SAP invoices via Salesforce Connect.</li>
+</ol><p>See <a href="integration-patterns.html#integration-patterns">Integration Patterns</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> Why is upsert-by-External-Id the backbone of integrations?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Because it makes calls <strong>idempotent</strong>. The external system says
+<code>PATCH /sobjects/Account/Legacy_Id__c/A-1001</code> without ever storing a Salesforce Id. Replaying the same
+message after a timeout updates rather than duplicating — which is exactly what you need when networks fail.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> 401 vs 403 vs 404 — what does each tell you?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>401</strong> = unauthenticated ("who are you?") — expired or missing token; refresh it.
+<strong>403</strong> = authenticated but not allowed — missing object/field permission, or
+<code>REQUEST_LIMIT_EXCEEDED</code>. <strong>404</strong> = wrong URL, wrong API version, or the record doesn't exist /
+isn't visible to you.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> Platform Events vs Change Data Capture.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Platform Events</strong>: you define the payload and choose when to publish — a
+<em>business</em> event like "Order Shipped". <strong>CDC</strong>: Salesforce publishes automatically on every record
+change with the changed fields — a <em>data</em> event, ideal for replicating to a data lake. Both retain 72 hours and
+deliver at least once.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> When is an Outbound Message still the right tool?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>When you need <strong>guaranteed delivery with automatic retry for 24 hours and zero code</strong>,
+and the receiver can accept SOAP and return <code>&lt;Ack&gt;true&lt;/Ack&gt;</code>. Its limits: SOAP/XML only,
+one-way, single object, and tied to Workflow/Approval actions. For new work, Platform Events are usually better.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> Composite vs Composite Batch vs sObject Tree vs Graph.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>/composite</strong> — up to 25 chained subrequests that can reference each other
+(<code>@{ref.id}</code>), optionally all-or-none. <strong>/composite/batch</strong> — 25 independent subrequests, no
+referencing. <strong>/composite/tree</strong> — up to 200 records of one object tree, nested parent/child inserts.
+<strong>/composite/graph</strong> — up to 500 records across 75 graphs, each graph committing independently.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> When would you use Salesforce Connect instead of copying data in?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>When the data is <strong>large, rarely accessed, and owned elsewhere</strong> — 12 M SAP invoices
+you occasionally look at. No storage cost, never stale. The trade-off: no triggers or flows on external objects,
+limited reporting, and every page view depends on the external system being up.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> Which OAuth flow for a nightly server-to-server job, and why?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>JWT Bearer</strong>. It uses a certificate rather than a password, needs no user
+interaction, survives password changes and MFA policies, and the private key can live in a secrets vault.
+Client Credentials is the simpler alternative when you can nominate a run-as user on the Connected App.
+Username-Password is deprecated and blocked by default.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> Named Credential vs Remote Site Setting.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A Remote Site Setting only whitelists a URL — you still manage tokens and headers yourself.
+A <strong>Named Credential</strong> stores the endpoint <em>and</em> the authentication, injects the auth header
+automatically, refreshes OAuth tokens, and keeps secrets out of code. Use
+<code>req.setEndpoint('callout:My_Credential/path')</code>.</p></div></details>
+
+<!-- ============================================================ -->
+<h2 id="scenario">Scenario &amp; design</h2>
+
+<details class="acc"><summary><span class="q-num">63</span> Design: "When an Opportunity closes, create an order in SAP and show live order status in Salesforce."<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body">
+<p><strong>Two patterns.</strong> Order creation is <em>Fire and Forget</em> (outbound); status display is
+<em>Data Virtualisation</em>.</p>
+<ul>
+  <li>Record-triggered Flow (after save) on Closed Won publishes <code>Order_Ready__e</code>.</li>
+  <li>A platform-event trigger enqueues a Queueable (<code>Database.AllowsCallouts</code>) that POSTs to SAP via a
+      Named Credential and writes the SAP order number back.</li>
+  <li>Idempotency: send the Opportunity Id as the idempotency key so a retry never double-creates.</li>
+  <li>Retry 3 times with growing delay on 5xx; permanent failures write <code>Integration_Error__c</code> and alert.</li>
+  <li>Status: a Salesforce Connect OData external object <code>SAP_Order__x</code> with an Indirect Lookup to Account.</li>
+  <li>Auth: JWT Bearer via an External Credential; a dedicated integration user with a least-privilege permission set.</li>
+  <li>Monitoring: a report and dashboard on today's integration errors, plus an email alert.</li>
+</ul></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> Your org has 15 flows and 3 triggers on Account and saves are timing out. What do you do?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body">
+<ol>
+  <li><strong>Measure first</strong> — a debug log's <code>CUMULATIVE_LIMIT_USAGE</code> shows which component burns CPU, SOQL and DML.</li>
+  <li><strong>Consolidate the triggers</strong> into one per object with a handler, so execution order is deterministic.</li>
+  <li><strong>Consolidate the flows</strong> to one before-save and one after-save record-triggered flow, branching internally with Decisions.</li>
+  <li><strong>Move same-record field updates to before-save</strong> — this alone often removes several DML operations and a recursion cycle.</li>
+  <li><strong>Tighten entry criteria</strong> to "only when a record is updated to meet the condition".</li>
+  <li><strong>Remove duplicated logic</strong> where a flow and a trigger do the same job.</li>
+  <li><strong>Move non-urgent work async</strong> (Queueable or a scheduled path).</li>
+  <li><strong>Check for SOQL/DML in loops</strong> inside both flows and Apex.</li>
+  <li>Agree a governance rule: one automation tool per concern per object, documented.</li>
+</ol></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> You must load 5 million records into a custom object with triggers. What's your plan?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body">
+<ol>
+  <li><strong>Bulk API 2.0</strong> with upsert on an External Id, in a sandbox first to measure throughput.</li>
+  <li><strong>Verify the trigger is bulk-safe</strong> — it will run in chunks of 200; no SOQL/DML in loops.</li>
+  <li><strong>Bypass unnecessary automation</strong> for the load user with a hierarchy Custom Setting switch, and document turning it back on.</li>
+  <li><strong>Defer sharing recalculation</strong> if the object has sharing rules, and consider deferring roll-ups.</li>
+  <li><strong>Sort the file by parent Id</strong> to avoid <code>UNABLE_TO_LOCK_ROW</code> from parallel batches; use serial mode if locking persists.</li>
+  <li><strong>Load off-peak</strong>, in tranches, monitoring the job status and failed-results file.</li>
+  <li><strong>Reprocess failures</strong> from <code>failedResults</code>, then run a reconciliation count.</li>
+  <li><strong>Re-enable automation</strong> and, if needed, run a Batch Apex job to apply the skipped logic to the loaded records.</li>
+</ol></div></details>
+
+<!-- ============================================================ -->
+<h2 id="rapid">Rapid-fire round</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Question</th><th>Answer</th></tr></thead>
+  <tbody>
+    <tr><td>SOQL queries per synchronous transaction?</td><td>100 (200 async)</td></tr>
+    <tr><td>DML statements per transaction?</td><td>150</td></tr>
+    <tr><td>Records per trigger invocation?</td><td>200</td></tr>
+    <tr><td>Max records in Batch Apex?</td><td>50 million (QueryLocator)</td></tr>
+    <tr><td>Heap size, sync vs async?</td><td>6 MB / 12 MB</td></tr>
+    <tr><td>CPU time, sync vs async?</td><td>10 s / 60 s</td></tr>
+    <tr><td>Callouts per transaction?</td><td>100, 120 s total</td></tr>
+    <tr><td>Minimum code coverage to deploy?</td><td>75% org-wide, all tests passing</td></tr>
+    <tr><td>Master-detail per object?</td><td>2</td></tr>
+    <tr><td>Roll-up summaries per object?</td><td>25</td></tr>
+    <tr><td>Platform Event retention?</td><td>72 hours</td></tr>
+    <tr><td>Scheduled Apex jobs per org?</td><td>100</td></tr>
+    <tr><td>Concurrent batch jobs?</td><td>5 (100 in the flex queue)</td></tr>
+    <tr><td>Composite subrequests?</td><td>25</td></tr>
+    <tr><td>Web-to-Lead per day?</td><td>500</td></tr>
+    <tr><td>Object key prefix for Opportunity?</td><td><code>006</code></td></tr>
+    <tr><td>Which trigger event has no Trigger.new?</td><td>before/after delete</td></tr>
+    <tr><td>Which has no Trigger.newMap?</td><td>before insert</td></tr>
+    <tr><td>Salesforce releases per year?</td><td>3 — Spring, Summer, Winter</td></tr>
+    <tr><td>Suffix for a platform event?</td><td><code>__e</code> (external object <code>__x</code>, metadata type <code>__mdt</code>)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Practice Q&amp;A</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

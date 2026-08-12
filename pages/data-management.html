@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data Management &amp; Migration | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Platform</span> › <span>Data Management</span></div>
+  <h1>Data Management &amp; Migration</h1>
+  <p class="lede">Loading, extracting, de-duplicating, archiving and protecting data — plus large data volume tuning
+     and the privacy obligations that come with holding customer records.</p>
+</header>
+
+<!-- ============================================ -->
+<h2 id="storage">How Salesforce storage works</h2>
+<div class="grid g2">
+  <div class="card accent-blue"><h4>Data storage</h4>
+    <p>Most records count as a flat <strong>2 KB</strong> regardless of how many fields you populate. Person Accounts
+       count as 4 KB. Campaign Members count as 1 KB. Articles and email messages have their own sizes.</p>
+    <p>Allocation is typically 10 GB base plus a per-user amount, by edition.</p></div>
+  <div class="card accent-violet"><h4>File storage</h4>
+    <p>Separate allocation for Files, Attachments, Documents and Content. Large-file problems are almost always
+       <em>file</em> storage, not data storage — check both before buying more.</p></div>
+  <div class="card accent-amber"><h4>Big Objects</h4>
+    <p>Billions of rows, outside normal data storage. Queried by a defined index only, via SOQL on the index fields or
+       <strong>Async SOQL</strong>. No triggers, no reports (until surfaced), no standard sharing.</p>
+    <p>Use for audit trails, historical events, IoT readings — data you must keep but rarely read.</p></div>
+  <div class="card accent-rose"><h4>The Recycle Bin</h4>
+    <p>Holds deleted records for <strong>15 days</strong>, up to 25× your storage. <code>DELETE</code> is soft;
+       <code>emptyRecycleBin()</code> or Data Loader "hard delete" is permanent. <code>queryAll</code> and
+       <code>ALL ROWS</code> see soft-deleted rows.</p></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="tools">Choosing a tool</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Tool</th><th>Volume</th><th>Good for</th><th>Limitations</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Data Import Wizard</strong></td><td>50,000</td><td>Admins, in-browser, built-in duplicate matching</td><td>Limited objects; no delete; no export</td></tr>
+    <tr><td><strong>Data Loader</strong></td><td>5 million</td><td>All objects, all operations, CLI-schedulable</td><td>Desktop install; no dedupe</td></tr>
+    <tr><td><strong>Bulk API 2.0</strong></td><td>150 M/day</td><td>Huge asynchronous loads, parallel processing</td><td>Async — you poll for results</td></tr>
+    <tr><td><strong>SF CLI</strong> (<code>sf data</code>)</td><td>Any</td><td>Scriptable, CI-friendly, tree import for related records</td><td>Command-line only</td></tr>
+    <tr><td><strong>Workbench</strong></td><td>Small</td><td>Quick ad-hoc queries, describes, REST explorer</td><td>Community tool, not for bulk</td></tr>
+    <tr><td><strong>ETL / iPaaS</strong> (MuleSoft, Informatica, Talend, Jitterbit)</td><td>Any</td><td>Transformation, scheduling, multi-system orchestration, error handling</td><td>Cost and platform to run</td></tr>
+  </tbody>
+</table>
+</div>
+
+<pre><code class="language-bash"># Data Loader in CLI mode / SF CLI equivalents
+sf data query --query "SELECT Id, Name FROM Account" --result-format csv &gt; accounts.csv
+sf data upsert bulk --sobject Account --file accounts.csv --external-id Legacy_Id__c --wait 10
+sf data delete bulk --sobject Account --file ids.csv --wait 10
+
+# Export related records as a tree, then reload into a scratch org
+sf data export tree --query "SELECT Id, Name, (SELECT LastName FROM Contacts) FROM Account" \
+    --output-dir ./data --plan
+sf data import tree --plan ./data/Account-Contact-plan.json --target-org scratch1</code></pre>
+
+<h3>Data Loader settings that matter</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Setting</th><th>Why it matters</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Batch size</strong> (default 200)</td><td>Lower it to 1–50 when triggers are heavy, to avoid CPU and DML limits per batch.</td></tr>
+    <tr><td><strong>Use Bulk API</strong></td><td>Faster for volume, but batch size becomes 2,000 (10,000 for serial) and some features behave differently.</td></tr>
+    <tr><td><strong>Serial mode</strong></td><td>Processes batches one at a time — the cure for <code>UNABLE_TO_LOCK_ROW</code>.</td></tr>
+    <tr><td><strong>Insert null values</strong></td><td>Off by default, so blank CSV cells are <em>ignored</em> rather than clearing the field. A very common surprise.</td></tr>
+    <tr><td><strong>Time zone</strong></td><td>Set it explicitly, or dates shift by a day.</td></tr>
+    <tr><td><strong>Date format</strong></td><td>Use <code>YYYY-MM-DD</code> / ISO 8601 to avoid locale ambiguity.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="migration">A migration that works</h2>
+
+<div class="dgm">
+  <div class="dgm-title">Load order and the dependency chain</div>
+  <svg viewBox="0 0 790 340" role="img" aria-label="Data migration load order from parents to children">
+    <rect class="s-box-b" x="20" y="20" width="750" height="46" rx="9"/>
+    <text class="s-t s-t-b" x="40" y="38">1 · Prepare — profile the source, agree the field mapping, clean before you load</text>
+    <text class="s-t-sm" x="40" y="56">De-duplicate at source · standardise picklists · fix dates and country codes</text>
+
+    <rect class="s-box-v" x="20" y="78" width="750" height="46" rx="9"/>
+    <text class="s-t s-t-v" x="40" y="96">2 · Configure — add an External Id (unique, indexed) to every object you will load</text>
+    <text class="s-t-sm" x="40" y="114">This is what makes the load repeatable and the relationships resolvable</text>
+
+    <rect class="s-box-t" x="20" y="136" width="750" height="76" rx="9"/>
+    <text class="s-t s-t-t" x="40" y="156">3 · Load parents first, then children</text>
+    <rect class="s-box" x="50"  y="166" width="110" height="32" rx="6"/><text class="s-t-sm anchor-mid" x="105" y="183">Users / Roles</text>
+    <path class="s-line-t" d="M160 182 H180"/>
+    <rect class="s-box" x="180" y="166" width="110" height="32" rx="6"/><text class="s-t-sm anchor-mid" x="235" y="183">Accounts</text>
+    <path class="s-line-t" d="M290 182 H310"/>
+    <rect class="s-box" x="310" y="166" width="110" height="32" rx="6"/><text class="s-t-sm anchor-mid" x="365" y="183">Contacts</text>
+    <path class="s-line-t" d="M420 182 H440"/>
+    <rect class="s-box" x="440" y="166" width="120" height="32" rx="6"/><text class="s-t-sm anchor-mid" x="500" y="183">Opportunities</text>
+    <path class="s-line-t" d="M560 182 H580"/>
+    <rect class="s-box" x="580" y="166" width="170" height="32" rx="6"/><text class="s-t-sm anchor-mid" x="665" y="183">Line items · Cases · Activities</text>
+
+    <rect class="s-box-a" x="20" y="224" width="750" height="46" rx="9"/>
+    <text class="s-t s-t-a" x="40" y="242">4 · Second pass for self-references and circular lookups</text>
+    <text class="s-t-sm" x="40" y="260">Parent Account, Manager on User, Reports-To on Contact — update after both rows exist</text>
+
+    <rect class="s-box-g" x="20" y="282" width="750" height="46" rx="9"/>
+    <text class="s-t s-t-g" x="40" y="300">5 · Verify — record counts, spot checks, reconciliation report, then re-enable automation</text>
+    <text class="s-t-sm" x="40" y="318">Keep the success/error CSVs: they are your audit trail and your re-run input</text>
+  </svg>
+</div>
+
+<div class="callout tip">
+  <span class="c-ico">🔑</span>
+  <div class="c-body"><span class="c-title">The External Id trick that makes relationships easy</span>
+    Put the legacy key on <em>both</em> objects. Then load children referencing the parent by <strong>its external
+    id</strong>, not its Salesforce Id — in Data Loader you map to <code>Account:Legacy_Id__c</code>. No lookup pass, no
+    Id spreadsheet, and re-running the load is safe because upsert is idempotent.</div>
+</div>
+
+<h3>Before a big load</h3>
+<ul class="steps">
+  <li><b>Rehearse in a Full sandbox</b> and time it. Extrapolate honestly.</li>
+  <li><b>Disable what you can</b> — deactivate non-essential triggers, flows, validation rules and workflow via a
+      <a href="admin.html#custom-settings">hierarchy custom setting</a> scoped to the migration user, and record how to turn them back on.</li>
+  <li><b>Defer sharing calculation</b> (Setup → Defer Sharing Calculations) for orgs with heavy sharing rules.</li>
+  <li><b>Sort by parent Id</b> so parallel batches don't fight over the same parent row.</li>
+  <li><b>Turn off email deliverability</b> in the sandbox so the load doesn't email real customers.</li>
+  <li><b>Load off-peak</b> and in tranches, checking error files between them.</li>
+  <li><b>Reconcile</b> — counts per object, sum of key numeric fields, and a sample of records checked by hand.</li>
+</ul>
+
+<div class="callout danger">
+  <span class="c-ico">📧</span>
+  <div class="c-body"><span class="c-title">The mistake that ends careers</span>
+    A sandbox refresh copies real email addresses. Loading or updating records with automation active can email
+    thousands of real customers. Set sandbox <strong>Deliverability to "System email only"</strong> immediately after
+    every refresh, and mask the data.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="quality">Data quality</h2>
+<div class="grid g3">
+  <div class="card"><h4>Prevent</h4><ul><li>Validation rules</li><li>Required fields and picklists over free text</li><li><a href="admin.html#duplicate-rules">Duplicate &amp; matching rules</a></li><li>Field-level help text</li></ul></div>
+  <div class="card accent-violet"><h4>Detect</h4><ul><li>Duplicate Record Sets report</li><li>Reports on blank key fields</li><li>Salesforce Optimizer</li><li>Data quality dashboards (completeness %, age)</li></ul></div>
+  <div class="card accent-green"><h4>Fix</h4><ul><li>Merge (Accounts, Contacts, Leads, Cases — max 3 at a time)</li><li>Mass transfer / mass update tools</li><li>Batch Apex standardisation jobs</li><li>Third-party enrichment</li></ul></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="ldv">Large data volumes (LDV)</h2>
+<p>"LDV" generally means millions of rows on one object. Symptoms: slow list views and reports, non-selective query
+   errors, timeouts, and slow sharing recalculation.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Technique</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Custom indexes</strong></td><td>Salesforce Support adds an index to a field you filter on constantly. Unique and External Id fields are indexed automatically.</td></tr>
+    <tr><td><strong>Skinny tables</strong></td><td>Support-created flattened table of frequently used fields, avoiding joins. Invisible to you but transformative for reports.</td></tr>
+    <tr><td><strong>Selective queries</strong></td><td>Filter on indexed fields; avoid leading wildcards, <code>!=</code>, <code>NOT IN</code> and nulls. See <a href="apex-core.html#soql">query selectivity</a>.</td></tr>
+    <tr><td><strong>Divisions</strong></td><td>Partition very large orgs so queries and reports scope to one division.</td></tr>
+    <tr><td><strong>Archiving</strong></td><td>Move cold rows to a <strong>Big Object</strong> or an external store, then delete from the transactional object.</td></tr>
+    <tr><td><strong>Ownership spread</strong></td><td>Avoid one user owning millions of records ("data skew") — it slows sharing recalculation dramatically.</td></tr>
+    <tr><td><strong>Avoid lookup skew</strong></td><td>Thousands of children pointing at one parent record causes record-locking contention on load.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<pre><code class="language-apex">// Big Object: defined with a composite index, queried on those fields only
+List&lt;Audit_History__b&gt; rows = [
+    SELECT Record_Id__c, Changed_On__c, Field__c, Old_Value__c
+    FROM Audit_History__b
+    WHERE Record_Id__c = :recId AND Changed_On__c &gt; :cutoff
+];
+
+// Async SOQL (separate API) moves millions of rows without governor limits
+// Insert into a Big Object from Batch Apex:
+Database.insertImmediate(bigObjectRows);   // bypasses the normal DML transaction</code></pre>
+
+<!-- ============================================ -->
+<h2 id="backup">Backup, restore &amp; archiving</h2>
+<div class="callout warn">
+  <span class="c-ico">🛡️</span>
+  <div class="c-body"><span class="c-title">Salesforce protects the platform, you protect the data</span>
+    Salesforce's infrastructure is highly available, but that does not protect you from <em>your own</em> bad data load,
+    a rogue delete or a broken integration. Backup is a customer responsibility — this comes up in every architecture
+    interview.</div>
+</div>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Option</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Weekly Data Export</strong></td><td>Free, scheduled CSV export of all data. Weekly or monthly by edition. Manual, slow restore — a last resort, not a backup strategy.</td></tr>
+    <tr><td><strong>Salesforce Backup &amp; Restore</strong></td><td>Paid native product: automated backups with selective restore.</td></tr>
+    <tr><td><strong>Third-party</strong> (OwnBackup, Gearset, Spanning)</td><td>Automated daily backup, metadata included, granular restore with relationship rebuilding, sandbox seeding, and compare/diff.</td></tr>
+    <tr><td><strong>Data Loader export</strong></td><td>Ad-hoc snapshot before a risky change — cheap insurance, always do it.</td></tr>
+    <tr><td><strong>Field History &amp; Field Audit Trail</strong></td><td>20 tracked fields per object (18–24 months); Shield's Field Audit Trail extends retention to 10 years.</td></tr>
+  </tbody>
+</table>
+</div>
+<p><strong>Restore is the hard part.</strong> Re-inserting records generates new Ids, so every relationship, attachment
+   and chatter post must be re-pointed. That's why tools that preserve and rebuild relationships are worth paying for —
+   and why you test a restore before you need one.</p>
+
+<!-- ============================================ -->
+<h2 id="privacy">Data privacy &amp; compliance</h2>
+<div class="grid g2">
+  <div class="card accent-rose"><h4>Holding personal data</h4>
+    <ul><li><strong>Individual object</strong> — stores consent and privacy preferences linked to Lead/Contact/Person Account</li>
+        <li>Consent fields: don't process, don't market, don't track, forget this individual</li>
+        <li><strong>Data Classification</strong> metadata on fields (sensitivity, compliance category)</li>
+        <li>Field History and Setup Audit Trail for accountability</li></ul></div>
+  <div class="card accent-violet"><h4>Protecting it</h4>
+    <ul><li><strong>Shield Platform Encryption</strong> — encryption at rest; note it restricts filtering and some features</li>
+        <li><strong>Classic encrypted text</strong> — masks in the UI only</li>
+        <li><strong>Data Mask</strong> — anonymises sandbox data after refresh (the single best control for non-prod risk)</li>
+        <li><strong>Event Monitoring</strong> — who exported what, and when</li></ul></div>
+</div>
+<p><strong>Right to be forgotten:</strong> there's no single button. You must find the person across Leads, Contacts,
+   Cases, Activities, Chatter, Files and Big Objects, then delete or anonymise, hard-delete from the Recycle Bin, and
+   handle backups. Design for this before you're asked for it.</p>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Data Import Wizard or Data Loader — how do you choose?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Import Wizard</strong> for up to 50,000 records on a supported object when you want
+built-in duplicate matching and an in-browser experience — typical admin work. <strong>Data Loader</strong> for up to 5
+million, any object, all operations including delete, hard delete and export, and because it can be scripted from the
+command line for scheduled jobs. Above that, Bulk API 2.0 or an ETL tool.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> You must load 2 M Contacts under existing Accounts. Walk me through it.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><ol>
+  <li>Ensure an <strong>External Id</strong> exists on Account and Contact; map the child's parent by
+      <code>Account:Legacy_Id__c</code> so no Id lookup pass is needed.</li>
+  <li>Rehearse in a <strong>Full sandbox</strong>, with Deliverability set to System email only.</li>
+  <li>Confirm the Contact trigger is <strong>bulk-safe</strong> — it will run in chunks of 200 regardless.</li>
+  <li>Bypass non-essential automation for the migration user via a hierarchy custom setting; defer sharing calculation.</li>
+  <li><strong>Sort the file by AccountId</strong> to avoid <code>UNABLE_TO_LOCK_ROW</code>; use serial mode if locking persists.</li>
+  <li>Load with <strong>Bulk API upsert</strong> in tranches, off-peak, checking the failure file between tranches.</li>
+  <li>Reprocess failures, reconcile counts, re-enable automation, and run a Batch job to apply any skipped logic.</li>
+</ol></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Why do blank cells in my CSV not clear the field?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Because Data Loader's <strong>"Insert null values"</strong> setting is off by default, so empty
+values are treated as "no change" rather than "set to null". Turn it on to blank fields — but note it then applies to
+<em>every</em> mapped column, so an incomplete file will wipe data you didn't intend to touch. With the Bulk API you use
+the <code>#N/A</code> value instead. This trips up nearly every first-time migration.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> What is data skew and why does it hurt?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Three flavours. <strong>Ownership skew</strong> — one user owns hundreds of thousands of records,
+so any role or sharing change forces an enormous sharing recalculation. <strong>Lookup skew</strong> — tens of thousands
+of children point at one parent, causing record-lock contention during concurrent loads. <strong>Account data
+skew</strong> — an account with a very large number of child records, which slows sharing and updates.</p>
+<p><strong>Mitigations:</strong> spread ownership across users (or assign to an inactive user with no role, which is
+excluded from hierarchy recalculation), distribute lookups across more parents, and load in serial mode sorted by parent.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> How do you make queries fast on a 20 million row object?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Make the filters <strong>selective</strong> on indexed fields — Id, Name, OwnerId, CreatedDate,
+SystemModstamp, RecordTypeId, lookups, and anything Unique or External Id. Avoid leading wildcards, <code>!=</code>,
+<code>NOT IN</code>, null checks and non-deterministic formula fields.</p>
+<p>Then escalate: ask Support for a <strong>custom index</strong> on your hot filter field, or a <strong>skinny
+table</strong> to eliminate joins for reports and list views. Structurally: archive cold data to a
+<strong>Big Object</strong>, consider Divisions, and use Batch Apex with a QueryLocator rather than trying to process it
+synchronously.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> Is Salesforce backing up my data?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Salesforce guarantees platform availability and disaster recovery of the <em>service</em> — not
+recovery from <em>your</em> mistakes. If a bad data load overwrites 100,000 records, that's yours to fix.</p>
+<p>Options: the free Weekly Data Export (CSV, manual restore), Salesforce Backup &amp; Restore, or a third-party tool
+such as OwnBackup or Gearset which preserves relationships. The critical point most candidates miss:
+<strong>restore is the hard part</strong>, because re-inserted records get new Ids and every relationship must be
+rebuilt — so you test a restore before you need one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> When would you use a Big Object?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>For very high volume data you must retain but rarely query interactively: audit history, historical
+events, IoT readings, archived transactions. Billions of rows, outside standard data storage.</p>
+<p><strong>The constraints matter:</strong> you can only query on the fields in the defined composite index (or use
+Async SOQL); no triggers, no flows, no standard sharing, and limited reporting. Insert with
+<code>Database.insertImmediate()</code>. If you need to filter arbitrarily or run automation, a Big Object is the wrong
+choice.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> A GDPR "right to be forgotten" request arrives. What do you do?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>There's no single button. Locate the individual across <strong>Leads, Contacts, Person Accounts,
+Cases, Activities, Chatter, Files, Email Messages and Big Objects</strong>, then delete or anonymise each, empty the
+Recycle Bin (soft-deleted rows are still retrievable for 15 days), and address <strong>backups</strong> and any
+downstream systems you've integrated with.</p>
+<p>Design for it in advance: use the <strong>Individual</strong> object for consent, classify personal-data fields with
+Data Classification metadata, and keep a documented, repeatable procedure. Also mask non-production copies with
+<strong>Data Mask</strong> so sandboxes aren't part of the problem.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. A data load fails intermittently with UNABLE_TO_LOCK_ROW. Best first fix?</div>
+  <button class="opt">Increase the batch size</button>
+  <button class="opt" data-correct="1">Sort the file by parent Id (and use serial mode if it persists)</button>
+  <button class="opt">Turn off validation rules</button>
+  <div class="explain">Parallel batches touching children of the same parent contend for the parent's lock. Grouping them into the same batch removes the contention.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. Which storage does a 5 MB PDF attachment consume?</div>
+  <button class="opt">Data storage (2 KB per record)</button>
+  <button class="opt" data-correct="1">File storage — a separate allocation</button>
+  <button class="opt">Big Object storage</button>
+  <div class="explain">Data and file storage are allocated and consumed separately. Storage warnings are usually about files.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. You need to keep 10 years of audit rows but rarely read them. Where do they go?</div>
+  <button class="opt">A custom object with a skinny table</button>
+  <button class="opt" data-correct="1">A Big Object, queried on its composite index</button>
+  <button class="opt">Field History Tracking</button>
+  <div class="explain">Big Objects are built for retain-rarely-read data at billions of rows, outside standard data storage.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Data Management</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

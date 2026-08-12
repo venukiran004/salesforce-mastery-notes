@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Salesforce Mastery Notes — A to Z</title>
+<link rel="stylesheet" href="assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="index.html">
+    <span class="brand-mark">☁</span>
+    <span>Salesforce Mastery<small>A to Z Notes</small></span>
+  </a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap">
+    <span class="s-icon">🔍</span>
+    <input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search">
+    <kbd>Ctrl K</kbd>
+  </div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+
+<main class="main">
+<article class="content">
+
+  <!-- ================= HERO ================= -->
+  <section class="hero">
+    <span class="eyebrow"><span class="dot"></span> 33 modules · 400+ topics · Admin → Developer → Architect</span>
+    <h1>Everything Salesforce,<br><span class="grad">explained visually.</span></h1>
+    <p class="sub">A complete, self-contained study system covering Admin, Apex, LWC, Integration and DevOps —
+       built from your syllabus, with diagrams, runnable code, use cases and practice questions for every topic.</p>
+    <div class="btn-row">
+      <a class="btn primary" href="pages/fundamentals.html">Start from the beginning →</a>
+      <a class="btn ghost" href="#coverage">See syllabus coverage</a>
+      <a class="btn ghost" href="pages/practice.html">Jump to practice Q&amp;A</a>
+    </div>
+  </section>
+
+  <div class="grid g4">
+    <div class="card stat"><div class="num">33</div><div class="lbl">Modules</div></div>
+    <div class="card stat"><div class="num">79</div><div class="lbl">Diagrams</div></div>
+    <div class="card stat"><div class="num">203</div><div class="lbl">Code samples</div></div>
+    <div class="card stat"><div class="num">425</div><div class="lbl">Q&amp;A + quizzes</div></div>
+  </div>
+
+  <div class="callout tip">
+    <span class="c-ico">🎤</span>
+    <div class="c-body"><span class="c-title">Every module ends with interview questions</span>
+      Each page has an <strong>Interview questions</strong> section (8–10 questions with full model answers, graded
+      Easy / Medium / Hard) plus a quick self-test quiz — 331 Q&amp;A in total, including a dedicated
+      <a href="pages/practice.html">65-question bank</a>.</div>
+  </div>
+
+  <!-- ================= ARCHITECTURE ================= -->
+  <h2 id="platform">The Salesforce platform in one picture</h2>
+  <p>Before memorising anything, understand <em>where</em> each topic lives. Every module in these notes plugs into one of
+     these layers — when you learn a new feature, ask "which layer is this?" and the rest falls into place.</p>
+
+  <div class="dgm">
+    <div class="dgm-title">Salesforce Platform Stack</div>
+    <svg viewBox="0 0 780 424" role="img" aria-label="Layered diagram of the Salesforce platform stack">
+      <!-- layers -->
+      <g>
+        <rect class="s-box-r" x="40" y="12"  width="600" height="56" rx="10"/>
+        <text class="s-t s-t-r" x="60" y="33">1 · Apps &amp; Experience</text>
+        <text class="s-t-sm"    x="60" y="52">Sales Cloud · Service Cloud · Experience Cloud · AppExchange · Mobile</text>
+
+        <rect class="s-box-v" x="40" y="80" width="600" height="56" rx="10"/>
+        <text class="s-t s-t-v" x="60" y="101">2 · User Interface</text>
+        <text class="s-t-sm"    x="60" y="120">LWC · Aura · Visualforce · Lightning App Builder · Dynamic Forms</text>
+
+        <rect class="s-box-b" x="40" y="148" width="600" height="56" rx="10"/>
+        <text class="s-t s-t-b" x="60" y="169">3 · Business Logic &amp; Automation</text>
+        <text class="s-t-sm"    x="60" y="188">Apex · Triggers · Flow · Validation Rules · Approval Process</text>
+
+        <rect class="s-box-t" x="40" y="216" width="600" height="56" rx="10"/>
+        <text class="s-t s-t-t" x="60" y="237">4 · Integration &amp; APIs</text>
+        <text class="s-t-sm"    x="60" y="256">REST · SOAP · Bulk · Composite · Streaming · Platform Events · CDC</text>
+
+        <rect class="s-box-g" x="40" y="284" width="600" height="56" rx="10"/>
+        <text class="s-t s-t-g" x="60" y="305">5 · Data &amp; Metadata</text>
+        <text class="s-t-sm"    x="60" y="324">Objects · Fields · Relationships · Record Types · Sharing Model</text>
+
+        <rect class="s-box-a" x="40" y="352" width="600" height="56" rx="10"/>
+        <text class="s-t s-t-a" x="60" y="373">6 · Multitenant Kernel</text>
+        <text class="s-t-sm"    x="60" y="392">Shared infrastructure · Governor Limits · Trust &amp; Compliance</text>
+      </g>
+      <!-- security spine -->
+      <rect class="s-box" x="660" y="12" width="86" height="396" rx="10"/>
+      <text class="s-t anchor-mid" x="703" y="180" transform="rotate(-90 703 180)">Security &amp; Sharing</text>
+      <text class="s-t-sm anchor-mid" x="703" y="290" transform="rotate(-90 703 290)">enforced at every layer</text>
+      <path class="s-line s-dash" d="M640 40 H660 M640 108 H660 M640 176 H660 M640 244 H660 M640 312 H660 M640 380 H660"/>
+    </svg>
+    <div class="dgm-cap">Requests travel top-down; data and limits push back bottom-up. Security cuts across all six layers.</div>
+  </div>
+
+  <!-- ================= ROADMAP ================= -->
+  <h2 id="roadmap">Suggested learning path</h2>
+  <p>You can read in any order, but this sequence builds each topic on the one before it. Admin concepts make Apex
+     easier; Apex makes LWC easier; both make Integration make sense.</p>
+
+  <div class="dgm">
+    <div class="dgm-title">6-Phase Roadmap</div>
+    <svg viewBox="0 0 900 170" role="img" aria-label="Six phase learning roadmap">
+      <path class="s-line s-dash" d="M70 46 H830"/>
+      <g>
+        <circle class="s-box-b" cx="70"  cy="46" r="25"/><text class="s-t s-t-b anchor-mid" x="70"  y="47">1</text>
+        <text class="s-t anchor-mid"    x="70"  y="96">Fundamentals</text>
+        <text class="s-t-sm anchor-mid" x="70"  y="114">Architecture, orgs</text>
+
+        <circle class="s-box-v" cx="222" cy="46" r="25"/><text class="s-t s-t-v anchor-mid" x="222" y="47">2</text>
+        <text class="s-t anchor-mid"    x="222" y="96">Admin</text>
+        <text class="s-t-sm anchor-mid" x="222" y="114">Data model, security</text>
+
+        <circle class="s-box-t" cx="374" cy="46" r="25"/><text class="s-t s-t-t anchor-mid" x="374" y="47">3</text>
+        <text class="s-t anchor-mid"    x="374" y="96">Automation</text>
+        <text class="s-t-sm anchor-mid" x="374" y="114">Flow, approvals</text>
+
+        <circle class="s-box-g" cx="526" cy="46" r="25"/><text class="s-t s-t-g anchor-mid" x="526" y="47">4</text>
+        <text class="s-t anchor-mid"    x="526" y="96">Apex</text>
+        <text class="s-t-sm anchor-mid" x="526" y="114">SOQL, triggers, async</text>
+
+        <circle class="s-box-a" cx="678" cy="46" r="25"/><text class="s-t s-t-a anchor-mid" x="678" y="47">5</text>
+        <text class="s-t anchor-mid"    x="678" y="96">LWC</text>
+        <text class="s-t-sm anchor-mid" x="678" y="114">UI, events, data</text>
+
+        <circle class="s-box-r" cx="830" cy="46" r="25"/><text class="s-t s-t-r anchor-mid" x="830" y="47">6</text>
+        <text class="s-t anchor-mid"    x="830" y="96">Integration</text>
+        <text class="s-t-sm anchor-mid" x="830" y="114">APIs, events, DevOps</text>
+      </g>
+      <text class="s-t-mono anchor-mid" x="450" y="150">≈ 8–12 weeks at 1–2 hours a day</text>
+    </svg>
+  </div>
+
+  <!-- ================= MODULES ================= -->
+  <h2 id="modules">All modules</h2>
+
+  <h3>Foundation &amp; Admin</h3>
+  <div class="grid g2">
+    <a class="card mod-card" href="pages/fundamentals.html">
+      <div class="m-top"><div class="c-ico">☁️</div><h4>Salesforce Fundamentals</h4><span class="m-num">01</span></div>
+      <p>Multitenancy, metadata-driven architecture, editions, org types, MVC, the release cycle and how a request is actually served.</p>
+      <div class="m-tags"><span class="tag blue">Architecture</span><span class="tag">Editions</span><span class="tag">Sandboxes</span></div>
+    </a>
+    <a class="card mod-card accent-violet" href="pages/admin.html">
+      <div class="m-top"><div class="c-ico">🧩</div><h4>Admin Essentials</h4><span class="m-num">02</span></div>
+      <p>Relationships, duplicate &amp; matching rules, record types, custom settings/metadata/labels, Web-to-Lead, Email-to-Case, approvals and assignment rules.</p>
+      <div class="m-tags"><span class="tag violet">Relationships</span><span class="tag">Approval</span><span class="tag">W2L / E2C</span></div>
+    </a>
+    <a class="card mod-card" href="pages/identity.html">
+      <div class="m-top"><div class="c-ico">🪪</div><h4>Identity &amp; Access</h4><span class="m-num">03</span></div>
+      <p>SSO with SAML and OIDC, Connected Apps both directions, MFA, My Domain, session security, JIT/SCIM provisioning and the user lifecycle.</p>
+      <div class="m-tags"><span class="tag blue">SSO</span><span class="tag">MFA</span><span class="tag">Connected Apps</span></div>
+    </a>
+    <a class="card mod-card accent-rose" href="pages/security.html">
+      <div class="m-top"><div class="c-ico">🔐</div><h4>Security &amp; Sharing</h4><span class="m-num">04</span></div>
+      <p>The full access stack: org → object → field → record. OWD, role hierarchy, sharing rules, manual &amp; Apex sharing, profiles vs permission sets.</p>
+      <div class="m-tags"><span class="tag rose">OWD</span><span class="tag">Sharing Rules</span><span class="tag">FLS</span></div>
+    </a>
+    <a class="card mod-card accent-teal" href="pages/flows.html">
+      <div class="m-top"><div class="c-ico">🌊</div><h4>Flow Builder</h4><span class="m-num">05</span></div>
+      <p>Every flow type, every element, fault paths, entry criteria, before-save vs after-save, and the best-practice rules that keep flows from exploding.</p>
+      <div class="m-tags"><span class="tag teal">Record-Triggered</span><span class="tag">Screen</span><span class="tag">Scheduled</span></div>
+    </a>
+    <a class="card mod-card accent-amber" href="pages/reports.html">
+      <div class="m-top"><div class="c-ico">📊</div><h4>Reports &amp; Dashboards</h4><span class="m-num">06</span></div>
+      <p>Report types, the four formats, bucket columns, cross filters, row-level formulas, dynamic dashboards and reporting snapshots.</p>
+      <div class="m-tags"><span class="tag amber">Joined</span><span class="tag">Matrix</span><span class="tag">Dynamic</span></div>
+    </a>
+    <a class="card mod-card accent-green" href="pages/sales-service.html">
+      <div class="m-top"><div class="c-ico">🤝</div><h4>Sales &amp; Service Cloud</h4><span class="m-num">07</span></div>
+      <p>The standard objects in depth — Products &amp; Price Books, Quotes, forecasting, Case management, entitlements &amp; SLAs, Omni-Channel and Knowledge.</p>
+      <div class="m-tags"><span class="tag green">Price Books</span><span class="tag">Entitlements</span><span class="tag">Omni-Channel</span></div>
+    </a>
+    <a class="card mod-card accent-teal" href="pages/data-management.html">
+      <div class="m-top"><div class="c-ico">🗄️</div><h4>Data Management</h4><span class="m-num">08</span></div>
+      <p>Loading, migrating, de-duplicating and archiving data — plus large data volumes, skew, Big Objects, backup/restore and GDPR obligations.</p>
+      <div class="m-tags"><span class="tag teal">Data Loader</span><span class="tag">LDV</span><span class="tag">Big Objects</span><span class="tag">GDPR</span></div>
+    </a>
+    <a class="card mod-card accent-violet" href="pages/experience-cloud.html">
+      <div class="m-top"><div class="c-ico">🌐</div><h4>Experience Cloud</h4><span class="m-num">09</span></div>
+      <p>Portals and help centres — licence types, Sharing Sets, LWR vs Aura templates, and the guest-user security model that causes real breaches.</p>
+      <div class="m-tags"><span class="tag violet">Sharing Sets</span><span class="tag rose">Guest Security</span><span class="tag">LWR</span></div>
+    </a>
+    <a class="card mod-card accent-amber" href="pages/analytics.html">
+      <div class="m-top"><div class="c-ico">📈</div><h4>CRM Analytics</h4><span class="m-num">10</span></div>
+      <p>Datasets, recipes, lenses and dashboards — security predicates, Einstein Discovery, and how to choose between Reports, CRM Analytics and Tableau.</p>
+      <div class="m-tags"><span class="tag amber">Datasets</span><span class="tag rose">Predicates</span><span class="tag">Tableau</span></div>
+    </a>
+  </div>
+
+  <h3>Clouds &amp; Products</h3>
+  <div class="grid g2">
+    <a class="card mod-card accent-green" href="pages/cpq.html">
+      <div class="m-top"><div class="c-ico">💰</div><h4>CPQ &amp; Revenue Cloud</h4><span class="m-num">11</span></div>
+      <p>Quote-to-cash: bundles, product and price rules, the pricing waterfall, subscriptions, amendments and renewals — plus CPQ's performance traps.</p>
+      <div class="m-tags"><span class="tag green">Pricing Waterfall</span><span class="tag">Bundles</span><span class="tag">Renewals</span></div>
+    </a>
+    <a class="card mod-card accent-rose" href="pages/marketing.html">
+      <div class="m-top"><div class="c-ico">📣</div><h4>Marketing &amp; Pardot</h4><span class="m-num">12</span></div>
+      <p>Account Engagement vs Marketing Cloud, Journey Builder, Data Extensions and AMPscript, campaign attribution, and email deliverability.</p>
+      <div class="m-tags"><span class="tag rose">Journeys</span><span class="tag">Scoring</span><span class="tag">SPF/DKIM</span></div>
+    </a>
+    <a class="card mod-card accent-teal" href="pages/field-service.html">
+      <div class="m-top"><div class="c-ico">🔧</div><h4>Field Service</h4><span class="m-num">13</span></div>
+      <p>Work Orders vs Service Appointments, scheduling policies, work rules vs objectives, the dispatcher console and the offline-first mobile app.</p>
+      <div class="m-tags"><span class="tag teal">Scheduling</span><span class="tag">Dispatcher</span><span class="tag">Offline</span></div>
+    </a>
+  </div>
+
+  <h3>Apex Programming</h3>
+  <div class="grid g2">
+    <a class="card mod-card" href="pages/apex-core.html">
+      <div class="m-top"><div class="c-ico">📘</div><h4>Apex Core &amp; SOQL/SOSL</h4><span class="m-num">14</span></div>
+      <p>Data types, collections, OOP, then SOQL and SOSL in real depth — relationship queries, aggregates, DML and every Database method.</p>
+      <div class="m-tags"><span class="tag blue">Data Types</span><span class="tag">SOQL</span><span class="tag">SOSL</span><span class="tag">DML</span></div>
+    </a>
+    <a class="card mod-card accent-amber" href="pages/apex-triggers.html">
+      <div class="m-top"><div class="c-ico">⚡</div><h4>Triggers &amp; Order of Execution</h4><span class="m-num">15</span></div>
+      <p>Context variables, the 20-step order of execution, recursion control, handler frameworks — plus scenario questions with answers.</p>
+      <div class="m-tags"><span class="tag amber">Context Vars</span><span class="tag">Recursion</span><span class="tag">Q&amp;A</span></div>
+    </a>
+    <a class="card mod-card accent-violet" href="pages/apex-advanced.html">
+      <div class="m-top"><div class="c-ico">🧠</div><h4>Advanced Apex</h4><span class="m-num">16</span></div>
+      <p>Wrapper classes, dynamic Apex, Schema describe, JSON, interfaces, custom exceptions, sharing keywords and production best practices.</p>
+      <div class="m-tags"><span class="tag violet">Wrapper</span><span class="tag">Dynamic Apex</span><span class="tag">Patterns</span></div>
+    </a>
+    <a class="card mod-card accent-teal" href="pages/async-apex.html">
+      <div class="m-top"><div class="c-ico">⏳</div><h4>Asynchronous Apex</h4><span class="m-num">17</span></div>
+      <p>Future, Queueable, Batch, Schedulable and Finalizers — with full working examples, chaining rules and a decision tree.</p>
+      <div class="m-tags"><span class="tag teal">Batch</span><span class="tag">Queueable</span><span class="tag">@future</span></div>
+    </a>
+    <a class="card mod-card accent-green" href="pages/testing.html">
+      <div class="m-top"><div class="c-ico">🧪</div><h4>Test Classes</h4><span class="m-num">18</span></div>
+      <p>Test data factories, <code>@testSetup</code>, mocking callouts, <code>runAs</code>, bulk tests, negative tests and what coverage really measures.</p>
+      <div class="m-tags"><span class="tag green">Mocking</span><span class="tag">Coverage</span><span class="tag">Asserts</span></div>
+    </a>
+    <a class="card mod-card accent-rose" href="pages/governor-limits.html">
+      <div class="m-top"><div class="c-ico">🚦</div><h4>Governor Limits</h4><span class="m-num">19</span></div>
+      <p>Every limit that matters, why they exist, how to read a limits log, and concrete patterns to stay well under each one.</p>
+      <div class="m-tags"><span class="tag rose">Cheat Sheet</span><span class="tag">CPU Time</span><span class="tag">Heap</span></div>
+    </a>
+  </div>
+
+  <h3>UI Development</h3>
+  <div class="grid g2">
+    <a class="card mod-card" href="pages/lwc-core.html">
+      <div class="m-top"><div class="c-ico">🔷</div><h4>LWC Core</h4><span class="m-num">20</span></div>
+      <p>Component anatomy, lifecycle hooks, Shadow DOM, decorators, data binding, getters/setters, conditional rendering and lists.</p>
+      <div class="m-tags"><span class="tag blue">Lifecycle</span><span class="tag">Shadow DOM</span><span class="tag">Decorators</span></div>
+    </a>
+    <a class="card mod-card accent-amber" href="pages/lwc-advanced.html">
+      <div class="m-top"><div class="c-ico">🔶</div><h4>LWC Data &amp; Events</h4><span class="m-num">21</span></div>
+      <p>Wire service, imperative Apex, Lightning Data Service, all four communication patterns, LMS, navigation and toasts.</p>
+      <div class="m-tags"><span class="tag amber">@wire</span><span class="tag">LDS</span><span class="tag">LMS</span><span class="tag">Pub-Sub</span></div>
+    </a>
+    <a class="card mod-card accent-violet" href="pages/visualforce.html">
+      <div class="m-top"><div class="c-ico">📄</div><h4>Visualforce &amp; Aura</h4><span class="m-num">22</span></div>
+      <p>Controllers, extensions, view state, key tags — plus Aura fundamentals and a clear VF vs Aura vs LWC comparison.</p>
+      <div class="m-tags"><span class="tag violet">Controllers</span><span class="tag">View State</span><span class="tag">Aura</span></div>
+    </a>
+    <a class="card mod-card accent-green" href="pages/ux-mobile.html">
+      <div class="m-top"><div class="c-ico">📱</div><h4>App Builder, UX &amp; Mobile</h4><span class="m-num">23</span></div>
+      <p>Lightning pages, Dynamic Forms and Actions, SLDS styling hooks, accessibility, page performance, and the mobile app with offline Briefcase.</p>
+      <div class="m-tags"><span class="tag green">Dynamic Forms</span><span class="tag">SLDS</span><span class="tag">Accessibility</span></div>
+    </a>
+    <a class="card mod-card accent-teal" href="pages/einstein-ai.html">
+      <div class="m-top"><div class="c-ico">🤖</div><h4>Einstein, AI &amp; Data Cloud</h4><span class="m-num">24</span></div>
+      <p>Predictive Einstein, Prompt Builder, Agentforce, the Trust Layer and Data Cloud — plus what a developer actually builds on an AI project.</p>
+      <div class="m-tags"><span class="tag teal">Prompt Builder</span><span class="tag">Agentforce</span><span class="tag">Trust Layer</span></div>
+    </a>
+  </div>
+
+  <h3>Integration</h3>
+  <div class="grid g2">
+    <a class="card mod-card accent-teal" href="pages/integration-core.html">
+      <div class="m-top"><div class="c-ico">🌐</div><h4>APIs &amp; Callouts</h4><span class="m-num">25</span></div>
+      <p>The big one: API basics, inbound vs outbound, REST/SOAP callouts, standard &amp; composite APIs, status codes, Apex REST/SOAP, Outbound Messages, External Services.</p>
+      <div class="m-tags"><span class="tag teal">REST</span><span class="tag">SOAP</span><span class="tag">Composite</span><span class="tag">OAuth</span></div>
+    </a>
+    <a class="card mod-card accent-violet" href="pages/integration-events.html">
+      <div class="m-top"><div class="c-ico">📡</div><h4>Events, CDC &amp; Connect</h4><span class="m-num">26</span></div>
+      <p>Platform Events end-to-end, Change Data Capture, the Streaming API family, and Salesforce Connect with external objects.</p>
+      <div class="m-tags"><span class="tag violet">Platform Events</span><span class="tag">CDC</span><span class="tag">OData</span></div>
+    </a>
+    <a class="card mod-card accent-green" href="pages/integration-patterns.html">
+      <div class="m-top"><div class="c-ico">🗺️</div><h4>Patterns &amp; Approach</h4><span class="m-num">27</span></div>
+      <p>The six canonical integration patterns, when each applies, and a repeatable approach for designing any integration from scratch.</p>
+      <div class="m-tags"><span class="tag green">Fire &amp; Forget</span><span class="tag">Request-Reply</span><span class="tag">Batch Sync</span></div>
+    </a>
+    <a class="card mod-card accent-amber" href="pages/postman.html">
+      <div class="m-top"><div class="c-ico">📮</div><h4>Postman In Detail</h4><span class="m-num">28</span></div>
+      <p>Connected App setup, every OAuth flow step-by-step, environments, variables, scripts, the collection runner and Newman.</p>
+      <div class="m-tags"><span class="tag amber">OAuth</span><span class="tag">Environments</span><span class="tag">Scripts</span></div>
+    </a>
+  </div>
+
+  <h3>Ship &amp; Practice</h3>
+  <div class="grid g2">
+    <a class="card mod-card" href="pages/devops.html">
+      <div class="m-top"><div class="c-ico">🚢</div><h4>Deployment &amp; DevOps</h4><span class="m-num">29</span></div>
+      <p>Change sets, Metadata API, SF CLI, scratch orgs, unlocked packages, Git branching and a working CI/CD pipeline.</p>
+      <div class="m-tags"><span class="tag blue">SF CLI</span><span class="tag">Packages</span><span class="tag">CI/CD</span></div>
+    </a>
+    <a class="card mod-card accent-amber" href="pages/debugging.html">
+      <div class="m-top"><div class="c-ico">🐞</div><h4>Debugging &amp; Troubleshooting</h4><span class="m-num">30</span></div>
+      <p>Debug logs, the Developer Console, checkpoints, the Replay Debugger, LWC debugging — and a lookup table for the errors you'll actually hit.</p>
+      <div class="m-tags"><span class="tag amber">Debug Logs</span><span class="tag">Error Lookup</span><span class="tag">Prod Diagnostics</span></div>
+    </a>
+    <a class="card mod-card accent-violet" href="pages/governance.html">
+      <div class="m-top"><div class="c-ico">🏛️</div><h4>Governance &amp; Ecosystem</h4><span class="m-num">31</span></div>
+      <p>Centre of Excellence, Well-Architected thinking, single vs multi-org, AppExchange &amp; packaging, the wider ecosystem, and multi-country localisation.</p>
+      <div class="m-tags"><span class="tag violet">CoE</span><span class="tag">Multi-Org</span><span class="tag">Multi-Currency</span></div>
+    </a>
+    <a class="card mod-card accent-rose" href="pages/practice.html">
+      <div class="m-top"><div class="c-ico">❓</div><h4>Practice Q&amp;A Bank</h4><span class="m-num">32</span></div>
+      <p>65 interview and scenario questions with full answers, spanning Admin, Apex, triggers, LWC and integration.</p>
+      <div class="m-tags"><span class="tag rose">Interview</span><span class="tag">Scenarios</span><span class="tag">Answers</span></div>
+    </a>
+    <a class="card mod-card accent-green" href="pages/certifications.html">
+      <div class="m-top"><div class="c-ico">🎓</div><h4>Certifications &amp; Career</h4><span class="m-num">33</span></div>
+      <p>Which certification in what order, how to study with these notes, exam technique, and the recurring answer patterns across exams.</p>
+      <div class="m-tags"><span class="tag green">Cert Map</span><span class="tag">Exam Technique</span><span class="tag">Study Plan</span></div>
+    </a>
+  </div>
+
+  <!-- ================= COVERAGE ================= -->
+  <h2 id="coverage">Syllabus coverage — every topic from your notes</h2>
+  <p>Your four handwritten pages listed 60 topics. Each one is mapped below to the exact section that covers it,
+     with detail, diagrams and use cases as requested.</p>
+
+  <h3>📄 Page 1 — Integration</h3>
+  <div class="table-wrap">
+  <table class="cov">
+    <thead><tr><th>Your topic</th><th>Covered in</th><th class="nowrap">✓</th></tr></thead>
+    <tbody>
+      <tr><td>API</td><td><a href="pages/integration-core.html#what-is-an-api">APIs &amp; Callouts → What is an API</a></td><td class="ck">✓</td></tr>
+      <tr><td>Inbound / Outbound</td><td><a href="pages/integration-core.html#inbound-vs-outbound">Inbound vs Outbound integration</a></td><td class="ck">✓</td></tr>
+      <tr><td>REST Callout</td><td><a href="pages/integration-core.html#rest-callout">REST callouts (GET/POST/PUT/PATCH/DELETE)</a></td><td class="ck">✓</td></tr>
+      <tr><td>SOAP Callout</td><td><a href="pages/integration-core.html#soap-callout">SOAP callouts &amp; WSDL2Apex</a></td><td class="ck">✓</td></tr>
+      <tr><td>Standard REST API</td><td><a href="pages/integration-core.html#standard-rest-api">Standard REST API</a></td><td class="ck">✓</td></tr>
+      <tr><td>Standard SOAP API</td><td><a href="pages/integration-core.html#standard-soap-api">Standard SOAP API (Enterprise/Partner WSDL)</a></td><td class="ck">✓</td></tr>
+      <tr><td>Composite REST API</td><td><a href="pages/integration-core.html#composite-rest-api">Composite, Batch, sObject Tree &amp; graphs</a></td><td class="ck">✓</td></tr>
+      <tr><td>Shortcuts of status code</td><td><a href="pages/integration-core.html#http-status-codes">HTTP status codes — memory shortcuts</a></td><td class="ck">✓</td></tr>
+      <tr><td>Apex REST API</td><td><a href="pages/integration-core.html#apex-rest-api">Apex REST (@RestResource)</a></td><td class="ck">✓</td></tr>
+      <tr><td>Apex SOAP API</td><td><a href="pages/integration-core.html#apex-soap-api">Apex SOAP (webservice keyword)</a></td><td class="ck">✓</td></tr>
+      <tr><td>Outbound Message</td><td><a href="pages/integration-core.html#outbound-message">Outbound Messages</a></td><td class="ck">✓</td></tr>
+      <tr><td>External Services</td><td><a href="pages/integration-core.html#external-services">External Services &amp; OpenAPI</a></td><td class="ck">✓</td></tr>
+      <tr><td>Platform Events</td><td><a href="pages/integration-events.html#platform-events">Platform Events</a></td><td class="ck">✓</td></tr>
+      <tr><td>Change Data Capture</td><td><a href="pages/integration-events.html#change-data-capture">Change Data Capture</a></td><td class="ck">✓</td></tr>
+      <tr><td>Salesforce Connect</td><td><a href="pages/integration-events.html#salesforce-connect">Salesforce Connect &amp; external objects</a></td><td class="ck">✓</td></tr>
+      <tr><td>Integration pattern</td><td><a href="pages/integration-patterns.html#integration-patterns">The six integration patterns</a></td><td class="ck">✓</td></tr>
+      <tr><td>Integration approach</td><td><a href="pages/integration-patterns.html#integration-approach">A repeatable design approach</a></td><td class="ck">✓</td></tr>
+      <tr><td>Detail + use case for everything</td><td>Every section has a <span class="tag teal">Use case</span> callout</td><td class="ck">✓</td></tr>
+      <tr><td>Postman in detail</td><td><a href="pages/postman.html">Postman In Detail (full module)</a></td><td class="ck">✓</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>📄 Page 2 — Apex</h3>
+  <div class="table-wrap">
+  <table class="cov">
+    <thead><tr><th>Your topic</th><th>Covered in</th><th class="nowrap">✓</th></tr></thead>
+    <tbody>
+      <tr><td>Data Types</td><td><a href="pages/apex-core.html#data-types">Apex Core → Data types</a></td><td class="ck">✓</td></tr>
+      <tr><td>SOQL, SOSL (in detail)</td><td><a href="pages/apex-core.html#soql">SOQL deep dive</a> · <a href="pages/apex-core.html#sosl">SOSL deep dive</a></td><td class="ck">✓</td></tr>
+      <tr><td>DML, Database Methods</td><td><a href="pages/apex-core.html#dml">DML</a> · <a href="pages/apex-core.html#database-methods">Database methods</a></td><td class="ck">✓</td></tr>
+      <tr><td>Apex Triggers (+ practice Q&amp;A)</td><td><a href="pages/apex-triggers.html#triggers">Triggers</a> · <a href="pages/apex-triggers.html#practice">Trigger practice questions</a></td><td class="ck">✓</td></tr>
+      <tr><td>Recursion</td><td><a href="pages/apex-triggers.html#recursion">Recursion control</a></td><td class="ck">✓</td></tr>
+      <tr><td>Wrapper class</td><td><a href="pages/apex-advanced.html#wrapper-class">Wrapper classes</a></td><td class="ck">✓</td></tr>
+      <tr><td>Advanced concepts</td><td><a href="pages/apex-advanced.html#advanced-concepts">Dynamic Apex, describe, JSON, interfaces…</a></td><td class="ck">✓</td></tr>
+      <tr><td>Best practices</td><td><a href="pages/apex-advanced.html#best-practices">Apex best practices</a></td><td class="ck">✓</td></tr>
+      <tr><td>Test class</td><td><a href="pages/testing.html#test-classes">Test Classes (full module)</a></td><td class="ck">✓</td></tr>
+      <tr><td>Asynchronous Apex (detail + examples)</td><td><a href="pages/async-apex.html#async-apex">Asynchronous Apex (full module)</a></td><td class="ck">✓</td></tr>
+      <tr><td>Visualforce</td><td><a href="pages/visualforce.html#visualforce">Visualforce</a></td><td class="ck">✓</td></tr>
+      <tr><td>Governor limits</td><td><a href="pages/governor-limits.html#governor-limits">Governor Limits (full module)</a></td><td class="ck">✓</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>📄 Page 3 — LWC</h3>
+  <div class="table-wrap">
+  <table class="cov">
+    <thead><tr><th>Your topic</th><th>Covered in</th><th class="nowrap">✓</th></tr></thead>
+    <tbody>
+      <tr><td>Lifecycle Hooks</td><td><a href="pages/lwc-core.html#lifecycle-hooks">LWC Core → Lifecycle hooks</a></td><td class="ck">✓</td></tr>
+      <tr><td>Shadow DOM</td><td><a href="pages/lwc-core.html#shadow-dom">Shadow DOM</a></td><td class="ck">✓</td></tr>
+      <tr><td>Properties, Data Binding</td><td><a href="pages/lwc-core.html#properties-data-binding">Properties &amp; data binding</a></td><td class="ck">✓</td></tr>
+      <tr><td>Setter &amp; Getter methods</td><td><a href="pages/lwc-core.html#getters-setters">Getters &amp; setters</a></td><td class="ck">✓</td></tr>
+      <tr><td>Conditional rendering</td><td><a href="pages/lwc-core.html#conditional-rendering">Conditional rendering</a></td><td class="ck">✓</td></tr>
+      <tr><td>Decorators</td><td><a href="pages/lwc-core.html#decorators">Decorators</a></td><td class="ck">✓</td></tr>
+      <tr><td>Navigation</td><td><a href="pages/lwc-advanced.html#navigation">NavigationMixin</a></td><td class="ck">✓</td></tr>
+      <tr><td>Importing Apex Methods</td><td><a href="pages/lwc-advanced.html#importing-apex">Calling Apex from LWC</a></td><td class="ck">✓</td></tr>
+      <tr><td>Lightning Data Service</td><td><a href="pages/lwc-advanced.html#lightning-data-service">LDS &amp; base components</a></td><td class="ck">✓</td></tr>
+      <tr><td>Wire Service</td><td><a href="pages/lwc-advanced.html#wire-service">Wire service</a></td><td class="ck">✓</td></tr>
+      <tr><td>Events</td><td><a href="pages/lwc-advanced.html#events">Events model</a></td><td class="ck">✓</td></tr>
+      <tr><td>Parent-to-child communication</td><td><a href="pages/lwc-advanced.html#parent-to-child">Parent → Child</a></td><td class="ck">✓</td></tr>
+      <tr><td>Child-to-parent communication</td><td><a href="pages/lwc-advanced.html#child-to-parent">Child → Parent</a></td><td class="ck">✓</td></tr>
+      <tr><td>Publish-Subscribe</td><td><a href="pages/lwc-advanced.html#pub-sub">Pub-Sub</a></td><td class="ck">✓</td></tr>
+      <tr><td>Lightning Message Service</td><td><a href="pages/lwc-advanced.html#lms">LMS</a></td><td class="ck">✓</td></tr>
+      <tr><td>More practice + missed concepts</td><td><a href="pages/lwc-advanced.html#more-concepts">Extra LWC concepts</a> · <a href="pages/practice.html">Q&amp;A bank</a></td><td class="ck">✓</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>📄 Page 4 — Admin</h3>
+  <div class="table-wrap">
+  <table class="cov">
+    <thead><tr><th>Your topic</th><th>Covered in</th><th class="nowrap">✓</th></tr></thead>
+    <tbody>
+      <tr><td>Relationships</td><td><a href="pages/admin.html#relationships">Admin → Relationships</a></td><td class="ck">✓</td></tr>
+      <tr><td>Duplicate Rule &amp; Matching</td><td><a href="pages/admin.html#duplicate-rules">Duplicate &amp; matching rules</a></td><td class="ck">✓</td></tr>
+      <tr><td>Record Level Security</td><td><a href="pages/security.html#record-level-security">Record-level security</a></td><td class="ck">✓</td></tr>
+      <tr><td>Reports (advanced too)</td><td><a href="pages/reports.html#reports">Reports</a> · <a href="pages/reports.html#advanced-reports">Advanced reporting</a></td><td class="ck">✓</td></tr>
+      <tr><td>Dashboard</td><td><a href="pages/reports.html#dashboards">Dashboards</a></td><td class="ck">✓</td></tr>
+      <tr><td>Custom Setting, Metadata, Label</td><td><a href="pages/admin.html#custom-settings">Custom settings vs metadata vs labels</a></td><td class="ck">✓</td></tr>
+      <tr><td>Flow (detail, types, best practices)</td><td><a href="pages/flows.html#flow-types">Flow types</a> · <a href="pages/flows.html#flow-best-practices">Flow best practices</a></td><td class="ck">✓</td></tr>
+      <tr><td>Data Security</td><td><a href="pages/security.html#data-security">Data security model</a></td><td class="ck">✓</td></tr>
+      <tr><td>Sharing Setting</td><td><a href="pages/security.html#sharing-settings">Sharing settings</a></td><td class="ck">✓</td></tr>
+      <tr><td>Permission Set, Profile, Role</td><td><a href="pages/security.html#profile-permset-role">Profile vs permission set vs role</a></td><td class="ck">✓</td></tr>
+      <tr><td>Standard objects, end-to-end process</td><td><a href="pages/admin.html#standard-objects-end-to-end">Lead → Cash, end to end</a> · <a href="pages/sales-service.html#sales-cloud">Sales Cloud objects</a> · <a href="pages/sales-service.html#service-cloud">Service Cloud</a></td><td class="ck">✓</td></tr>
+      <tr><td>Web-to-Lead, Email-to-Case</td><td><a href="pages/admin.html#web-to-lead">Web-to-Lead</a> · <a href="pages/admin.html#email-to-case">Email-to-Case</a></td><td class="ck">✓</td></tr>
+      <tr><td>Approval process, Assignment Rules</td><td><a href="pages/admin.html#approval-process">Approval process</a> · <a href="pages/admin.html#assignment-rules">Assignment rules</a></td><td class="ck">✓</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout tip">
+    <span class="c-ico">✅</span>
+    <div class="c-body"><span class="c-title">Plus the gaps we filled</span>
+      Thirteen whole modules go beyond the syllabus:
+      <a href="pages/identity.html">Identity &amp; Access</a> (SSO, MFA, Connected Apps) ·
+      <a href="pages/analytics.html">CRM Analytics</a> ·
+      <a href="pages/cpq.html">CPQ &amp; Revenue Cloud</a> ·
+      <a href="pages/marketing.html">Marketing &amp; Pardot</a> ·
+      <a href="pages/field-service.html">Field Service</a> ·
+      <a href="pages/ux-mobile.html">App Builder, UX &amp; Mobile</a> ·
+      <a href="pages/governance.html">Governance, Ecosystem &amp; Localisation</a> ·
+      <a href="pages/sales-service.html">Sales &amp; Service Cloud</a> (Price Books, Quotes, forecasting, entitlements &amp; SLAs, Omni-Channel, Knowledge) ·
+      <a href="pages/data-management.html">Data Management</a> (migration, LDV, skew, Big Objects, backup, GDPR) ·
+      <a href="pages/experience-cloud.html">Experience Cloud</a> (Sharing Sets, guest-user security) ·
+      <a href="pages/einstein-ai.html">Einstein, AI &amp; Data Cloud</a> (Prompt Builder, Agentforce, Trust Layer) ·
+      <a href="pages/debugging.html">Debugging</a> (debug logs, Replay Debugger, error lookup) ·
+      <a href="pages/certifications.html">Certifications &amp; Career</a>.
+      Plus: platform architecture, editions &amp; org types, validation rules, record types, queues, Aura, DevOps,
+      OAuth flows, Named Credentials, Bulk API, Streaming &amp; Pub/Sub API, Finalizers, permission set groups,
+      restriction rules — and <strong>interview questions on every single page</strong>.</div>
+  </div>
+
+  <!-- ================= HOW TO USE ================= -->
+  <h2 id="how-to-use">How to use these notes</h2>
+  <div class="grid g3">
+    <div class="card"><div class="c-ico">🔍</div><h4>Search anything</h4><p>Press <kbd>Ctrl</kbd>+<kbd>K</kbd> and type a concept — "wrapper", "OWD", "composite" — the sidebar filters by keyword, not just page title.</p></div>
+    <div class="card accent-violet"><div class="c-ico">🌓</div><h4>Dark / light</h4><p>Toggle with the sun icon. Every diagram is drawn with theme-aware colours, so both modes stay readable.</p></div>
+    <div class="card accent-teal"><div class="c-ico">📋</div><h4>Copy the code</h4><p>Every snippet has a copy button and is deployment-ready — paste straight into VS Code or the Developer Console.</p></div>
+    <div class="card accent-amber"><div class="c-ico">🖨️</div><h4>Print to PDF</h4><p><kbd>Ctrl</kbd>+<kbd>P</kbd> on any page gives a clean, sidebar-free PDF with all answers expanded.</p></div>
+    <div class="card accent-green"><div class="c-ico">🧭</div><h4>Follow the TOC</h4><p>The right rail tracks your position in the page; prev/next links at the bottom follow the learning path.</p></div>
+    <div class="card accent-rose"><div class="c-ico">❓</div><h4>Test yourself</h4><p>Click-to-reveal questions are embedded in each module, with a dedicated 60+ question bank at the end.</p></div>
+  </div>
+
+  <div class="page-nav" id="pageNav"></div>
+</article>
+
+<footer class="site-footer">
+  Salesforce Mastery Notes · Built as an offline study system · Toggle theme with ☀️ · Search with Ctrl + K
+</footer>
+</main>
+
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="assets/js/nav.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>

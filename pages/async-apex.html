@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Asynchronous Apex | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Apex</span> › <span>Asynchronous</span></div>
+  <h1>Asynchronous Apex</h1>
+  <p class="lede">Future methods, Queueable, Batch, Schedulable and Finalizers — what each is for, complete working
+     examples, the higher limits you unlock, and how to choose between them.</p>
+</header>
+
+<!-- ============================================ -->
+<h2 id="async-apex">Why asynchronous?</h2>
+<p>Synchronous code runs immediately and the user waits. Asynchronous code is queued and executed when platform
+   resources are available — the user gets their response straight away.</p>
+
+<div class="dgm">
+  <div class="dgm-title">Synchronous vs asynchronous execution</div>
+  <svg viewBox="0 0 780 260" role="img" aria-label="Comparison of synchronous and asynchronous execution timelines">
+    <text class="s-t s-t-r" x="20" y="22">Synchronous — user waits for everything</text>
+    <rect class="s-box" x="20" y="34" width="90" height="34" rx="6"/><text class="s-t-sm anchor-mid" x="65" y="51">Click</text>
+    <rect class="s-box-b" x="115" y="34" width="130" height="34" rx="6"/><text class="s-t-sm anchor-mid" x="180" y="51">Save record</text>
+    <rect class="s-box-a" x="250" y="34" width="220" height="34" rx="6"/><text class="s-t-sm anchor-mid" x="360" y="51">Call external API (4 s)</text>
+    <rect class="s-box-g" x="475" y="34" width="110" height="34" rx="6"/><text class="s-t-sm anchor-mid" x="530" y="51">Response</text>
+    <text class="s-t-sm s-t-r" x="600" y="51">≈ 5 s wait</text>
+
+    <text class="s-t s-t-g" x="20" y="122">Asynchronous — user is free immediately</text>
+    <rect class="s-box" x="20" y="134" width="90" height="34" rx="6"/><text class="s-t-sm anchor-mid" x="65" y="151">Click</text>
+    <rect class="s-box-b" x="115" y="134" width="130" height="34" rx="6"/><text class="s-t-sm anchor-mid" x="180" y="151">Save record</text>
+    <rect class="s-box-v" x="250" y="134" width="110" height="34" rx="6"/><text class="s-t-sm anchor-mid" x="305" y="151">Enqueue job</text>
+    <rect class="s-box-g" x="365" y="134" width="110" height="34" rx="6"/><text class="s-t-sm anchor-mid" x="420" y="151">Response</text>
+    <text class="s-t-sm s-t-g" x="490" y="151">≈ 1 s wait</text>
+
+    <path class="s-line-v s-dash" d="M305 168 V196" marker-end="url(#as1)"/>
+    <rect class="s-box-a" x="200" y="196" width="290" height="38" rx="8"/>
+    <text class="s-t-sm anchor-mid" x="345" y="215">Queue → runs later on a background thread</text>
+    <text class="s-t-sm anchor-mid" x="620" y="215">with HIGHER limits</text>
+    <defs><marker id="as1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<div class="grid g3">
+  <div class="card accent-green"><h4>Better user experience</h4><p>Long-running work doesn't block the save or the page.</p></div>
+  <div class="card accent-violet"><h4>Higher limits</h4><p>SOQL 200 (vs 100), heap 12 MB (vs 6 MB), CPU 60 s (vs 10 s), 100 callouts.</p></div>
+  <div class="card accent-teal"><h4>Callouts after DML</h4><p>The only clean way to integrate from a trigger.</p></div>
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Limit</th><th>Synchronous</th><th>Asynchronous</th></tr></thead>
+  <tbody>
+    <tr><td>SOQL queries</td><td>100</td><td><strong>200</strong></td></tr>
+    <tr><td>Query rows retrieved</td><td>50,000</td><td>50,000</td></tr>
+    <tr><td>DML statements</td><td>150</td><td>150</td></tr>
+    <tr><td>Heap size</td><td>6 MB</td><td><strong>12 MB</strong></td></tr>
+    <tr><td>CPU time</td><td>10,000 ms</td><td><strong>60,000 ms</strong></td></tr>
+    <tr><td>Callouts per transaction</td><td>100</td><td>100</td></tr>
+    <tr><td>Total callout timeout</td><td>120 s</td><td>120 s</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="decision">Which one do I use?</h2>
+
+<div class="dgm">
+  <div class="dgm-title">Async Apex decision tree</div>
+  <svg viewBox="0 0 800 420" role="img" aria-label="Decision tree for choosing between future, queueable, batch and scheduled Apex">
+    <rect class="s-box-b" x="290" y="10" width="220" height="42" rx="9"/>
+    <text class="s-t anchor-mid" x="400" y="31">Need async processing</text>
+    <path class="s-line" d="M400 52 V78" marker-end="url(#d1)"/>
+
+    <rect class="s-box-v" x="270" y="78" width="260" height="46" rx="9"/>
+    <text class="s-t anchor-mid" x="400" y="94">Must it run at a specific time</text>
+    <text class="s-t-sm anchor-mid" x="400" y="112">or on a recurring schedule?</text>
+
+    <path class="s-line-g" d="M530 101 H650" marker-end="url(#d1)"/>
+    <text class="s-t-sm s-t-g anchor-mid" x="590" y="90">YES</text>
+    <rect class="s-box-g" x="650" y="78" width="140" height="46" rx="9"/>
+    <text class="s-t s-t-g anchor-mid" x="720" y="101">Schedulable</text>
+
+    <path class="s-line" d="M400 124 V152" marker-end="url(#d1)"/>
+    <text class="s-t-sm anchor-mid" x="424" y="140">NO</text>
+
+    <rect class="s-box-v" x="270" y="152" width="260" height="46" rx="9"/>
+    <text class="s-t anchor-mid" x="400" y="168">More than ~10,000 records,</text>
+    <text class="s-t-sm anchor-mid" x="400" y="186">or risk of hitting heap/limits?</text>
+
+    <path class="s-line-g" d="M530 175 H650" marker-end="url(#d1)"/>
+    <text class="s-t-sm s-t-g anchor-mid" x="590" y="164">YES</text>
+    <rect class="s-box-a" x="650" y="152" width="140" height="46" rx="9"/>
+    <text class="s-t s-t-a anchor-mid" x="720" y="175">Batch Apex</text>
+
+    <path class="s-line" d="M400 198 V226" marker-end="url(#d1)"/>
+    <text class="s-t-sm anchor-mid" x="424" y="214">NO</text>
+
+    <rect class="s-box-v" x="270" y="226" width="260" height="46" rx="9"/>
+    <text class="s-t anchor-mid" x="400" y="242">Need sObjects as parameters,</text>
+    <text class="s-t-sm anchor-mid" x="400" y="260">chaining, or job monitoring?</text>
+
+    <path class="s-line-g" d="M530 249 H650" marker-end="url(#d1)"/>
+    <text class="s-t-sm s-t-g anchor-mid" x="590" y="238">YES</text>
+    <rect class="s-box-t" x="650" y="226" width="140" height="46" rx="9"/>
+    <text class="s-t s-t-t anchor-mid" x="720" y="249">Queueable</text>
+
+    <path class="s-line" d="M400 272 V300" marker-end="url(#d1)"/>
+    <rect class="s-box" x="270" y="300" width="260" height="46" rx="9"/>
+    <text class="s-t anchor-mid" x="400" y="316">@future</text>
+    <text class="s-t-sm anchor-mid" x="400" y="334">(legacy — prefer Queueable)</text>
+
+    <text class="s-t-sm s-t-b anchor-mid" x="400" y="392">Modern default: Queueable for one-off jobs, Batch for volume, Schedulable to trigger them</text>
+    <defs><marker id="d1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>@future</th><th>Queueable</th><th>Batch</th><th>Schedulable</th></tr></thead>
+  <tbody>
+    <tr><td>Parameters allowed</td><td>Primitives only</td><td><strong>Any type incl. sObjects</strong></td><td>Any (class fields)</td><td>Any (class fields)</td></tr>
+    <tr><td>Returns a job Id</td><td>❌</td><td>✅ <code>System.enqueueJob</code></td><td>✅ <code>Database.executeBatch</code></td><td>✅ <code>System.schedule</code></td></tr>
+    <tr><td>Chaining</td><td>❌ Can't call another future</td><td>✅ (1 child in sync, 5 in DE/Trial)</td><td>✅ from <code>finish()</code></td><td>✅</td></tr>
+    <tr><td>Record volume</td><td>One transaction's worth</td><td>One transaction's worth</td><td><strong>Up to 50 M</strong></td><td>Delegates</td></tr>
+    <tr><td>Stateful</td><td>❌</td><td>✅ (class members)</td><td>✅ with <code>Database.Stateful</code></td><td>✅</td></tr>
+    <tr><td>Callouts</td><td><code>@future(callout=true)</code></td><td><code>Database.AllowsCallouts</code></td><td><code>Database.AllowsCallouts</code></td><td>Via the job it starts</td></tr>
+    <tr><td>Monitorable</td><td>Hard</td><td>✅ AsyncApexJob</td><td>✅ AsyncApexJob</td><td>✅ CronTrigger</td></tr>
+    <tr><td>Error handling</td><td>Basic</td><td>✅ Finalizers</td><td>✅ per-chunk isolation</td><td>—</td></tr>
+    <tr><td>Max in queue</td><td colspan="2">250,000 async executions / 24 h (or 200 × licences)</td><td>100 held + 5 concurrent</td><td>100 scheduled jobs</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="future">1 · Future methods</h2>
+<p>The oldest and simplest form. Mark a static method <code>@future</code> and it runs later.</p>
+
+<pre><code class="language-apex">public class AccountGeocodeService {
+
+    @future(callout=true)
+    public static void geocodeAddresses(Set&lt;Id&gt; accountIds) {
+        List&lt;Account&gt; accounts = [
+            SELECT Id, BillingStreet, BillingCity, BillingCountry
+            FROM Account WHERE Id IN :accountIds
+        ];
+
+        List&lt;Account&gt; toUpdate = new List&lt;Account&gt;();
+        for (Account a : accounts) {
+            HttpRequest req = new HttpRequest();
+            req.setEndpoint('callout:Geocode_API/geocode?address=' +
+                            EncodingUtil.urlEncode(a.BillingCity + ' ' + a.BillingCountry, 'UTF-8'));
+            req.setMethod('GET');
+            req.setTimeout(20000);
+
+            HttpResponse res = new Http().send(req);
+            if (res.getStatusCode() == 200) {
+                Map&lt;String, Object&gt; body = (Map&lt;String, Object&gt;) JSON.deserializeUntyped(res.getBody());
+                a.Latitude__c  = (Decimal) body.get('lat');
+                a.Longitude__c = (Decimal) body.get('lng');
+                toUpdate.add(a);
+            }
+        }
+        if (!toUpdate.isEmpty()) update toUpdate;
+    }
+}
+
+// Called from an after-insert trigger
+AccountGeocodeService.geocodeAddresses(Trigger.newMap.keySet());</code></pre>
+
+<div class="callout warn">
+  <span class="c-ico">🚧</span>
+  <div class="c-body"><span class="c-title">Future method restrictions</span>
+    ① Must be <code>static void</code>. ② Parameters must be <strong>primitives or collections of primitives</strong>
+    — no sObjects (their state could be stale by the time it runs). ③ Cannot be called from another future or from
+    Batch. ④ Cannot be chained. ⑤ No job Id, so monitoring is awkward. ⑥ Limit: <strong>50 future calls per
+    transaction</strong>. <strong>For all these reasons, prefer Queueable in new code.</strong></div>
+</div>
+<p>The workaround for passing records is to serialise them: <code>MyClass.doWork(JSON.serialize(records))</code>,
+   then deserialise inside — but that's exactly what Queueable makes unnecessary.</p>
+
+<!-- ============================================ -->
+<h2 id="queueable">2 · Queueable Apex</h2>
+<p>The modern replacement for <code>@future</code>: a class, not a method, so it can hold state and be chained.</p>
+
+<pre><code class="language-apex">public class InvoiceSyncQueueable implements Queueable, Database.AllowsCallouts {
+
+    private List&lt;Invoice__c&gt; invoices;      // complex types ARE allowed
+    private Integer attempt;
+
+    public InvoiceSyncQueueable(List&lt;Invoice__c&gt; invoices) {
+        this(invoices, 1);
+    }
+    public InvoiceSyncQueueable(List&lt;Invoice__c&gt; invoices, Integer attempt) {
+        this.invoices = invoices;
+        this.attempt  = attempt;
+    }
+
+    public void execute(QueueableContext context) {
+        List&lt;Invoice__c&gt; failed = new List&lt;Invoice__c&gt;();
+
+        for (Invoice__c inv : invoices) {
+            HttpRequest req = new HttpRequest();
+            req.setEndpoint('callout:ERP/api/invoices');
+            req.setMethod('POST');
+            req.setHeader('Content-Type', 'application/json');
+            req.setBody(JSON.serialize(new Map&lt;String, Object&gt;{
+                'externalId' =&gt; inv.Id,
+                'amount'     =&gt; inv.Amount__c
+            }));
+
+            try {
+                HttpResponse res = new Http().send(req);
+                inv.Sync_Status__c = (res.getStatusCode() == 201) ? 'Synced' : 'Failed';
+                if (res.getStatusCode() &gt;= 500) failed.add(inv);       // retryable
+            } catch (CalloutException e) {
+                inv.Sync_Status__c = 'Failed';
+                failed.add(inv);
+            }
+        }
+        update invoices;
+
+        // CHAINING — enqueue the next job (max 1 child from a Queueable in production)
+        if (!failed.isEmpty() &amp;&amp; attempt &lt; 3 &amp;&amp; !Test.isRunningTest()) {
+            System.enqueueJob(new InvoiceSyncQueueable(failed, attempt + 1));
+        }
+    }
+}
+
+// Enqueue it — returns a job Id you can monitor
+Id jobId = System.enqueueJob(new InvoiceSyncQueueable(invoiceList));
+System.debug([SELECT Status, NumberOfErrors FROM AsyncApexJob WHERE Id = :jobId]);
+
+// Delayed execution (API 61+): run in 5 minutes
+// System.enqueueJob(new InvoiceSyncQueueable(list), 5);</code></pre>
+
+<h3>Transaction Finalizers — reliable post-processing</h3>
+<pre><code class="language-apex">public class SyncFinalizer implements Finalizer {
+    private Id recordId;
+    public SyncFinalizer(Id recordId) { this.recordId = recordId; }
+
+    public void execute(FinalizerContext ctx) {
+        // Runs even if the Queueable threw an UNHANDLED exception
+        if (ctx.getResult() == ParentJobResult.SUCCESS) {
+            update new Invoice__c(Id = recordId, Sync_Status__c = 'Complete');
+        } else {
+            insert new Error_Log__c(
+                Message__c = ctx.getException()?.getMessage(),
+                Job_Id__c  = String.valueOf(ctx.getAsyncApexJobId())
+            );
+            // You may enqueue ONE retry job from a finalizer
+        }
+    }
+}
+
+// Attach it inside execute()
+public void execute(QueueableContext ctx) {
+    System.attachFinalizer(new SyncFinalizer(this.recordId));
+    doRiskyWork();
+}</code></pre>
+<div class="callout tip">
+  <span class="c-ico">🛟</span>
+  <div class="c-body"><span class="c-title">Why finalizers matter</span>
+    Before them, an unhandled exception in a Queueable left you with no way to record the failure — the transaction
+    rolled back including your error log. A Finalizer runs in its <strong>own transaction</strong> afterwards, so the
+    log survives.</div>
+</div>
+
+<h3>Chaining limits</h3>
+<ul>
+  <li>From a Queueable you may enqueue <strong>one</strong> child job (5 in Developer/Trial orgs).</li>
+  <li>Chain depth is unlimited in production, but each link is a separate transaction with fresh limits.</li>
+  <li>You cannot chain in a test — guard with <code>if (!Test.isRunningTest())</code>.</li>
+  <li>Maximum 50 jobs added to the queue from a single synchronous transaction.</li>
+</ul>
+
+<!-- ============================================ -->
+<h2 id="batch">3 · Batch Apex</h2>
+<p>For volumes that could never fit in one transaction. Salesforce splits your records into chunks (default 200) and
+   runs <code>execute()</code> once per chunk, <strong>each with its own governor limits</strong>.</p>
+
+<div class="dgm">
+  <div class="dgm-title">Batch Apex lifecycle</div>
+  <svg viewBox="0 0 800 300" role="img" aria-label="Batch Apex start execute finish lifecycle">
+    <rect class="s-box-b" x="20" y="110" width="140" height="70" rx="10"/>
+    <text class="s-t s-t-b anchor-mid" x="90" y="134">start()</text>
+    <text class="s-t-sm anchor-mid" x="90" y="156">Returns a QueryLocator</text>
+    <text class="s-t-sm anchor-mid" x="90" y="172">(up to 50 M records)</text>
+    <path class="s-line-b" d="M160 145 H210" marker-end="url(#b1)"/>
+
+    <rect class="s-box" x="210" y="80" width="360" height="130" rx="10"/>
+    <text class="s-t anchor-mid" x="390" y="102">execute() — once per chunk of 200</text>
+    <rect class="s-box-t" x="230" y="118" width="90" height="42" rx="7"/><text class="s-t-sm anchor-mid" x="275" y="133">Chunk 1</text><text class="s-t-sm anchor-mid" x="275" y="150">200 recs</text>
+    <rect class="s-box-t" x="330" y="118" width="90" height="42" rx="7"/><text class="s-t-sm anchor-mid" x="375" y="133">Chunk 2</text><text class="s-t-sm anchor-mid" x="375" y="150">200 recs</text>
+    <rect class="s-box-t" x="430" y="118" width="90" height="42" rx="7"/><text class="s-t-sm anchor-mid" x="475" y="133">Chunk N</text><text class="s-t-sm anchor-mid" x="475" y="150">…</text>
+    <text class="s-t-sm s-t-g anchor-mid" x="390" y="186">Each chunk = its own transaction with FRESH limits</text>
+
+    <path class="s-line-t" d="M570 145 H620" marker-end="url(#b1)"/>
+    <rect class="s-box-g" x="620" y="110" width="150" height="70" rx="10"/>
+    <text class="s-t s-t-g anchor-mid" x="695" y="134">finish()</text>
+    <text class="s-t-sm anchor-mid" x="695" y="156">Send summary email,</text>
+    <text class="s-t-sm anchor-mid" x="695" y="172">chain the next batch</text>
+
+    <text class="s-t-sm s-t-r anchor-mid" x="390" y="244">A failed chunk rolls back only that chunk — the rest continue</text>
+    <text class="s-t-sm anchor-mid" x="390" y="266">Use Database.Stateful to carry counters across chunks</text>
+    <defs><marker id="b1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<pre><code class="language-apex">public class OpportunityCleanupBatch
+       implements Database.Batchable&lt;sObject&gt;, Database.Stateful, Database.AllowsCallouts {
+
+    // Database.Stateful → these survive across chunks
+    private Integer recordsProcessed = 0;
+    private Integer recordsFailed    = 0;
+    private List&lt;String&gt; errorMessages = new List&lt;String&gt;();
+
+    private Date cutoff;
+    public OpportunityCleanupBatch(Date cutoff) { this.cutoff = cutoff; }
+
+    /* ---------- 1. START: define the scope ---------- */
+    public Database.QueryLocator start(Database.BatchableContext bc) {
+        return Database.getQueryLocator([
+            SELECT Id, Name, StageName, CloseDate, OwnerId
+            FROM Opportunity
+            WHERE IsClosed = false AND CloseDate &lt; :cutoff
+        ]);
+    }
+
+    /* ---------- 2. EXECUTE: process each chunk ---------- */
+    public void execute(Database.BatchableContext bc, List&lt;Opportunity&gt; scope) {
+        List&lt;Opportunity&gt; toUpdate = new List&lt;Opportunity&gt;();
+        for (Opportunity o : scope) {
+            o.StageName        = 'Closed Lost';
+            o.Loss_Reason__c   = 'Expired — auto-closed';
+            toUpdate.add(o);
+        }
+
+        Database.SaveResult[] results = Database.update(toUpdate, false);
+        for (Integer i = 0; i &lt; results.size(); i++) {
+            if (results[i].isSuccess()) {
+                recordsProcessed++;
+            } else {
+                recordsFailed++;
+                if (errorMessages.size() &lt; 100) {          // guard the heap
+                    errorMessages.add(toUpdate[i].Name + ': ' + results[i].getErrors()[0].getMessage());
+                }
+            }
+        }
+    }
+
+    /* ---------- 3. FINISH: wrap up ---------- */
+    public void finish(Database.BatchableContext bc) {
+        AsyncApexJob job = [
+            SELECT Id, Status, NumberOfErrors, JobItemsProcessed, TotalJobItems, CreatedBy.Email
+            FROM AsyncApexJob WHERE Id = :bc.getJobId()
+        ];
+
+        Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
+        mail.setToAddresses(new String[]{ job.CreatedBy.Email });
+        mail.setSubject('Opportunity Cleanup — ' + job.Status);
+        mail.setPlainTextBody(
+            'Chunks: '    + job.JobItemsProcessed + '/' + job.TotalJobItems +
+            '\nUpdated: ' + recordsProcessed +
+            '\nFailed: '  + recordsFailed +
+            '\n\n' + String.join(errorMessages, '\n'));
+        Messaging.sendEmail(new Messaging.SingleEmailMessage[]{ mail });
+
+        // Chain the next batch
+        Database.executeBatch(new OpportunityArchiveBatch(), 200);
+    }
+}
+
+/* ---------- Running it ---------- */
+Id batchId = Database.executeBatch(new OpportunityCleanupBatch(Date.today()), 200);
+// Smaller scope size when each record does heavy work or a callout:
+// Database.executeBatch(new MyBatch(), 20);</code></pre>
+
+<h3>QueryLocator vs Iterable</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th><code>Database.QueryLocator</code></th><th><code>Iterable&lt;sObject&gt;</code></th></tr></thead>
+  <tbody>
+    <tr><td>Max records</td><td><strong>50 million</strong></td><td>50,000 (normal query limit)</td></tr>
+    <tr><td>Source</td><td>A SOQL query</td><td>Any custom logic — a callout result, a CSV, a computed list</td></tr>
+    <tr><td>Governor cost</td><td>Doesn't count toward query rows</td><td>Counts normally</td></tr>
+    <tr><td>Use when</td><td>99% of cases</td><td>Data isn't a SOQL query</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Batch rules &amp; limits</h3>
+<ul>
+  <li><strong>5 concurrent</strong> batch jobs; up to 100 held in the flex queue.</li>
+  <li>Scope size: 1–2,000 (default 200). Smaller scope = more chunks = more total limits available, but more overhead.</li>
+  <li>Each chunk gets fresh limits, but <strong>callouts are capped at 100 per chunk</strong>.</li>
+  <li>Only <strong>one</strong> <code>Database.executeBatch</code> can be called from <code>finish()</code> (chaining).</li>
+  <li>A batch class can't be called from another batch's <code>execute()</code> — only from <code>finish()</code>.</li>
+  <li><code>Database.Stateful</code> preserves <em>instance</em> variables only; statics always reset.</li>
+  <li>Test methods can process only <strong>one chunk</strong> — use ≤ 200 test records.</li>
+</ul>
+
+<!-- ============================================ -->
+<h2 id="schedulable">4 · Scheduled Apex</h2>
+
+<pre><code class="language-apex">public class NightlyCleanupScheduler implements Schedulable {
+    public void execute(SchedulableContext sc) {
+        // Schedulers usually just launch a batch
+        Database.executeBatch(new OpportunityCleanupBatch(Date.today()), 200);
+    }
+}
+
+/* ---------- Scheduling from anonymous Apex ---------- */
+// Cron:  Seconds Minutes Hours Day_of_month Month Day_of_week Optional_year
+String cron = '0 0 2 * * ?';                       // every day at 02:00
+Id jobId = System.schedule('Nightly Cleanup', cron, new NightlyCleanupScheduler());
+
+/* ---------- Cron cookbook ---------- */
+// '0 0 2 * * ?'        every day 02:00
+// '0 30 6 ? * MON-FRI' weekdays 06:30
+// '0 0 * * * ?'        every hour on the hour
+// '0 0 0 1 * ?'        first day of every month at midnight
+// '0 0 12 ? * SUN'     every Sunday at noon
+// '0 0 8 ? * MON#1'    first Monday of the month at 08:00
+// '0 0 22 L * ?'       last day of the month at 22:00
+
+/* ---------- Managing jobs ---------- */
+for (CronTrigger ct : [SELECT Id, CronJobDetail.Name, CronExpression, State,
+                              NextFireTime, PreviousFireTime, TimesTriggered
+                       FROM CronTrigger]) {
+    System.debug(ct.CronJobDetail.Name + ' next: ' + ct.NextFireTime);
+}
+System.abortJob(jobId);</code></pre>
+
+<div class="callout warn">
+  <span class="c-ico">⏰</span>
+  <div class="c-body"><span class="c-title">Scheduled Apex gotchas</span>
+    ① Max <strong>100 scheduled jobs</strong> per org. ② You cannot modify a class that is currently scheduled —
+    abort the job, deploy, reschedule (a real CI/CD pain point). ③ The minimum interval via the UI is hourly; use
+    multiple cron expressions for every-15-minutes. ④ Scheduled jobs run in <strong>system context</strong> as the
+    scheduling user. ⑤ Callouts are not allowed directly in <code>execute()</code> — delegate to a Queueable/Batch.</div>
+</div>
+
+<h3>Every-15-minutes pattern</h3>
+<pre><code class="language-apex">// Schedule the same class four times with different offsets
+System.schedule('Sync 00', '0 0  * * * ?', new SyncScheduler());
+System.schedule('Sync 15', '0 15 * * * ?', new SyncScheduler());
+System.schedule('Sync 30', '0 30 * * * ?', new SyncScheduler());
+System.schedule('Sync 45', '0 45 * * * ?', new SyncScheduler());</code></pre>
+
+<!-- ============================================ -->
+<h2 id="monitoring">Monitoring async jobs</h2>
+<pre><code class="language-apex">// Setup → Apex Jobs, or query it
+List&lt;AsyncApexJob&gt; jobs = [
+    SELECT Id, ApexClass.Name, JobType, Status, NumberOfErrors,
+           JobItemsProcessed, TotalJobItems, CreatedDate, CompletedDate, ExtendedStatus
+    FROM AsyncApexJob
+    WHERE CreatedDate = TODAY
+      AND JobType IN ('BatchApex', 'Queueable', 'Future', 'ScheduledApex')
+    ORDER BY CreatedDate DESC
+];</code></pre>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td>Holding</td><td>In the flex queue, waiting for a slot</td></tr>
+    <tr><td>Queued</td><td>Accepted, waiting to start</td></tr>
+    <tr><td>Preparing</td><td><code>start()</code> is running</td></tr>
+    <tr><td>Processing</td><td><code>execute()</code> chunks running</td></tr>
+    <tr><td>Completed</td><td>Finished (check <code>NumberOfErrors</code> — it can complete with failures)</td></tr>
+    <tr><td>Failed / Aborted</td><td>Unhandled exception, or someone called <code>System.abortJob</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="testing-async">Testing async Apex</h2>
+<pre><code class="language-apex">@isTest
+private class OpportunityCleanupBatchTest {
+
+    @testSetup
+    static void setup() {
+        Account a = new Account(Name = 'Test Co');
+        insert a;
+        List&lt;Opportunity&gt; opps = new List&lt;Opportunity&gt;();
+        for (Integer i = 0; i &lt; 200; i++) {       // one chunk max in tests
+            opps.add(new Opportunity(
+                Name = 'Old Deal ' + i, AccountId = a.Id,
+                StageName = 'Prospecting', CloseDate = Date.today().addDays(-30)));
+        }
+        insert opps;
+    }
+
+    @isTest
+    static void batchClosesExpiredOpportunities() {
+        Test.startTest();
+        Database.executeBatch(new OpportunityCleanupBatch(Date.today()), 200);
+        Test.stopTest();                 // ← forces the async job to run synchronously
+
+        Assert.areEqual(200,
+            [SELECT COUNT() FROM Opportunity WHERE StageName = 'Closed Lost'],
+            'All expired opportunities should be closed');
+    }
+
+    @isTest
+    static void queueableRunsAndUpdatesStatus() {
+        Test.startTest();
+        System.enqueueJob(new InvoiceSyncQueueable(invoices));
+        Test.stopTest();
+        // assert results
+    }
+
+    @isTest
+    static void schedulerEnqueuesBatch() {
+        Test.startTest();
+        String jobId = System.schedule('Test Cleanup', '0 0 0 15 3 ? 2099',
+                                       new NightlyCleanupScheduler());
+        Test.stopTest();
+        CronTrigger ct = [SELECT CronExpression, TimesTriggered FROM CronTrigger WHERE Id = :jobId];
+        Assert.areEqual('0 0 0 15 3 ? 2099', ct.CronExpression);
+        Assert.areEqual(0, ct.TimesTriggered, 'Should not have fired yet');
+    }
+}</code></pre>
+<div class="callout note">
+  <span class="c-ico">🔑</span>
+  <div class="c-body"><span class="c-title">The one rule of async testing</span>
+    Async work queued between <code>Test.startTest()</code> and <code>Test.stopTest()</code> executes
+    <strong>synchronously at <code>stopTest()</code></strong>. Assert after that line. Chained jobs do
+    <em>not</em> run — that's why chaining is guarded with <code>Test.isRunningTest()</code>.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Why does async Apex exist when you could just write synchronous code?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Three reasons. <strong>User experience</strong> — long work doesn't block the save.
+<strong>Higher limits</strong> — SOQL 100→200, heap 6→12 MB, CPU 10 s→60 s. <strong>Callouts after DML</strong> —
+async runs after commit, which is the only clean way to integrate from a trigger. Batch adds a fourth: fresh limits per
+chunk, letting you process up to 50 million records.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> Why is Queueable preferred over @future?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>@future</code> takes <strong>primitives only</strong> (no sObjects), returns no job Id so
+monitoring is awkward, can't be chained, and can't be called from another future or from Batch.</p>
+<p><strong>Queueable</strong> is a class, so it holds any type as a member including sObjects and wrapper objects;
+<code>System.enqueueJob()</code> returns a job Id you can query in <code>AsyncApexJob</code>; it supports chaining and
+<strong>Finalizers</strong> for reliable error handling. The only reason to still write <code>@future</code> is legacy
+consistency.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Explain the Batch Apex lifecycle and where state lives.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>start()</code> returns a <code>Database.QueryLocator</code> (up to 50 M records) or an
+<code>Iterable</code>; <code>execute()</code> runs once per chunk (default 200, range 1–2,000), <strong>each chunk in its
+own transaction with fresh governor limits</strong>; <code>finish()</code> runs once at the end for summary emails or
+chaining the next job.</p>
+<p>Instance variables reset between chunks <em>unless</em> the class implements <code>Database.Stateful</code>. Statics
+always reset. A failed chunk rolls back only itself — the rest continue, which is why you inspect
+<code>NumberOfErrors</code> rather than assuming "Completed" means success.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> QueryLocator vs Iterable in <code>start()</code> — when would you use Iterable?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><code>QueryLocator</code> handles up to <strong>50 million</strong> records and its rows don't count
+against the 50,000 query-row limit — use it in 99% of cases. <code>Iterable</code> is for when the data
+<strong>isn't a SOQL query</strong>: rows parsed from a CSV in a static resource, results assembled from a callout, or a
+computed list. The catch is that an Iterable is subject to the normal 50,000-row limit, so it can't scale the same way.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> What are the chaining rules, and how do you build a retry?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>From a Queueable you may enqueue <strong>one</strong> child job (5 in Developer/Trial orgs); depth is
+unlimited in production and each link is a fresh transaction. From Batch you may call
+<code>Database.executeBatch</code> once, and only from <code>finish()</code>. A synchronous transaction may enqueue up
+to 50 jobs.</p>
+<p>A retry passes an attempt counter into the constructor, re-enqueues on a retryable status (408, 429, 5xx) while
+<code>attempt &lt; MAX</code>, and logs a permanent failure otherwise. Guard the chain with
+<code>!Test.isRunningTest()</code> because chained jobs don't execute in tests.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> What problem do Transaction Finalizers solve?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>If a Queueable throws an <strong>unhandled</strong> exception, its transaction rolls back — including
+the <code>Error_Log__c</code> record you inserted to record the failure. You were left blind.</p>
+<p>A class implementing <code>Finalizer</code>, attached with <code>System.attachFinalizer()</code>, runs in its
+<strong>own transaction after</strong> the job completes, whatever the outcome. <code>FinalizerContext</code> gives you
+the parent job result and exception, and you may enqueue one retry job from it. This is the standard pattern for
+reliable async error handling.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> You can't deploy because a class is scheduled. What now?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Salesforce won't let you modify a class that a scheduled job holds. The sequence is:
+query <code>CronTrigger</code> to find the job, <code>System.abortJob(jobId)</code>, deploy, then reschedule — and this
+must be scripted, because it bites every CI/CD pipeline. Some teams avoid it entirely by keeping the
+<code>Schedulable</code> class as a one-line shim that delegates to a Batch class, so the scheduled class itself
+almost never changes.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> How do you test async code, and what won't run?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Queue the work between <code>Test.startTest()</code> and <code>Test.stopTest()</code> — it executes
+synchronously at <code>stopTest()</code>, so <strong>all assertions go after that line</strong>.</p>
+<p>What won't run: <strong>chained jobs</strong> (hence the <code>Test.isRunningTest()</code> guard), and batch tests
+process only <strong>one chunk</strong>, so keep test data at 200 records or fewer. For a scheduled job, use
+<code>System.schedule</code> with a far-future cron and assert on the <code>CronTrigger</code> record rather than trying
+to make it fire.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. You must pass a <code>List&lt;Account&gt;</code> to an async job. Which do you choose?</div>
+  <button class="opt">@future — serialise to JSON first</button>
+  <button class="opt" data-correct="1">Queueable — it accepts sObjects directly</button>
+  <button class="opt">Schedulable</button>
+  <div class="explain">Future methods only accept primitives. Queueable takes any type as a class member, which is one of the main reasons it replaced @future.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. You need to update 4 million records nightly. Design?</div>
+  <button class="opt">A Queueable chain</button>
+  <button class="opt" data-correct="1">Schedulable that launches a Batch with a QueryLocator</button>
+  <button class="opt">A @future loop</button>
+  <div class="explain">Batch handles up to 50 M via QueryLocator with fresh limits per chunk; Schedulable provides the nightly trigger.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. Your Queueable throws an unhandled exception and you lose the error log you inserted. Fix?</div>
+  <button class="opt">Wrap everything in try/catch and hope</button>
+  <button class="opt" data-correct="1">Attach a Finalizer — it runs in its own transaction after the job</button>
+  <button class="opt">Switch to @future</button>
+  <div class="explain">An unhandled exception rolls back the job's transaction, taking your log with it. Finalizers run afterwards in a separate transaction, so the log commits.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Asynchronous Apex</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

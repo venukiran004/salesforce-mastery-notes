@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Identity &amp; Access Management | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Platform</span> › <span>Identity</span></div>
+  <h1>Identity &amp; Access Management</h1>
+  <p class="lede">Who gets in, how they prove it, and how Salesforce acts as both a consumer and a provider of
+     identity — SSO, MFA, Connected Apps, My Domain and session security.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">🔗</span>
+  <div class="c-body"><span class="c-title">Where this sits</span>
+    <a href="security.html">Security &amp; Sharing</a> answers "what can this user see once they're in".
+    This module answers "how do they get in, and are they who they claim to be".
+    <a href="integration-core.html#authentication">OAuth for APIs</a> is the machine-to-machine cousin.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="concepts">The vocabulary</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Authentication</strong></td><td>Proving <em>who you are</em> (login, MFA)</td></tr>
+    <tr><td><strong>Authorisation</strong></td><td>Deciding <em>what you may do</em> (profiles, permission sets, sharing)</td></tr>
+    <tr><td><strong>Identity Provider (IdP)</strong></td><td>The system that authenticates the user and asserts their identity</td></tr>
+    <tr><td><strong>Service Provider (SP)</strong></td><td>The application that trusts that assertion and logs the user in</td></tr>
+    <tr><td><strong>SAML</strong></td><td>XML-based assertion protocol — the enterprise SSO standard</td></tr>
+    <tr><td><strong>OpenID Connect (OIDC)</strong></td><td>An identity layer on top of OAuth 2.0, JSON/JWT based — the modern choice</td></tr>
+    <tr><td><strong>SCIM</strong></td><td>Standard for automated user provisioning and de-provisioning</td></tr>
+    <tr><td><strong>JIT provisioning</strong></td><td>Creating or updating the user automatically from the SSO assertion at login</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="sso">Single Sign-On</h2>
+
+<div class="dgm">
+  <div class="dgm-title">SP-initiated SAML flow — Salesforce as the Service Provider</div>
+  <svg viewBox="0 0 790 300" role="img" aria-label="SAML single sign-on sequence between user, Salesforce and identity provider">
+    <rect class="s-box" x="20" y="16" width="120" height="34" rx="7"/><text class="s-t-sm anchor-mid" x="80" y="33">User</text>
+    <rect class="s-box-b" x="320" y="16" width="140" height="34" rx="7"/><text class="s-t-sm anchor-mid" x="390" y="33">Salesforce (SP)</text>
+    <rect class="s-box-v" x="630" y="16" width="140" height="34" rx="7"/><text class="s-t-sm anchor-mid" x="700" y="33">IdP (Okta / Entra)</text>
+    <path class="s-line s-dash" d="M80 50 V280 M390 50 V280 M700 50 V280"/>
+
+    <path class="s-line-b" d="M80 80 H380" marker-end="url(#id1)"/>
+    <text class="s-t-sm" x="100" y="70">1 · Browse to the My Domain login URL</text>
+
+    <path class="s-line-b" d="M390 114 H690" marker-end="url(#id1)"/>
+    <text class="s-t-sm" x="410" y="104">2 · Redirect with a SAML AuthnRequest</text>
+
+    <path class="s-line-v" d="M700 148 H90" marker-end="url(#id1)"/>
+    <text class="s-t-sm" x="330" y="138">3 · IdP authenticates (password + MFA)</text>
+
+    <path class="s-line-v" d="M80 182 H380" marker-end="url(#id1)"/>
+    <text class="s-t-sm" x="100" y="172">4 · Browser POSTs the signed SAML assertion</text>
+
+    <path class="s-line-t" d="M390 216 H390" />
+    <text class="s-t-sm" x="200" y="216">5 · Salesforce validates the signature, maps the Federation Id → User</text>
+
+    <path class="s-line-g" d="M390 254 H90" marker-end="url(#id1)"/>
+    <text class="s-t-sm s-t-g" x="140" y="244">6 · Session created — user is in, no Salesforce password used</text>
+    <defs><marker id="id1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Setting</th><th>What to get right</th></tr></thead>
+  <tbody>
+    <tr><td><strong>SAML Identity Type</strong></td><td>Match on <em>Federation ID</em> (recommended — stable, portable) or Username. Federation ID must be populated on every user.</td></tr>
+    <tr><td><strong>Identity Location</strong></td><td>Whether the identity is in the Subject NameID or an attribute.</td></tr>
+    <tr><td><strong>Issuer / Entity ID</strong></td><td>Must match exactly on both sides — the most common cause of failure.</td></tr>
+    <tr><td><strong>Signing certificate</strong></td><td>Uploaded from the IdP. <strong>It expires</strong> — diarise the renewal or SSO breaks org-wide overnight.</td></tr>
+    <tr><td><strong>SP-initiated vs IdP-initiated</strong></td><td>SP-initiated starts at Salesforce; IdP-initiated starts at the IdP portal. Support both if users bookmark deep links.</td></tr>
+    <tr><td><strong>JIT provisioning</strong></td><td>Creates/updates the user from assertion attributes on first login. Needs Profile, Email, LastName, Alias, TimeZone, Locale, Language.</td></tr>
+    <tr><td><strong>Login page control</strong></td><td>"Prevent login from login.salesforce.com" forces everyone through SSO.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout danger">
+  <span class="c-ico">🔒</span>
+  <div class="c-body"><span class="c-title">Always keep a break-glass admin</span>
+    Before enforcing SSO, create at least one admin with SSO <strong>bypassed</strong> (a profile whose login isn't
+    delegated), a strong password and MFA, and store the credentials in your password vault. When the IdP certificate
+    expires or the IdP goes down, that account is the only way back into the org.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="salesforce-as-idp">Salesforce as the Identity Provider</h2>
+<p>Salesforce can also <em>be</em> the IdP — users log into Salesforce, then click into other apps without logging in again.</p>
+<ul>
+  <li>Enable it in <strong>Setup → Identity Provider</strong>, then define each downstream app as a <strong>Connected App</strong> with SAML or OIDC settings.</li>
+  <li>The <strong>App Launcher</strong> becomes the users' portal to all connected apps.</li>
+  <li>Common with Experience Cloud: customers authenticate once and reach partner tools.</li>
+  <li><strong>Identity licences</strong> exist for users who only need SSO and App Launcher, not CRM.</li>
+</ul>
+
+<h3>Connected Apps — both directions</h3>
+<div class="vs">
+  <div class="card accent-teal"><h4>Inbound (app → Salesforce)</h4>
+    <p>An external system authenticates <em>to</em> Salesforce via OAuth. This is the object you create for Postman,
+       a mobile app or an integration. See <a href="integration-core.html#authentication">OAuth flows</a>.</p>
+    <p>Key policies: permitted users, IP relaxation, refresh-token validity, session policies.</p></div>
+  <div class="vs-mid">vs</div>
+  <div class="card accent-violet"><h4>Outbound (Salesforce → app)</h4>
+    <p>Salesforce asserts identity <em>to</em> another app via SAML/OIDC, and appears in the App Launcher.</p>
+    <p>Key settings: ACS URL, Entity Id, NameID format, custom attributes to pass.</p></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="mfa">MFA &amp; login security</h2>
+<div class="grid g2">
+  <div class="card accent-rose"><h4>Multi-Factor Authentication</h4>
+    <ul><li><strong>Mandatory</strong> for all direct Salesforce logins</li>
+        <li>Methods: Salesforce Authenticator, TOTP apps, security keys (U2F/WebAuthn), built-in device biometrics</li>
+        <li>SMS and email codes are <em>not</em> accepted as MFA factors</li>
+        <li>If your IdP enforces MFA, that satisfies the requirement for SSO users</li>
+        <li>Enforce with the "Multi-Factor Authentication for User Interface Logins" permission</li></ul></div>
+  <div class="card accent-amber"><h4>Session security</h4>
+    <ul><li><strong>Session timeout</strong> and "force logout on timeout"</li>
+        <li><strong>Lock sessions to the IP</strong> they originated from</li>
+        <li><strong>High Assurance sessions</strong> — require MFA to reach sensitive areas (reports, Setup, a connected app)</li>
+        <li><strong>Login Flows</strong> — run a screen flow after authentication for extra verification or terms acceptance</li>
+        <li>Clickjack, CSRF and CSP protections</li></ul></div>
+  <div class="card accent-blue"><h4>Access restrictions</h4>
+    <ul><li><strong>Login IP Ranges</strong> (profile) — hard block outside the range</li>
+        <li><strong>Trusted IP Ranges</strong> (network access) — inside = no verification challenge; outside = challenge, not block</li>
+        <li><strong>Login Hours</strong> (profile)</li>
+        <li>Device activation and identity verification by email/authenticator</li></ul></div>
+  <div class="card accent-green"><h4>Monitoring</h4>
+    <ul><li><strong>Login History</strong> — status, IP, browser, application, login type</li>
+        <li><strong>Identity Verification History</strong></li>
+        <li><strong>Login Forensics</strong> and <strong>Transaction Security Policies</strong> (Shield) to block or alert on risky logins in real time</li></ul></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="my-domain">My Domain &amp; org URLs</h2>
+<ul>
+  <li><strong>My Domain is mandatory.</strong> It gives your org a branded URL (<code>acme.my.salesforce.com</code>).</li>
+  <li>It's a prerequisite for SSO, Lightning components in Experience Cloud, and the modern login experience.</li>
+  <li>Enhanced Domains standardise the format across Lightning, Experience Cloud and Visualforce hosts.</li>
+  <li><strong>Practical impact:</strong> hard-coded instance URLs (<code>na152.salesforce.com</code>) break. Always use
+      <code>URL.getOrgDomainUrl()</code> in Apex and <code>{{instance_url}}</code> from the OAuth response in integrations.</li>
+</ul>
+<pre><code class="language-apex">// Never hard-code the instance
+String base = URL.getOrgDomainUrl().toExternalForm();
+String recordUrl = base + '/lightning/r/Account/' + acc.Id + '/view';
+
+// A self-callout still needs a Named Credential — even to your own org
+req.setEndpoint('callout:Self_Org/services/data/v62.0/sobjects/Account/' + acc.Id);</code></pre>
+
+<!-- ============================================ -->
+<h2 id="provisioning">User provisioning &amp; lifecycle</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Approach</th><th>How it works</th><th>Best for</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Manual</strong></td><td>Admin creates each user</td><td>Small orgs</td></tr>
+    <tr><td><strong>JIT provisioning</strong></td><td>User created/updated from the SAML assertion at first login</td><td>SSO orgs where the IdP owns the data</td></tr>
+    <tr><td><strong>SCIM / User Provisioning</strong></td><td>The IdP pushes create, update and <strong>deactivate</strong> events</td><td>Enterprises — the only approach that reliably handles leavers</td></tr>
+    <tr><td><strong>Data Loader / API</strong></td><td>Bulk create from HR data</td><td>Migrations and onboarding waves</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout warn">
+  <span class="c-ico">🚪</span>
+  <div class="c-body"><span class="c-title">Deactivation, not deletion</span>
+    Salesforce users can never be deleted — they're <strong>deactivated</strong>, which frees the licence while
+    preserving record ownership and audit history. Before deactivating: reassign record ownership, check they aren't
+    the running user of a dashboard, an approver, a queue member, the owner of a scheduled job, or a Connected App's
+    integration user. <strong>Freezing</strong> blocks login immediately without freeing the licence — use it while you
+    work through that list.</div>
+</div>
+<p><strong>Delegated Administration</strong> lets you give a business-unit lead the ability to create users and reset
+   passwords for specified roles and profiles, without full admin rights.</p>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Authentication vs authorisation — where does each live in Salesforce?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Authentication</strong> = proving identity: My Domain login, SSO, MFA, login IP ranges and
+hours, session settings. <strong>Authorisation</strong> = what you can do once in: profiles, permission sets and groups
+(object and field access) plus OWD, role hierarchy and sharing rules (record access). A user can be perfectly
+authenticated and still see nothing — the two layers are independent.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> Walk me through SP-initiated SAML SSO.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The user hits the My Domain URL → Salesforce redirects the browser to the IdP with a SAML
+AuthnRequest → the IdP authenticates them (password + MFA) → the browser POSTs a <strong>signed SAML assertion</strong>
+back to Salesforce → Salesforce validates the signature against the uploaded certificate and maps the identity (normally
+the <strong>Federation ID</strong>) to a User record → a session is created.</p>
+<p>No Salesforce password is ever used. IdP-initiated is the same but starts from the IdP's portal.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> SSO breaks org-wide at 9am. What happened and how do you get back in?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Most likely the <strong>IdP signing certificate expired</strong> — the classic overnight failure.
+Other candidates: the IdP is down, someone changed the Entity ID/Issuer, or a clock-skew problem invalidating assertions.</p>
+<p>You get back in with the <strong>break-glass admin</strong> — an account excluded from SSO, with a password and MFA,
+stored in the vault. That's why you create one <em>before</em> enforcing SSO. Then upload the new certificate. Longer
+term: monitor certificate expiry and alert 30 days ahead.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Login IP Ranges vs Trusted IP Ranges.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Login IP Ranges</strong> are set on the <em>profile</em> and are a <strong>hard
+block</strong> — outside the range, the user cannot log in at all. <strong>Trusted IP Ranges</strong> are org-wide
+network settings and only control the <em>identity verification challenge</em>: inside the range you skip the emailed
+code; outside you're challenged but not blocked.</p>
+<p>The trap: adding an office IP to Trusted ranges doesn't restrict anything — people often think it does.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> A user leaves the company. What's your checklist?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Freeze</strong> immediately to stop login while you work. Then reassign: record ownership,
+open activities, dashboards where they're the running user, pending approvals, queue membership, scheduled jobs they
+own, and any Connected App or integration using their credentials. Check they aren't referenced in a role hierarchy gap
+or a Sharing rule target. Then <strong>deactivate</strong> to free the licence — users cannot be deleted, so their
+audit history is preserved. Ideally SCIM from the IdP triggers all this automatically.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> What is a High Assurance session and when would you use one?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A session that was established with a stronger factor — MFA, or a specific login method. You can
+mark a <strong>Connected App, report, or Setup area as requiring High Assurance</strong>, so a user logged in with only
+a password is re-challenged when they try to reach it.</p>
+<p>Typical use: normal CRM work needs standard assurance, but exporting reports or entering Setup requires MFA. It's the
+step-up authentication pattern, configured under Session Security Levels.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> Why is hard-coding <code>na152.salesforce.com</code> a bug?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Instance names change — Salesforce migrates orgs between instances, and My Domain/Enhanced Domains
+changed the URL format. Hard-coded hosts break silently after a migration or a sandbox refresh.</p>
+<p>Use <code>URL.getOrgDomainUrl().toExternalForm()</code> in Apex, the <code>instance_url</code> returned by the OAuth
+token response in integrations, and a Named Credential for callouts — including self-callouts back into your own
+org.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> How would you let a business unit manager create users without making them an admin?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Delegated Administration</strong>. Define a delegated admin group specifying which
+<em>roles</em> (and subordinates) they can manage and which <em>profiles</em> they may assign. They can then create and
+edit users, reset passwords and unlock accounts within that scope — and nothing else.</p>
+<p>It's the correct answer to "they need to onboard their own team" and avoids the far riskier alternative of granting
+Manage Users, which is effectively full administrative power.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. Which identity value is recommended for matching SSO users?</div>
+  <button class="opt">Username</button>
+  <button class="opt" data-correct="1">Federation ID — stable and independent of the Salesforce username</button>
+  <button class="opt">Email address</button>
+  <div class="explain">Usernames must be globally unique across all of Salesforce and often change; the Federation ID is owned by your IdP and stays stable.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. Can a Salesforce user be deleted?</div>
+  <button class="opt">Yes, after reassigning their records</button>
+  <button class="opt" data-correct="1">No — users are deactivated (or frozen), never deleted</button>
+  <button class="opt">Only by Salesforce Support</button>
+  <div class="explain">Deactivation frees the licence while preserving ownership history and audit integrity. Freeze blocks login immediately without freeing the licence.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. Before enforcing SSO org-wide, what must you set up?</div>
+  <button class="opt">A second identity provider</button>
+  <button class="opt" data-correct="1">A break-glass admin account that bypasses SSO, with MFA and vaulted credentials</button>
+  <button class="opt">Login IP ranges on every profile</button>
+  <div class="explain">When the IdP certificate expires or the IdP is down, that account is your only route back into the org.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Identity &amp; Access</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APIs &amp; Callouts | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Integration</span> › <span>APIs &amp; Callouts</span></div>
+  <h1>APIs &amp; Callouts</h1>
+  <p class="lede">The complete integration toolkit: what an API is, inbound vs outbound, authentication, REST and SOAP
+     callouts, every standard API, composite requests, status codes, Apex REST/SOAP, Outbound Messages and External
+     Services — each with a use case.</p>
+</header>
+
+<!-- ============================================ -->
+<h2 id="what-is-an-api">What is an API?</h2>
+<p>An <strong>Application Programming Interface</strong> is a contract that lets two systems exchange data without
+   knowing anything about each other's internals. It defines <em>what</em> you can ask for, <em>how</em> to ask,
+   and <em>what</em> comes back.</p>
+
+<div class="dgm">
+  <div class="dgm-title">The restaurant analogy — and the real mapping</div>
+  <svg viewBox="0 0 780 280" role="img" aria-label="API concept illustrated as client, contract and server">
+    <rect class="s-box-b" x="20" y="80" width="160" height="90" rx="10"/>
+    <text class="s-t s-t-b anchor-mid" x="100" y="106">CLIENT</text>
+    <text class="s-t-sm anchor-mid" x="100" y="130">The consumer</text>
+    <text class="s-t-sm anchor-mid" x="100" y="150">Salesforce, an app,</text>
+    <text class="s-t-sm anchor-mid" x="100" y="166">Postman, a website</text>
+
+    <path class="s-line-b" d="M180 108 H310" marker-end="url(#i1)"/>
+    <text class="s-t-sm s-t-b anchor-mid" x="245" y="96">REQUEST</text>
+    <text class="s-t-mono anchor-mid" x="245" y="130">method + URL</text>
+    <text class="s-t-mono anchor-mid" x="245" y="148">headers + body</text>
+    <path class="s-line-g" d="M310 168 H180" marker-end="url(#i1)"/>
+    <text class="s-t-sm s-t-g anchor-mid" x="245" y="186">RESPONSE</text>
+    <text class="s-t-mono anchor-mid" x="245" y="204">status + body</text>
+
+    <rect class="s-box-v" x="310" y="60" width="150" height="130" rx="10"/>
+    <text class="s-t s-t-v anchor-mid" x="385" y="86">THE API</text>
+    <text class="s-t-sm anchor-mid" x="385" y="110">The contract</text>
+    <text class="s-t-sm anchor-mid" x="385" y="132">• endpoints</text>
+    <text class="s-t-sm anchor-mid" x="385" y="150">• auth rules</text>
+    <text class="s-t-sm anchor-mid" x="385" y="168">• data format</text>
+
+    <path class="s-line-v" d="M460 125 H590" marker-end="url(#i1)"/>
+    <rect class="s-box-t" x="590" y="80" width="170" height="90" rx="10"/>
+    <text class="s-t s-t-t anchor-mid" x="675" y="106">SERVER</text>
+    <text class="s-t-sm anchor-mid" x="675" y="130">Business logic</text>
+    <text class="s-t-sm anchor-mid" x="675" y="150">+ database</text>
+
+    <text class="s-t-sm anchor-mid" x="390" y="248">The client never touches the database. It only knows the contract.</text>
+    <text class="s-t-sm anchor-mid" x="390" y="268">That's what makes systems replaceable and integrations stable.</text>
+    <defs><marker id="i1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<h3>The anatomy of an HTTP request</h3>
+<pre><code class="language-bash">POST /services/data/v62.0/sobjects/Account HTTP/1.1     ← METHOD + PATH
+Host: mycompany.my.salesforce.com                       ← HEADERS
+Authorization: Bearer 00D5j000...!AQEAQJ3
+Content-Type: application/json
+Accept: application/json
+
+{                                                        ← BODY
+  "Name": "Acme India",
+  "Industry": "Technology"
+}</code></pre>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>HTTP method</th><th>Means</th><th>Idempotent?</th><th>Salesforce example</th></tr></thead>
+  <tbody>
+    <tr><td><code>GET</code></td><td>Read</td><td>✅ Yes</td><td>Retrieve an Account</td></tr>
+    <tr><td><code>POST</code></td><td>Create</td><td>❌ No</td><td>Create a new record</td></tr>
+    <tr><td><code>PUT</code></td><td>Replace entirely</td><td>✅ Yes</td><td>Rarely used in Salesforce</td></tr>
+    <tr><td><code>PATCH</code></td><td>Partial update</td><td>✅ Yes</td><td>Update fields, or <strong>upsert by External Id</strong></td></tr>
+    <tr><td><code>DELETE</code></td><td>Remove</td><td>✅ Yes</td><td>Delete a record</td></tr>
+    <tr><td><code>HEAD</code></td><td>Headers only</td><td>✅ Yes</td><td>Check existence cheaply</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>REST vs SOAP</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>REST</th><th>SOAP</th></tr></thead>
+  <tbody>
+    <tr><td>Style</td><td>Architectural style</td><td>Strict protocol</td></tr>
+    <tr><td>Format</td><td>JSON (usually) or XML</td><td><strong>XML only</strong></td></tr>
+    <tr><td>Contract</td><td>OpenAPI/Swagger (optional)</td><td><strong>WSDL</strong> (mandatory, strongly typed)</td></tr>
+    <tr><td>Transport</td><td>HTTP only</td><td>HTTP, SMTP, JMS…</td></tr>
+    <tr><td>Payload size</td><td>Lightweight</td><td>Verbose (envelope overhead)</td></tr>
+    <tr><td>Error handling</td><td>HTTP status codes</td><td>SOAP Fault element</td></tr>
+    <tr><td>Built-in transactions/security</td><td>No (use HTTPS + OAuth)</td><td>WS-Security, WS-AtomicTransaction</td></tr>
+    <tr><td>Best for</td><td>Mobile, web, modern services, high volume</td><td>Enterprise systems (SAP, banking, legacy), strict contracts</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="inbound-vs-outbound">Inbound vs Outbound</h2>
+<p>Everything in integration hinges on <strong>who initiates the call</strong>. Get this direction right and the rest
+   of the design follows.</p>
+
+<div class="dgm">
+  <div class="dgm-title">Direction determines the toolset</div>
+  <svg viewBox="0 0 790 340" role="img" aria-label="Inbound versus outbound integration directions and tools">
+    <!-- inbound -->
+    <rect class="s-box-b" x="20" y="20" width="750" height="140" rx="12"/>
+    <text class="s-t s-t-b" x="40" y="44">INBOUND — the external system calls Salesforce (Salesforce = server)</text>
+    <rect class="s-box" x="50" y="60" width="150" height="52" rx="8"/>
+    <text class="s-t-sm anchor-mid" x="125" y="80">External system</text>
+    <text class="s-t-sm anchor-mid" x="125" y="98">SAP · web app · MuleSoft</text>
+    <path class="s-line-b" d="M200 86 H320" marker-end="url(#o1)"/>
+    <text class="s-t-sm s-t-b anchor-mid" x="260" y="74">calls in</text>
+    <rect class="s-box-b" x="320" y="60" width="150" height="52" rx="8"/>
+    <text class="s-t anchor-mid" x="395" y="86">SALESFORCE</text>
+    <text class="s-t-sm" x="500" y="72">Standard REST / SOAP API</text>
+    <text class="s-t-sm" x="500" y="90">Apex REST · Apex SOAP</text>
+    <text class="s-t-sm" x="500" y="108">Bulk API · Composite · Connect</text>
+    <text class="s-t-sm s-t-a" x="50" y="138">You must configure: Connected App, OAuth, user &amp; permissions, IP relaxation</text>
+
+    <!-- outbound -->
+    <rect class="s-box-v" x="20" y="180" width="750" height="140" rx="12"/>
+    <text class="s-t s-t-v" x="40" y="204">OUTBOUND — Salesforce calls the external system (Salesforce = client)</text>
+    <rect class="s-box-v" x="50" y="220" width="150" height="52" rx="8"/>
+    <text class="s-t anchor-mid" x="125" y="246">SALESFORCE</text>
+    <path class="s-line-v" d="M200 246 H320" marker-end="url(#o1)"/>
+    <text class="s-t-sm s-t-v anchor-mid" x="260" y="234">calls out</text>
+    <rect class="s-box" x="320" y="220" width="150" height="52" rx="8"/>
+    <text class="s-t-sm anchor-mid" x="395" y="240">External system</text>
+    <text class="s-t-sm anchor-mid" x="395" y="258">payment · ERP · shipping</text>
+    <text class="s-t-sm" x="500" y="232">Apex HTTP callout (REST)</text>
+    <text class="s-t-sm" x="500" y="250">WSDL2Apex (SOAP) · Outbound Message</text>
+    <text class="s-t-sm" x="500" y="268">External Services · Named Credential</text>
+    <text class="s-t-sm s-t-a" x="50" y="298">You must configure: Remote Site Setting or Named Credential, and handle DML-before-callout</text>
+    <defs><marker id="o1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>Inbound</th><th>Outbound</th></tr></thead>
+  <tbody>
+    <tr><td>Salesforce is the…</td><td>Server / provider</td><td>Client / consumer</td></tr>
+    <tr><td>Who authenticates?</td><td>The external system authenticates <em>to</em> Salesforce</td><td>Salesforce authenticates <em>to</em> them</td></tr>
+    <tr><td>Setup needed</td><td>Connected App, integration user, profile/permission set</td><td>Named Credential (or Remote Site Setting + manual auth)</td></tr>
+    <tr><td>Limits that bite</td><td>Daily API request allocation</td><td>100 callouts/transaction, 120 s total timeout</td></tr>
+    <tr><td>Typical trigger</td><td>An event in the other system</td><td>A trigger, flow, batch or button in Salesforce</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="authentication">Authentication &amp; OAuth 2.0</h2>
+<p>Every inbound call needs an <strong>access token</strong>. You get one by completing an OAuth flow against a
+   <strong>Connected App</strong>.</p>
+
+<h3>Setting up a Connected App</h3>
+<ul class="steps">
+  <li><b>Setup → App Manager → New Connected App</b> (or "New External Client App" in newer orgs).</li>
+  <li><b>Enable OAuth Settings</b>, set the <strong>Callback URL</strong> (e.g. <code>https://oauth.pstmn.io/v1/callback</code> for Postman).</li>
+  <li><b>Select scopes</b>: <code>api</code> (access data), <code>refresh_token offline_access</code> (long-lived), <code>openid</code>, <code>full</code>.</li>
+  <li><b>Save and wait ~10 minutes</b> for it to propagate — a classic source of confusing 400 errors.</li>
+  <li><b>Copy the Consumer Key (client_id) and Consumer Secret (client_secret).</b></li>
+  <li><b>Manage → Edit Policies</b>: set "Permitted Users" (usually <em>Admin approved users are pre-authorised</em>) and IP relaxation.</li>
+  <li><b>Assign a profile or permission set</b> to the Connected App so your integration user can use it.</li>
+</ul>
+
+<div class="dgm">
+  <div class="dgm-title">Web Server (Authorization Code) flow — the standard for user-facing apps</div>
+  <svg viewBox="0 0 790 320" role="img" aria-label="OAuth 2.0 authorization code flow sequence">
+    <rect class="s-box" x="20" y="16" width="120" height="34" rx="7"/><text class="s-t-sm anchor-mid" x="80" y="33">User</text>
+    <rect class="s-box-b" x="300" y="16" width="140" height="34" rx="7"/><text class="s-t-sm anchor-mid" x="370" y="33">Your App</text>
+    <rect class="s-box-v" x="620" y="16" width="150" height="34" rx="7"/><text class="s-t-sm anchor-mid" x="695" y="33">Salesforce</text>
+    <path class="s-line s-dash" d="M80 50 V300 M370 50 V300 M695 50 V300"/>
+
+    <path class="s-line-b" d="M80 78 H360" marker-end="url(#oa1)"/>
+    <text class="s-t-sm" x="100" y="68">1 · "Log in with Salesforce"</text>
+
+    <path class="s-line-b" d="M370 110 H685" marker-end="url(#oa1)"/>
+    <text class="s-t-sm" x="390" y="100">2 · Redirect to /services/oauth2/authorize?client_id=…&amp;redirect_uri=…</text>
+
+    <path class="s-line-v" d="M695 142 H90" marker-end="url(#oa1)"/>
+    <text class="s-t-sm" x="360" y="132">3 · Login + consent screen</text>
+
+    <path class="s-line-v" d="M80 174 H360" marker-end="url(#oa1)"/>
+    <text class="s-t-sm" x="100" y="164">4 · Redirect back with ?code=AUTH_CODE</text>
+
+    <path class="s-line-t" d="M370 208 H685" marker-end="url(#oa1)"/>
+    <text class="s-t-sm" x="390" y="198">5 · POST /services/oauth2/token  (code + client_id + client_secret)</text>
+
+    <path class="s-line-g" d="M695 244 H380" marker-end="url(#oa1)"/>
+    <text class="s-t-sm s-t-g" x="400" y="234">6 · access_token + refresh_token + instance_url</text>
+
+    <path class="s-line-b" d="M370 282 H685" marker-end="url(#oa1)"/>
+    <text class="s-t-sm" x="390" y="272">7 · API calls with  Authorization: Bearer &lt;access_token&gt;</text>
+    <defs><marker id="oa1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>OAuth flow</th><th>Use it when</th><th>User interaction?</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Web Server (Authorization Code)</strong></td><td>A server-side web app acting for a user</td><td>✅ Once</td></tr>
+    <tr><td><strong>JWT Bearer</strong></td><td><strong>Server-to-server</strong> integrations — the production standard. Uses a certificate, no password, no user prompt</td><td>❌ Never</td></tr>
+    <tr><td><strong>Client Credentials</strong></td><td>Server-to-server where an integration user is nominated on the Connected App</td><td>❌ Never</td></tr>
+    <tr><td><strong>Refresh Token</strong></td><td>Getting a new access token when the old one expires</td><td>❌</td></tr>
+    <tr><td><strong>Device</strong></td><td>Devices with no browser (IoT, TVs)</td><td>✅ On another device</td></tr>
+    <tr><td><strong>User-Agent</strong></td><td>Pure JavaScript/mobile apps — token in the URL fragment</td><td>✅</td></tr>
+    <tr><td><strong>Username-Password</strong></td><td>❌ <strong>Deprecated / blocked by default.</strong> Never use in production</td><td>❌</td></tr>
+    <tr><td><strong>SAML Bearer / Assertion</strong></td><td>You already have a SAML SSO relationship</td><td>❌</td></tr>
+  </tbody>
+</table>
+</div>
+
+<pre><code class="language-bash"># Client Credentials flow — simplest server-to-server (nominate a user on the Connected App)
+curl -X POST https://MyDomain.my.salesforce.com/services/oauth2/token \
+  -d "grant_type=client_credentials" \
+  -d "client_id=YOUR_CONSUMER_KEY" \
+  -d "client_secret=YOUR_CONSUMER_SECRET"
+
+# Response
+# {
+#   "access_token": "00D5j000...!AQEAQJ3",
+#   "instance_url": "https://mycompany.my.salesforce.com",
+#   "token_type": "Bearer",
+#   "issued_at": "1754969600000"
+# }
+
+# Refresh an expired token
+curl -X POST https://MyDomain.my.salesforce.com/services/oauth2/token \
+  -d "grant_type=refresh_token" \
+  -d "client_id=KEY" -d "client_secret=SECRET" \
+  -d "refresh_token=YOUR_REFRESH_TOKEN"</code></pre>
+
+<!-- ============================================ -->
+<h2 id="named-credentials">Named Credentials &amp; Remote Site Settings</h2>
+<p>Before Salesforce can call <em>out</em> to any URL, that endpoint must be whitelisted.</p>
+
+<div class="vs">
+  <div class="card accent-rose"><h4>Remote Site Setting (old way)</h4>
+    <p>Just whitelists the URL. You manage tokens, headers and refresh logic yourself — usually storing secrets in a
+       custom setting, which is a security smell.</p>
+    <pre style="font-size:12px;background:none;padding:0;color:var(--text-dim)">req.setEndpoint('https://api.erp.com/v1/orders');
+req.setHeader('Authorization', 'Bearer ' + token);</pre></div>
+  <div class="vs-mid">vs</div>
+  <div class="card accent-green"><h4>Named Credential (right way)</h4>
+    <p>Stores the URL <em>and</em> the authentication. Salesforce injects the auth header and refreshes tokens for you.
+       Secrets never appear in code.</p>
+    <pre style="font-size:12px;background:none;padding:0;color:var(--text-dim)">req.setEndpoint('callout:ERP_API/v1/orders');
+// no Authorization header needed at all</pre></div>
+</div>
+
+<ul class="steps">
+  <li><b>Setup → Named Credentials → External Credential</b> — choose the authentication protocol (OAuth 2.0, Basic, JWT, AWS Signature, Custom).</li>
+  <li><b>Add a Principal</b> (Named Principal for one shared identity, or Per-User Principal for individual auth).</li>
+  <li><b>Grant access</b> — add the External Credential to a permission set.</li>
+  <li><b>Create the Named Credential</b> pointing at the base URL and the External Credential.</li>
+  <li><b>Use it in Apex</b> as <code>callout:My_Named_Credential/path</code>.</li>
+</ul>
+
+<pre><code class="language-apex">// Named Credential with merge fields for custom headers
+HttpRequest req = new HttpRequest();
+req.setEndpoint('callout:ERP_API/v1/orders');
+req.setMethod('GET');
+// Salesforce injects: Authorization: Bearer &lt;managed token&gt;
+HttpResponse res = new Http().send(req);
+
+// Calling YOUR OWN org's API (self-callout) — still needs a Named Credential
+req.setEndpoint('callout:Self_Org/services/data/v62.0/sobjects/Account/001xx');</code></pre>
+
+<!-- ============================================ -->
+<h2 id="rest-callout">REST callouts (outbound)</h2>
+
+<div class="dgm">
+  <div class="dgm-title">The callout sequence — and the DML trap</div>
+  <svg viewBox="0 0 790 260" role="img" aria-label="Apex REST callout sequence and the uncommitted work error">
+    <rect class="s-box-b" x="20" y="90" width="120" height="60" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="80" y="112">Apex builds</text><text class="s-t-sm anchor-mid" x="80" y="130">HttpRequest</text>
+    <path class="s-line-b" d="M140 120 H200" marker-end="url(#rc1)"/>
+    <rect class="s-box-v" x="200" y="90" width="130" height="60" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="265" y="108">Endpoint check</text>
+    <text class="s-t-sm anchor-mid" x="265" y="128">Named Cred /</text>
+    <text class="s-t-sm anchor-mid" x="265" y="144">Remote Site</text>
+    <path class="s-line-v" d="M330 120 H390" marker-end="url(#rc1)"/>
+    <rect class="s-box-t" x="390" y="90" width="130" height="60" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="455" y="112">http.send()</text>
+    <text class="s-t-sm anchor-mid" x="455" y="132">max 120 s</text>
+    <path class="s-line-t" d="M520 120 H580" marker-end="url(#rc1)"/>
+    <rect class="s-box-g" x="580" y="90" width="180" height="60" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="670" y="108">HttpResponse</text>
+    <text class="s-t-sm anchor-mid" x="670" y="128">getStatusCode()</text>
+    <text class="s-t-sm anchor-mid" x="670" y="144">getBody()</text>
+
+    <rect class="s-box-r" x="120" y="186" width="560" height="56" rx="10"/>
+    <text class="s-t s-t-r anchor-mid" x="400" y="208">⚠ "You have uncommitted work pending"</text>
+    <text class="s-t-sm anchor-mid" x="400" y="230">Any DML earlier in the transaction blocks the callout → move it to Queueable / @future(callout=true)</text>
+    <defs><marker id="rc1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<pre data-file="ErpCalloutService.cls"><code class="language-apex">public with sharing class ErpCalloutService {
+
+    /* ---------------- GET ---------------- */
+    public static Order__c fetchOrder(String orderNumber) {
+        HttpRequest req = new HttpRequest();
+        req.setEndpoint('callout:ERP_API/v1/orders/' + EncodingUtil.urlEncode(orderNumber, 'UTF-8'));
+        req.setMethod('GET');
+        req.setHeader('Accept', 'application/json');
+        req.setTimeout(30000);                       // ms, max 120000
+
+        HttpResponse res = new Http().send(req);
+
+        if (res.getStatusCode() != 200) {
+            throw new CalloutException('ERP GET failed: ' + res.getStatusCode()
+                                       + ' — ' + res.getBody());
+        }
+        Map&lt;String, Object&gt; body = (Map&lt;String, Object&gt;) JSON.deserializeUntyped(res.getBody());
+        return new Order__c(
+            External_Id__c = (String)  body.get('id'),
+            Amount__c      = (Decimal) body.get('total'),
+            Status__c      = (String)  body.get('status'));
+    }
+
+    /* ---------------- POST ---------------- */
+    public static String createOrder(Order__c o) {
+        HttpRequest req = new HttpRequest();
+        req.setEndpoint('callout:ERP_API/v1/orders');
+        req.setMethod('POST');
+        req.setHeader('Content-Type', 'application/json');
+        req.setBody(JSON.serialize(new Map&lt;String, Object&gt;{
+            'customerRef' =&gt; o.Account__c,
+            'total'       =&gt; o.Amount__c,
+            'lines'       =&gt; buildLines(o)
+        }));
+
+        HttpResponse res = new Http().send(req);
+        if (res.getStatusCode() == 201) {
+            Map&lt;String, Object&gt; body = (Map&lt;String, Object&gt;) JSON.deserializeUntyped(res.getBody());
+            return (String) body.get('id');
+        }
+        throw new CalloutException('Create failed: ' + res.getStatus() + ' ' + res.getBody());
+    }
+
+    /* ---------------- PATCH / PUT / DELETE ---------------- */
+    public static void updateOrder(String id, Map&lt;String, Object&gt; changes) {
+        HttpRequest req = new HttpRequest();
+        req.setEndpoint('callout:ERP_API/v1/orders/' + id);
+        req.setMethod('PATCH');
+        req.setHeader('Content-Type', 'application/json');
+        req.setBody(JSON.serialize(changes));
+        new Http().send(req);
+    }
+
+    public static void deleteOrder(String id) {
+        HttpRequest req = new HttpRequest();
+        req.setEndpoint('callout:ERP_API/v1/orders/' + id);
+        req.setMethod('DELETE');
+        new Http().send(req);
+    }
+
+    /* ---------------- Other request features ---------------- */
+    public static void extras() {
+        HttpRequest req = new HttpRequest();
+        req.setEndpoint('callout:ERP_API/v1/files');
+        req.setMethod('POST');
+        req.setBodyAsBlob(someBlob);                            // binary upload
+        req.setCompressed(true);                                // gzip the body
+        req.setClientCertificateName('MyOrgCert');              // mutual TLS
+        req.setHeader('Authorization',
+            'Basic ' + EncodingUtil.base64Encode(Blob.valueOf('user:pass')));  // if no Named Cred
+    }
+}</code></pre>
+
+<h3>Resilient callouts — retry with backoff</h3>
+<pre><code class="language-apex">public class ResilientCallout implements Queueable, Database.AllowsCallouts {
+    private Integer attempt;
+    private static final Integer MAX_ATTEMPTS = 3;
+    private static final Set&lt;Integer&gt; RETRYABLE = new Set&lt;Integer&gt;{408, 429, 500, 502, 503, 504};
+
+    public ResilientCallout(Integer attempt) { this.attempt = attempt; }
+
+    public void execute(QueueableContext ctx) {
+        HttpResponse res;
+        try {
+            res = new Http().send(buildRequest());
+        } catch (CalloutException e) {          // timeout / DNS / TLS
+            retryOrFail(null, e.getMessage());
+            return;
+        }
+        if (RETRYABLE.contains(res.getStatusCode())) {
+            retryOrFail(res.getStatusCode(), res.getBody());
+        } else if (res.getStatusCode() &gt;= 200 &amp;&amp; res.getStatusCode() &lt; 300) {
+            handleSuccess(res);
+        } else {
+            logPermanentFailure(res);           // 4xx — retrying won't help
+        }
+    }
+
+    private void retryOrFail(Integer code, String message) {
+        if (attempt &lt; MAX_ATTEMPTS &amp;&amp; !Test.isRunningTest()) {
+            // Delay grows with each attempt (API 61+ supports a delay in minutes)
+            System.enqueueJob(new ResilientCallout(attempt + 1), attempt * 5);
+        } else {
+            insert new Integration_Error__c(Status_Code__c = code, Message__c = message);
+        }
+    }
+}</code></pre>
+
+<div class="callout case">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">Use case</span>
+    When an Opportunity is Closed Won, Salesforce must create the order in SAP. The trigger enqueues a Queueable that
+    POSTs to SAP, stores the returned SAP order number on the Opportunity, and retries up to three times on 5xx before
+    logging an error and alerting the integration team.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="soap-callout">SOAP callouts (outbound)</h2>
+<p>For SOAP services you generate a strongly-typed Apex stub from the service's WSDL.</p>
+
+<ul class="steps">
+  <li><b>Get the WSDL</b> file from the provider.</li>
+  <li><b>Setup → Apex Classes → Generate from WSDL</b>, upload the file.</li>
+  <li><b>Salesforce generates</b> an Apex class per WSDL namespace, containing request/response types and a
+      <code>*Port</code> class with one method per operation.</li>
+  <li><b>Add a Remote Site Setting</b> or Named Credential for the endpoint.</li>
+  <li><b>Call it</b> like normal Apex.</li>
+</ul>
+
+<pre><code class="language-apex">// Generated stub usage
+public class WeatherClient {
+    public static Decimal getTemperature(String city) {
+        // The generated port class
+        weatherService.WeatherSoap svc = new weatherService.WeatherSoap();
+        svc.endpoint_x = 'callout:Weather_API';       // override with a Named Credential
+        svc.timeout_x  = 30000;
+        svc.inputHttpHeaders_x = new Map&lt;String, String&gt;{ 'X-Api-Version' =&gt; '2' };
+
+        try {
+            weatherService.WeatherResponse resp = svc.GetWeather(city, 'metric');
+            return resp.temperature;
+        } catch (CalloutException e) {
+            throw new IntegrationException('Weather service failed: ' + e.getMessage(), e);
+        }
+    }
+}</code></pre>
+
+<h3>Hand-rolling SOAP over HTTP</h3>
+<p>When WSDL2Apex fails (it chokes on complex schemas, <code>xsd:choice</code>, imports and RPC-encoded WSDLs) you can
+   build the envelope by hand:</p>
+<pre><code class="language-apex">String envelope =
+    '&lt;?xml version="1.0" encoding="UTF-8"?&gt;' +
+    '&lt;soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"' +
+    '                  xmlns:web="http://example.com/weather"&gt;' +
+    '  &lt;soapenv:Header/&gt;' +
+    '  &lt;soapenv:Body&gt;' +
+    '    &lt;web:GetWeather&gt;&lt;web:City&gt;' + city.escapeXml() + '&lt;/web:City&gt;&lt;/web:GetWeather&gt;' +
+    '  &lt;/soapenv:Body&gt;' +
+    '&lt;/soapenv:Envelope&gt;';
+
+HttpRequest req = new HttpRequest();
+req.setEndpoint('callout:Weather_API');
+req.setMethod('POST');
+req.setHeader('Content-Type', 'text/xml; charset=UTF-8');
+req.setHeader('SOAPAction', '"http://example.com/weather/GetWeather"');
+req.setBody(envelope);
+
+HttpResponse res = new Http().send(req);
+
+// Parse with Dom.Document
+Dom.Document doc = res.getBodyDocument();
+Dom.XmlNode body = doc.getRootElement()
+    .getChildElement('Body', 'http://schemas.xmlsoap.org/soap/envelope/');
+String temp = body.getChildElement('GetWeatherResponse', 'http://example.com/weather')
+                  .getChildElement('Temperature', 'http://example.com/weather')
+                  .getText();</code></pre>
+
+<div class="callout warn">
+  <span class="c-ico">🧱</span>
+  <div class="c-body"><span class="c-title">WSDL2Apex limits</span>
+    Max 1 MB WSDL, no RPC-encoded WSDLs, no <code>xsd:choice</code>/<code>xsd:any</code>, no WSDL imports, and the
+    generated class must stay under the Apex class size limit. For anything gnarly, hand-roll the XML or put a
+    middleware layer in front.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="standard-rest-api">Standard REST API (inbound)</h2>
+<p>Salesforce exposes every object and record through a REST API — no code required on your side.</p>
+
+<pre><code class="language-bash">BASE = https://MyDomain.my.salesforce.com/services/data/v62.0
+
+# Discover versions and resources
+GET  /services/data/
+GET  $BASE/
+
+# ---- CRUD ----
+POST   $BASE/sobjects/Account/                  {"Name":"Acme"}          → 201 + id
+GET    $BASE/sobjects/Account/001xx000003DGb2   → 200 + all fields
+GET    $BASE/sobjects/Account/001xx?fields=Name,Industry
+PATCH  $BASE/sobjects/Account/001xx             {"Industry":"Banking"}   → 204 (no body)
+DELETE $BASE/sobjects/Account/001xx             → 204
+
+# ---- UPSERT by External Id — the integration workhorse ----
+PATCH  $BASE/sobjects/Account/Legacy_Id__c/A-1001   {"Name":"Acme"}
+#        → 201 if created, 204 if updated. No need to know the Salesforce Id.
+
+# ---- Query ----
+GET $BASE/query?q=SELECT+Id,Name+FROM+Account+WHERE+Industry='Technology'+LIMIT+10
+GET $BASE/query/01g5j00000ABCDEabc-2000        # next page via nextRecordsUrl
+GET $BASE/queryAll?q=...                       # includes deleted/archived
+
+# ---- Search ----
+GET $BASE/search?q=FIND+{Acme}+RETURNING+Account(Id,Name)
+GET $BASE/parameterizedSearch?q=Acme&sobject=Account
+
+# ---- Metadata &amp; describe ----
+GET $BASE/sobjects/                            # list all objects
+GET $BASE/sobjects/Account/describe            # fields, picklists, record types
+GET $BASE/sobjects/Account/listviews
+
+# ---- Other useful resources ----
+GET  $BASE/limits                              # remaining API calls, storage
+GET  $BASE/sobjects/Account/001xx/Contacts     # related records
+POST $BASE/actions/custom/flow/My_Flow         # invoke a flow
+GET  $BASE/ui-api/record-ui/001xx              # UI API: layout + data + FLS</code></pre>
+
+<div class="callout tip">
+  <span class="c-ico">🔑</span>
+  <div class="c-body"><span class="c-title">Why upsert-by-External-Id is the most important REST call</span>
+    The external system never has to store or look up Salesforce Ids. It just says "here is customer A-1001" and
+    Salesforce creates or updates it. This makes integrations idempotent — safe to replay after a failure.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="standard-soap-api">Standard SOAP API (inbound)</h2>
+<p>The original Salesforce API (2004). Still heavily used by enterprise middleware and ETL tools.</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>Enterprise WSDL</th><th>Partner WSDL</th></tr></thead>
+  <tbody>
+    <tr><td>Typing</td><td><strong>Strongly typed</strong> — real Account/Contact types</td><td>Loosely typed — generic sObject with name/value pairs</td></tr>
+    <tr><td>Tied to one org's schema?</td><td>✅ Yes</td><td>❌ No — works against any org</td></tr>
+    <tr><td>Must regenerate after schema change?</td><td>✅ Yes</td><td>❌ No</td></tr>
+    <tr><td>Best for</td><td>A single, known org — safer, self-documenting</td><td>ISVs/tools that must work with many orgs (Data Loader, Informatica)</td></tr>
+    <tr><td>Download from</td><td colspan="2">Setup → API → Generate WSDL</td></tr>
+  </tbody>
+</table>
+</div>
+
+<pre><code class="language-xml">&lt;!-- 1 · login() to get a session id --&gt;
+&lt;soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                  xmlns:urn="urn:enterprise.soap.sforce.com"&gt;
+  &lt;soapenv:Body&gt;
+    &lt;urn:login&gt;
+      &lt;urn:username&gt;integration@company.com&lt;/urn:username&gt;
+      &lt;urn:password&gt;PASSWORD+SECURITYTOKEN&lt;/urn:password&gt;
+    &lt;/urn:login&gt;
+  &lt;/soapenv:Body&gt;
+&lt;/soapenv:Envelope&gt;
+
+&lt;!-- 2 · Use the returned sessionId in the SessionHeader for every later call --&gt;
+&lt;soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                  xmlns:urn="urn:enterprise.soap.sforce.com"&gt;
+  &lt;soapenv:Header&gt;
+    &lt;urn:SessionHeader&gt;&lt;urn:sessionId&gt;00D5j...!AQ&lt;/urn:sessionId&gt;&lt;/urn:SessionHeader&gt;
+  &lt;/soapenv:Header&gt;
+  &lt;soapenv:Body&gt;
+    &lt;urn:create&gt;
+      &lt;urn:sObjects xsi:type="urn:Account" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"&gt;
+        &lt;Name&gt;Acme India&lt;/Name&gt;
+        &lt;Industry&gt;Technology&lt;/Industry&gt;
+      &lt;/urn:sObjects&gt;
+    &lt;/urn:create&gt;
+  &lt;/soapenv:Body&gt;
+&lt;/soapenv:Envelope&gt;</code></pre>
+
+<p><strong>Core SOAP calls:</strong> <code>login</code>, <code>create</code>, <code>update</code>, <code>upsert</code>,
+   <code>delete</code>, <code>undelete</code>, <code>retrieve</code>, <code>query</code>, <code>queryMore</code>,
+   <code>queryAll</code>, <code>search</code>, <code>describeSObject</code>, <code>describeGlobal</code>,
+   <code>getUserInfo</code>, <code>convertLead</code>, <code>merge</code>, <code>emptyRecycleBin</code>.
+   Batch size for create/update is <strong>200 records</strong> per call.</p>
+
+<h3>All the Salesforce APIs — the map</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>API</th><th>Protocol</th><th>Use it for</th><th>Volume</th></tr></thead>
+  <tbody>
+    <tr><td><strong>REST API</strong></td><td>REST/JSON</td><td>General CRUD, mobile, web apps</td><td>Small–medium</td></tr>
+    <tr><td><strong>SOAP API</strong></td><td>SOAP/XML</td><td>Enterprise middleware, strict contracts</td><td>Small–medium (200/call)</td></tr>
+    <tr><td><strong>Bulk API 2.0</strong></td><td>REST</td><td><strong>Loading/extracting millions of records</strong> asynchronously</td><td>Very large</td></tr>
+    <tr><td><strong>Composite API</strong></td><td>REST</td><td>Multiple operations in one round trip</td><td>Up to 25 subrequests</td></tr>
+    <tr><td><strong>UI API</strong></td><td>REST</td><td>Building UIs — returns data + layout + FLS together (what LDS uses)</td><td>Small</td></tr>
+    <tr><td><strong>Metadata API</strong></td><td>SOAP</td><td>Deploying/retrieving configuration</td><td>—</td></tr>
+    <tr><td><strong>Tooling API</strong></td><td>REST/SOAP</td><td>Developer tooling — Apex, debug logs, code coverage</td><td>Small</td></tr>
+    <tr><td><strong>Streaming API</strong></td><td>CometD</td><td>Push notifications — see <a href="integration-events.html">Events</a></td><td>Event-driven</td></tr>
+    <tr><td><strong>Pub/Sub API</strong></td><td>gRPC</td><td>Modern replacement for Streaming — publish and subscribe to events</td><td>Event-driven</td></tr>
+    <tr><td><strong>GraphQL API</strong></td><td>GraphQL</td><td>Client-shaped queries, fewer round trips</td><td>Small</td></tr>
+    <tr><td><strong>Connect REST API</strong></td><td>REST</td><td>Chatter, Experience Cloud, Files, Communities</td><td>Small</td></tr>
+    <tr><td><strong>Analytics REST API</strong></td><td>REST</td><td>Running reports and dashboards</td><td>Small</td></tr>
+    <tr><td><strong>Apex REST / SOAP</strong></td><td>Both</td><td><strong>Your own custom endpoints</strong></td><td>Custom</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Bulk API 2.0 — the large-volume path</h3>
+<pre><code class="language-bash"># 1 · Create a job
+POST $BASE/jobs/ingest
+{ "object":"Account", "operation":"upsert",
+  "externalIdFieldName":"Legacy_Id__c", "lineEnding":"CRLF" }
+# → { "id":"7505j00000ABCDE", "state":"Open" }
+
+# 2 · Upload CSV data (max 150 MB per batch)
+PUT $BASE/jobs/ingest/7505j00000ABCDE/batches
+Content-Type: text/csv
+Legacy_Id__c,Name,Industry
+A-1001,Acme India,Technology
+
+# 3 · Close the job to start processing
+PATCH $BASE/jobs/ingest/7505j00000ABCDE   { "state":"UploadComplete" }
+
+# 4 · Poll for completion
+GET $BASE/jobs/ingest/7505j00000ABCDE     # state: InProgress → JobComplete
+
+# 5 · Fetch results
+GET $BASE/jobs/ingest/7505j00000ABCDE/successfulResults/
+GET $BASE/jobs/ingest/7505j00000ABCDE/failedResults/</code></pre>
+<p><strong>Why Bulk:</strong> asynchronous, chunked and parallelised by the platform, and it does <strong>not</strong>
+   consume your normal per-transaction limits. Use it above ~10,000 records. Note that triggers still fire, in chunks
+   of 200 — so your Apex must be bulk-safe.</p>
+
+<!-- ============================================ -->
+<h2 id="composite-rest-api">Composite REST API</h2>
+<p>Bundle multiple operations into <strong>one HTTP round trip</strong> — critical for mobile apps, high-latency
+   networks, and staying inside API call allocations.</p>
+
+<div class="dgm">
+  <div class="dgm-title">Four composite flavours</div>
+  <svg viewBox="0 0 790 300" role="img" aria-label="Comparison of composite, batch, sobject tree and graph APIs">
+    <rect class="s-box-b" x="20" y="20" width="360" height="118" rx="10"/>
+    <text class="s-t s-t-b" x="40" y="44">/composite  — chained, all-or-none</text>
+    <text class="s-t-sm" x="40" y="68">Up to 25 subrequests, executed in order</text>
+    <text class="s-t-mono s-t-g" x="40" y="90">Reference an earlier result: @{refAccount.id}</text>
+    <text class="s-t-sm" x="40" y="112">allOrNone = true → one failure rolls back everything</text>
+    <text class="s-t-sm s-t-a" x="40" y="130">Use: create Account → Contact → Opportunity atomically</text>
+
+    <rect class="s-box-v" x="410" y="20" width="360" height="118" rx="10"/>
+    <text class="s-t s-t-v" x="430" y="44">/composite/batch — independent</text>
+    <text class="s-t-sm" x="430" y="68">Up to 25 unrelated subrequests</text>
+    <text class="s-t-sm s-t-r" x="430" y="90">✘ No referencing between them</text>
+    <text class="s-t-sm" x="430" y="112">Each succeeds or fails on its own</text>
+    <text class="s-t-sm s-t-a" x="430" y="130">Use: fetch 5 unrelated datasets to render one screen</text>
+
+    <rect class="s-box-t" x="20" y="156" width="360" height="118" rx="10"/>
+    <text class="s-t s-t-t" x="40" y="180">/composite/tree — nested inserts</text>
+    <text class="s-t-sm" x="40" y="204">Up to 200 records, 5 levels deep, one object tree</text>
+    <text class="s-t-sm" x="40" y="226">Uses referenceId to link parents and children</text>
+    <text class="s-t-sm s-t-a" x="40" y="252">Use: insert an Account with all its Contacts in one call</text>
+
+    <rect class="s-box-g" x="410" y="156" width="360" height="118" rx="10"/>
+    <text class="s-t s-t-g" x="430" y="180">/composite/graph — independent graphs</text>
+    <text class="s-t-sm" x="430" y="204">Up to 500 records across up to 75 graphs</text>
+    <text class="s-t-sm" x="430" y="226">Each graph commits or rolls back independently</text>
+    <text class="s-t-sm s-t-a" x="430" y="252">Use: load 50 customer hierarchies; one bad one doesn't kill the rest</text>
+  </svg>
+</div>
+
+<pre><code class="language-json">// POST /services/data/v62.0/composite
+{
+  "allOrNone": true,
+  "compositeRequest": [
+    {
+      "method": "POST",
+      "url": "/services/data/v62.0/sobjects/Account",
+      "referenceId": "refAccount",
+      "body": { "Name": "Acme India", "Industry": "Technology" }
+    },
+    {
+      "method": "POST",
+      "url": "/services/data/v62.0/sobjects/Contact",
+      "referenceId": "refContact",
+      "body": {
+        "LastName": "Kumar",
+        "AccountId": "@{refAccount.id}"        // ← the magic: use the previous result
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/services/data/v62.0/sobjects/Opportunity",
+      "referenceId": "refOpp",
+      "body": {
+        "Name": "Acme - New Business",
+        "AccountId": "@{refAccount.id}",
+        "StageName": "Prospecting",
+        "CloseDate": "2026-12-31"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "/services/data/v62.0/sobjects/Account/@{refAccount.id}?fields=Id,Name,CreatedDate",
+      "referenceId": "refVerify"
+    }
+  ]
+}</code></pre>
+
+<pre><code class="language-json">// POST /services/data/v62.0/composite/tree/Account — nested insert
+{
+  "records": [{
+    "attributes": { "type": "Account", "referenceId": "acc1" },
+    "Name": "Acme India",
+    "Contacts": {
+      "records": [
+        { "attributes": {"type":"Contact","referenceId":"con1"}, "LastName": "Kumar" },
+        { "attributes": {"type":"Contact","referenceId":"con2"}, "LastName": "Rao" }
+      ]
+    }
+  }]
+}</code></pre>
+
+<div class="callout case">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">Use case</span>
+    A mobile app registers a new customer: it must create an Account, a Contact and an Opportunity, then read back the
+    Account. Four separate REST calls = four round trips over a mobile network and four API calls against your
+    allocation, with no atomicity. One composite call = one round trip, <strong>one API call</strong>, and all-or-none
+    rollback.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="http-status-codes">HTTP status codes — shortcuts to remember them</h2>
+
+<div class="dgm">
+  <div class="dgm-title">The five families</div>
+  <svg viewBox="0 0 790 250" role="img" aria-label="HTTP status code families and their meanings">
+    <rect class="s-box" x="20" y="20" width="140" height="200" rx="10"/>
+    <text class="s-t anchor-mid" x="90" y="46">1xx</text>
+    <text class="s-t-sm anchor-mid" x="90" y="72">Informational</text>
+    <text class="s-t-sm anchor-mid" x="90" y="96">"Hold on…"</text>
+    <text class="s-t-sm anchor-mid" x="90" y="130">100 Continue</text>
+    <text class="s-t-sm anchor-mid" x="90" y="152">101 Switching</text>
+    <text class="s-t-sm anchor-mid" x="90" y="196">Rare in practice</text>
+
+    <rect class="s-box-g" x="172" y="20" width="140" height="200" rx="10"/>
+    <text class="s-t s-t-g anchor-mid" x="242" y="46">2xx</text>
+    <text class="s-t-sm anchor-mid" x="242" y="72">Success</text>
+    <text class="s-t-sm anchor-mid" x="242" y="96">"Here you go"</text>
+    <text class="s-t-sm anchor-mid" x="242" y="130">200 OK</text>
+    <text class="s-t-sm anchor-mid" x="242" y="152">201 Created</text>
+    <text class="s-t-sm anchor-mid" x="242" y="174">204 No Content</text>
+
+    <rect class="s-box-b" x="324" y="20" width="140" height="200" rx="10"/>
+    <text class="s-t s-t-b anchor-mid" x="394" y="46">3xx</text>
+    <text class="s-t-sm anchor-mid" x="394" y="72">Redirect</text>
+    <text class="s-t-sm anchor-mid" x="394" y="96">"Look elsewhere"</text>
+    <text class="s-t-sm anchor-mid" x="394" y="130">301 Moved</text>
+    <text class="s-t-sm anchor-mid" x="394" y="152">302 Found</text>
+    <text class="s-t-sm anchor-mid" x="394" y="174">304 Not Modified</text>
+
+    <rect class="s-box-a" x="476" y="20" width="140" height="200" rx="10"/>
+    <text class="s-t s-t-a anchor-mid" x="546" y="46">4xx</text>
+    <text class="s-t-sm anchor-mid" x="546" y="72">Client error</text>
+    <text class="s-t-sm anchor-mid" x="546" y="96">"YOUR fault"</text>
+    <text class="s-t-sm anchor-mid" x="546" y="130">400 · 401 · 403</text>
+    <text class="s-t-sm anchor-mid" x="546" y="152">404 · 405 · 409</text>
+    <text class="s-t-sm anchor-mid" x="546" y="174">415 · 429</text>
+    <text class="s-t-sm s-t-r anchor-mid" x="546" y="200">Don't retry (except 429)</text>
+
+    <rect class="s-box-r" x="628" y="20" width="140" height="200" rx="10"/>
+    <text class="s-t s-t-r anchor-mid" x="698" y="46">5xx</text>
+    <text class="s-t-sm anchor-mid" x="698" y="72">Server error</text>
+    <text class="s-t-sm anchor-mid" x="698" y="96">"THEIR fault"</text>
+    <text class="s-t-sm anchor-mid" x="698" y="130">500 · 502</text>
+    <text class="s-t-sm anchor-mid" x="698" y="152">503 · 504</text>
+    <text class="s-t-sm s-t-g anchor-mid" x="698" y="200">Safe to retry</text>
+  </svg>
+</div>
+
+<div class="callout tip">
+  <span class="c-ico">🧠</span>
+  <div class="c-body"><span class="c-title">Memory shortcuts</span>
+    <strong>1xx</strong> = "hold on" · <strong>2xx</strong> = "here you go" · <strong>3xx</strong> = "go away (nicely)"
+    · <strong>4xx</strong> = "you messed up" · <strong>5xx</strong> = "I messed up".<br>
+    Then: <strong>401 = unauthenticated</strong> ("who are you?") vs <strong>403 = unauthorised</strong>
+    ("I know who you are, and no"). <strong>400</strong> = malformed request; <strong>404</strong> = nothing at that URL.</div>
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Code</th><th>Name</th><th>What it means in Salesforce</th><th>Retry?</th></tr></thead>
+  <tbody>
+    <tr><td><strong>200</strong></td><td>OK</td><td>GET/PATCH succeeded with a body</td><td>—</td></tr>
+    <tr><td><strong>201</strong></td><td>Created</td><td>POST created a record (body has the new Id)</td><td>—</td></tr>
+    <tr><td><strong>204</strong></td><td>No Content</td><td>PATCH/DELETE succeeded — <strong>empty body is normal</strong></td><td>—</td></tr>
+    <tr><td><strong>300</strong></td><td>Multiple Choices</td><td>Upsert by External Id matched <strong>more than one record</strong></td><td>❌ Fix the data</td></tr>
+    <tr><td><strong>304</strong></td><td>Not Modified</td><td>Conditional GET — your cached copy is current</td><td>—</td></tr>
+    <tr><td><strong>400</strong></td><td>Bad Request</td><td>Malformed JSON, invalid field, <code>MALFORMED_QUERY</code>, required field missing</td><td>❌</td></tr>
+    <tr><td><strong>401</strong></td><td>Unauthorized</td><td><code>INVALID_SESSION_ID</code> — token missing or expired</td><td>✅ After refreshing the token</td></tr>
+    <tr><td><strong>403</strong></td><td>Forbidden</td><td>No object/field permission, <code>REQUEST_LIMIT_EXCEEDED</code>, IP restricted</td><td>❌ Usually a config fix</td></tr>
+    <tr><td><strong>404</strong></td><td>Not Found</td><td>Bad URL, wrong API version, or the record doesn't exist / isn't visible</td><td>❌</td></tr>
+    <tr><td><strong>405</strong></td><td>Method Not Allowed</td><td>Used POST where only GET is supported</td><td>❌</td></tr>
+    <tr><td><strong>409</strong></td><td>Conflict</td><td>Duplicate value on a unique field, or a locking conflict</td><td>Sometimes</td></tr>
+    <tr><td><strong>412</strong></td><td>Precondition Failed</td><td>A required header (e.g. <code>If-Match</code>) failed</td><td>❌</td></tr>
+    <tr><td><strong>413</strong></td><td>Payload Too Large</td><td>Request body exceeds the limit</td><td>❌ Split it</td></tr>
+    <tr><td><strong>415</strong></td><td>Unsupported Media Type</td><td>Missing or wrong <code>Content-Type</code></td><td>❌</td></tr>
+    <tr><td><strong>429</strong></td><td>Too Many Requests</td><td>Rate limited / concurrent request limit</td><td>✅ With backoff</td></tr>
+    <tr><td><strong>500</strong></td><td>Internal Server Error</td><td>An unhandled Apex exception in your own Apex REST service</td><td>✅ Cautiously</td></tr>
+    <tr><td><strong>503</strong></td><td>Service Unavailable</td><td>Maintenance or overload</td><td>✅ With backoff</td></tr>
+  </tbody>
+</table>
+</div>
+
+<pre><code class="language-apex">// Reading Salesforce's structured error body
+if (res.getStatusCode() &gt;= 400) {
+    // [{"message":"Required fields are missing: [Name]",
+    //   "errorCode":"REQUIRED_FIELD_MISSING","fields":["Name"]}]
+    List&lt;Object&gt; errors = (List&lt;Object&gt;) JSON.deserializeUntyped(res.getBody());
+    Map&lt;String, Object&gt; first = (Map&lt;String, Object&gt;) errors[0];
+    System.debug(first.get('errorCode') + ': ' + first.get('message'));
+}</code></pre>
+
+<!-- ============================================ -->
+<h2 id="apex-rest-api">Apex REST API (custom inbound endpoints)</h2>
+<p>When the standard API isn't the right shape — you need business logic, a custom payload, or a single call that does
+   several things — expose your own REST endpoint.</p>
+
+<pre data-file="OrderRestService.cls"><code class="language-apex">@RestResource(urlMapping='/orders/*')
+global with sharing class OrderRestService {
+
+    /* ---------------- GET /services/apexrest/orders/{orderNumber} ---------------- */
+    @HttpGet
+    global static void getOrder() {
+        RestRequest  req = RestContext.request;
+        RestResponse res = RestContext.response;
+        res.addHeader('Content-Type', 'application/json');
+
+        // Path parameter: everything after the last /
+        String orderNumber = req.requestURI.substring(req.requestURI.lastIndexOf('/') + 1);
+        // Query parameter: ?includeLines=true
+        Boolean includeLines = req.params.get('includeLines') == 'true';
+
+        try {
+            List&lt;Order&gt; orders = [
+                SELECT Id, OrderNumber, Status, TotalAmount, Account.Name
+                FROM Order WHERE OrderNumber = :orderNumber WITH USER_MODE LIMIT 1
+            ];
+            if (orders.isEmpty()) {
+                res.statusCode = 404;
+                res.responseBody = Blob.valueOf(JSON.serialize(
+                    new Map&lt;String, Object&gt;{ 'error' =&gt; 'Order not found', 'orderNumber' =&gt; orderNumber }));
+                return;
+            }
+            res.statusCode = 200;
+            res.responseBody = Blob.valueOf(JSON.serialize(new OrderDto(orders[0], includeLines)));
+
+        } catch (Exception e) {
+            res.statusCode = 500;
+            res.responseBody = Blob.valueOf(JSON.serialize(
+                new Map&lt;String, Object&gt;{ 'error' =&gt; e.getMessage() }));
+        }
+    }
+
+    /* ---------------- POST — parameters are auto-deserialised from the JSON body ---------------- */
+    @HttpPost
+    global static OrderResult createOrder(String accountExternalId,
+                                          List&lt;LineItemDto&gt; lines,
+                                          String poNumber) {
+        // Body: { "accountExternalId":"A-1001", "poNumber":"PO-77",
+        //         "lines":[{"sku":"X1","qty":2}] }
+        Savepoint sp = Database.setSavepoint();
+        try {
+            Account acc = [SELECT Id FROM Account WHERE Legacy_Id__c = :accountExternalId LIMIT 1];
+            Order o = new Order(AccountId = acc.Id, PoNumber = poNumber,
+                                Status = 'Draft', EffectiveDate = Date.today());
+            insert o;
+            insertLines(o.Id, lines);
+            RestContext.response.statusCode = 201;
+            return new OrderResult(true, o.Id, null);
+
+        } catch (QueryException e) {
+            RestContext.response.statusCode = 404;
+            return new OrderResult(false, null, 'Account not found: ' + accountExternalId);
+        } catch (Exception e) {
+            Database.rollback(sp);
+            RestContext.response.statusCode = 400;
+            return new OrderResult(false, null, e.getMessage());
+        }
+    }
+
+    /* ---------------- PATCH / PUT / DELETE ---------------- */
+    @HttpPatch
+    global static OrderResult updateStatus(String status) { /* ... */ return null; }
+
+    @HttpPut
+    global static OrderResult replaceOrder(OrderDto order) { /* ... */ return null; }
+
+    @HttpDelete
+    global static void deleteOrder() {
+        String id = RestContext.request.requestURI.substring(
+                        RestContext.request.requestURI.lastIndexOf('/') + 1);
+        delete [SELECT Id FROM Order WHERE OrderNumber = :id];
+        RestContext.response.statusCode = 204;
+    }
+
+    /* ---------------- DTOs ---------------- */
+    global class OrderResult {
+        global Boolean success; global Id orderId; global String error;
+        global OrderResult(Boolean s, Id i, String e) { success = s; orderId = i; error = e; }
+    }
+    global class LineItemDto { global String sku; global Integer qty; }
+    global class OrderDto    { /* ... */ global OrderDto(Order o, Boolean withLines) {} }
+}</code></pre>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Rule</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr><td>Class modifier</td><td>Must be <code>global</code> and the methods <code>global static</code></td></tr>
+    <tr><td>URL</td><td><code>/services/apexrest/</code> + your <code>urlMapping</code>. Use <code>/*</code> for path parameters</td></tr>
+    <tr><td>One method per verb</td><td>Only one <code>@HttpGet</code>, one <code>@HttpPost</code>, etc. per class</td></tr>
+    <tr><td>Parameter binding</td><td>POST/PUT/PATCH parameters are deserialised from JSON body keys matching the parameter names</td></tr>
+    <tr><td>Return value</td><td>Automatically serialised to JSON. Return <code>void</code> and write to <code>RestContext.response</code> for full control</td></tr>
+    <tr><td>Auth</td><td>Standard OAuth. Runs as the authenticated user, respecting their permissions</td></tr>
+    <tr><td>Sharing</td><td>Declare <code>with sharing</code> and use <code>WITH USER_MODE</code> — nothing is enforced automatically</td></tr>
+    <tr><td>Limits</td><td>Normal synchronous governor limits apply per request</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout case">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">Use case</span>
+    A partner portal needs "submit an order" as a single operation: validate the customer, create the Order, create
+    line items, apply pricing rules and return an order number. That's business logic, not CRUD — so a custom Apex
+    REST endpoint is right, and the partner integrates against one clean, versioned URL.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="apex-soap-api">Apex SOAP API (custom inbound SOAP)</h2>
+<p>The SOAP equivalent: mark methods with the <code>webservice</code> keyword and Salesforce generates a WSDL for you.</p>
+
+<pre data-file="OrderSoapService.cls"><code class="language-apex">global with sharing class OrderSoapService {
+
+    // Inner class for the response — members need the webservice keyword too
+    global class OrderResponse {
+        webservice Boolean success;
+        webservice String  orderNumber;
+        webservice String  message;
+    }
+
+    // The 'webservice' keyword makes this a SOAP operation
+    webservice static OrderResponse createOrder(String accountExtId, Decimal amount) {
+        OrderResponse resp = new OrderResponse();
+        try {
+            Account acc = [SELECT Id FROM Account WHERE Legacy_Id__c = :accountExtId LIMIT 1];
+            Order o = new Order(AccountId = acc.Id, Status = 'Draft',
+                                EffectiveDate = Date.today());
+            insert o;
+            resp.success     = true;
+            resp.orderNumber = [SELECT OrderNumber FROM Order WHERE Id = :o.Id].OrderNumber;
+        } catch (Exception e) {
+            resp.success = false;
+            resp.message = e.getMessage();
+        }
+        return resp;
+    }
+
+    webservice static List&lt;Order&gt; getOrdersByAccount(Id accountId) {
+        return [SELECT Id, OrderNumber, Status FROM Order
+                WHERE AccountId = :accountId WITH USER_MODE];
+    }
+}</code></pre>
+
+<ul class="steps">
+  <li><b>Write the class</b> with <code>webservice static</code> methods.</li>
+  <li><b>Setup → Apex Classes → your class → Generate WSDL</b>.</li>
+  <li><b>Send the WSDL</b> to the consuming system; endpoint is <code>/services/Soap/class/OrderSoapService</code>.</li>
+  <li><b>They call <code>login()</code></b> against the Enterprise/Partner WSDL first to get a session id.</li>
+</ul>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th><code>webservice</code> keyword rules</th></tr></thead>
+  <tbody>
+    <tr><td>Method must be <code>static</code> and the class <code>global</code></td></tr>
+    <tr><td>Cannot be used in a trigger, or in a class that implements <code>Batchable</code>/<code>Schedulable</code></td></tr>
+    <tr><td>Cannot be <code>private</code>; overloading is not supported</td></tr>
+    <tr><td>Member variables of returned inner classes must also be marked <code>webservice</code></td></tr>
+    <tr><td>Supported types: primitives, sObjects, lists of them, and inner classes with webservice members</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout note">
+  <span class="c-ico">⚖️</span>
+  <div class="c-body"><span class="c-title">Apex REST vs Apex SOAP</span>
+    Choose <strong>Apex REST</strong> for anything new: lighter, JSON, easier to test in Postman, better tooling.
+    Choose <strong>Apex SOAP</strong> only when the consuming system demands a WSDL contract — common with older
+    enterprise middleware and some ESBs.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="outbound-message">Outbound Messages</h2>
+<p>A <strong>declarative</strong>, no-code way to send a SOAP message to an external endpoint when a record changes.
+   Configured in Workflow Rules or Approval Processes — no Apex at all.</p>
+
+<div class="dgm">
+  <div class="dgm-title">Outbound Message with guaranteed retry</div>
+  <svg viewBox="0 0 790 280" role="img" aria-label="Outbound message flow with retry queue">
+    <rect class="s-box-b" x="20" y="90" width="130" height="56" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="85" y="110">Record meets</text><text class="s-t-sm anchor-mid" x="85" y="128">criteria</text>
+    <path class="s-line-b" d="M150 118 H210" marker-end="url(#om1)"/>
+
+    <rect class="s-box-v" x="210" y="82" width="150" height="72" rx="9"/>
+    <text class="s-t s-t-v anchor-mid" x="285" y="104">Outbound Message</text>
+    <text class="s-t-sm anchor-mid" x="285" y="126">SOAP XML built</text>
+    <text class="s-t-sm anchor-mid" x="285" y="144">+ optional SessionId</text>
+    <path class="s-line-v" d="M360 118 H420" marker-end="url(#om1)"/>
+
+    <rect class="s-box-a" x="420" y="82" width="150" height="72" rx="9"/>
+    <text class="s-t s-t-a anchor-mid" x="495" y="104">Outbound queue</text>
+    <text class="s-t-sm anchor-mid" x="495" y="126">async, after commit</text>
+    <text class="s-t-sm anchor-mid" x="495" y="144">retries up to 24 h</text>
+    <path class="s-line-a" d="M570 118 H630" marker-end="url(#om1)"/>
+
+    <rect class="s-box-g" x="630" y="90" width="140" height="56" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="700" y="110">External endpoint</text>
+    <text class="s-t-sm anchor-mid" x="700" y="128">must return &lt;Ack&gt;true</text>
+
+    <path class="s-line-r s-dash" d="M700 146 V196 H495 V154" marker-end="url(#om1)"/>
+    <text class="s-t-sm s-t-r anchor-mid" x="600" y="214">No Ack → exponential backoff retry for up to 24 hours</text>
+    <text class="s-t-sm anchor-mid" x="395" y="250">Monitor in Setup → Outbound Messages (the delivery queue)</text>
+    <defs><marker id="om1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<ul class="steps">
+  <li><b>Setup → Workflow Actions → Outbound Messages → New.</b></li>
+  <li><b>Choose the object</b> and the <strong>endpoint URL</strong> (must be HTTPS with a valid certificate).</li>
+  <li><b>Select fields</b> to send, and optionally include the <strong>Session Id</strong> so the receiver can call back into Salesforce.</li>
+  <li><b>Pick the user to send as</b> — this determines the session's permissions.</li>
+  <li><b>Attach it</b> to a Workflow Rule (legacy), an Approval Process action, or call it from a Flow via an outbound-message-triggering field update.</li>
+  <li><b>Click "Click for WSDL"</b> and give that WSDL to the receiving developer so they can build the listener.</li>
+</ul>
+
+<pre><code class="language-xml">&lt;!-- What Salesforce sends --&gt;
+&lt;soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"&gt;
+  &lt;soapenv:Body&gt;
+    &lt;notifications xmlns="http://soap.sforce.com/2005/09/outbound"&gt;
+      &lt;OrganizationId&gt;00D5j000000XXXX&lt;/OrganizationId&gt;
+      &lt;ActionId&gt;04k5j000000YYYY&lt;/ActionId&gt;
+      &lt;SessionId&gt;00D5j...!AQ&lt;/SessionId&gt;
+      &lt;EnterpriseUrl&gt;https://.../services/Soap/c/62.0/00D5j&lt;/EnterpriseUrl&gt;
+      &lt;PartnerUrl&gt;https://.../services/Soap/u/62.0/00D5j&lt;/PartnerUrl&gt;
+      &lt;Notification&gt;
+        &lt;Id&gt;04l5j000000ZZZZ&lt;/Id&gt;
+        &lt;sObject xsi:type="sf:Opportunity"&gt;
+          &lt;sf:Id&gt;0065j00000ABCDE&lt;/sf:Id&gt;
+          &lt;sf:Amount&gt;150000.0&lt;/sf:Amount&gt;
+          &lt;sf:StageName&gt;Closed Won&lt;/sf:StageName&gt;
+        &lt;/sObject&gt;
+      &lt;/Notification&gt;
+    &lt;/notifications&gt;
+  &lt;/soapenv:Body&gt;
+&lt;/soapenv:Envelope&gt;
+
+&lt;!-- What the endpoint MUST return, or Salesforce keeps retrying --&gt;
+&lt;soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"&gt;
+  &lt;soapenv:Body&gt;
+    &lt;notificationsResponse xmlns="http://soap.sforce.com/2005/09/outbound"&gt;
+      &lt;Ack&gt;true&lt;/Ack&gt;
+    &lt;/notificationsResponse&gt;
+  &lt;/soapenv:Body&gt;
+&lt;/soapenv:Envelope&gt;</code></pre>
+
+<div class="grid g2">
+  <div class="card accent-green"><h4>✅ Strengths</h4>
+    <ul><li><strong>No code</strong> — pure configuration</li><li><strong>Guaranteed delivery</strong> with automatic retry for 24 h</li>
+        <li>Asynchronous — never slows the user's save</li><li>Doesn't consume Apex callout limits</li>
+        <li>Can include a Session Id for callbacks</li><li>Up to 100 notifications batched per message</li></ul></div>
+  <div class="card accent-rose"><h4>❌ Limitations</h4>
+    <ul><li><strong>SOAP/XML only</strong> — no REST, no JSON</li><li><strong>One-way</strong> — the Ack carries no data back into Salesforce</li>
+        <li>Only fields from <strong>one object</strong> (plus limited related fields)</li><li>No transformation or conditional payload logic</li>
+        <li>Tied to Workflow/Approval — and Workflow Rules are retired for new creation</li><li>Endpoint must be publicly reachable HTTPS</li></ul></div>
+</div>
+
+<div class="callout note">
+  <span class="c-ico">🔄</span>
+  <div class="c-body"><span class="c-title">Modern alternative</span>
+    For new work, prefer <a href="integration-events.html#platform-events">Platform Events</a> (pub/sub, JSON, many
+    subscribers) or a record-triggered Flow with an <strong>asynchronous path</strong> calling an HTTP action.
+    Outbound Messages remain valuable when you specifically need <em>guaranteed retry with zero code</em>.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="external-services">External Services</h2>
+<p>Point Salesforce at an <strong>OpenAPI (Swagger) specification</strong> and it generates <strong>invocable actions</strong>
+   automatically — so admins can call an external REST API from Flow with no Apex.</p>
+
+<div class="dgm">
+  <div class="dgm-title">From OpenAPI spec to a Flow action</div>
+  <svg viewBox="0 0 790 200" role="img" aria-label="External Services registration flow">
+    <rect class="s-box-b" x="20" y="70" width="140" height="60" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="90" y="92">OpenAPI 2.0/3.0</text>
+    <text class="s-t-sm anchor-mid" x="90" y="110">JSON schema</text>
+    <path class="s-line-b" d="M160 100 H220" marker-end="url(#es1)"/>
+    <rect class="s-box-v" x="220" y="70" width="150" height="60" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="295" y="92">Register as an</text>
+    <text class="s-t-sm anchor-mid" x="295" y="110">External Service</text>
+    <path class="s-line-v" d="M370 100 H430" marker-end="url(#es1)"/>
+    <rect class="s-box-t" x="430" y="70" width="150" height="60" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="505" y="92">Salesforce generates</text>
+    <text class="s-t-sm anchor-mid" x="505" y="110">Apex types + actions</text>
+    <path class="s-line-t" d="M580 100 H640" marker-end="url(#es1)"/>
+    <rect class="s-box-g" x="640" y="70" width="130" height="60" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="705" y="92">Use in Flow,</text>
+    <text class="s-t-sm anchor-mid" x="705" y="110">Apex or Bot</text>
+    <text class="s-t-sm anchor-mid" x="395" y="172">Requires a Named Credential for the base URL and authentication</text>
+    <defs><marker id="es1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<ul class="steps">
+  <li><b>Create a Named Credential</b> for the API's base URL and auth.</li>
+  <li><b>Setup → External Services → Add an External Service</b>, choose "From API Specification".</li>
+  <li><b>Paste or upload the OpenAPI schema</b> (JSON; OpenAPI 2.0 or 3.0).</li>
+  <li><b>Select the operations</b> you want to expose.</li>
+  <li><b>Salesforce generates</b> Apex classes and one invocable action per operation.</li>
+  <li><b>Drop them into a Flow</b> as an Action, or call the generated Apex directly.</li>
+</ul>
+
+<pre><code class="language-json">{
+  "swagger": "2.0",
+  "info": { "title": "Credit Check API", "version": "1.0.0" },
+  "host": "api.creditbureau.com",
+  "basePath": "/v1",
+  "schemes": ["https"],
+  "paths": {
+    "/score": {
+      "post": {
+        "operationId": "getCreditScore",
+        "consumes": ["application/json"],
+        "parameters": [{
+          "in": "body", "name": "body", "required": true,
+          "schema": { "type": "object",
+            "properties": { "taxId": {"type":"string"}, "companyName": {"type":"string"} } }
+        }],
+        "responses": {
+          "200": { "description": "Score returned",
+            "schema": { "type": "object",
+              "properties": { "score": {"type":"integer"}, "rating": {"type":"string"} } } }
+        }
+      }
+    }
+  }
+}</code></pre>
+
+<pre><code class="language-apex">// The generated Apex can also be called directly
+ExternalService.CreditCheckAPI service = new ExternalService.CreditCheckAPI();
+ExternalService.CreditCheckAPI.getCreditScore_Request req =
+    new ExternalService.CreditCheckAPI.getCreditScore_Request();
+req.body = new ExternalService.CreditCheckAPI_ScoreRequest();
+req.body.taxId = acc.Tax_Id__c;
+
+ExternalService.CreditCheckAPI.getCreditScore_Response resp = service.getCreditScore(req);
+System.debug(resp.Code200.score);</code></pre>
+
+<div class="grid g2">
+  <div class="card accent-green"><h4>✅ Good for</h4>
+    <ul><li>Admins calling REST APIs from Flow with no code</li><li>Well-documented partner APIs with a clean spec</li>
+        <li>Rapid prototyping of an integration</li><li>Keeping request/response types in sync with the provider</li></ul></div>
+  <div class="card accent-rose"><h4>❌ Watch out</h4>
+    <ul><li>The OpenAPI schema must be well-formed and is quite strict (max ~100 KB, limited features)</li>
+        <li>No support for some auth patterns or complex nested schemas</li>
+        <li>Limited error handling — a fault path in Flow is all you get</li>
+        <li>Callouts still can't run on a Flow's immediate path after DML — use an async path</li></ul></div>
+</div>
+
+<div class="callout case">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">Use case</span>
+    A credit bureau offers a REST endpoint with an OpenAPI spec. Register it as an External Service, then an admin
+    builds a Screen Flow: the sales rep clicks "Run Credit Check" on the Account, the flow calls the action and writes
+    the score back — zero Apex, zero developer time.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="limits">Integration limits to remember</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Limit</th><th>Value</th></tr></thead>
+  <tbody>
+    <tr><td>Callouts per transaction</td><td>100</td></tr>
+    <tr><td>Cumulative callout timeout per transaction</td><td>120 seconds</td></tr>
+    <tr><td>Single callout timeout</td><td>120 seconds (default 10 s — always set it explicitly)</td></tr>
+    <tr><td>Callout request/response size</td><td>6 MB sync / 12 MB async (counts toward heap)</td></tr>
+    <tr><td>Daily API requests</td><td>Edition-based, e.g. Enterprise 15,000 + 1,000 per licence</td></tr>
+    <tr><td>Concurrent long-running requests (&gt;20 s)</td><td>25 per org</td></tr>
+    <tr><td>Composite subrequests</td><td>25 (5 of which may be sObject Collections or query calls)</td></tr>
+    <tr><td>Composite graph</td><td>500 records total, 75 graphs</td></tr>
+    <tr><td>sObject Collections</td><td>200 records per call</td></tr>
+    <tr><td>Bulk API 2.0</td><td>150 million records per 24 h; 150 MB per batch upload</td></tr>
+    <tr><td>Apex REST request size</td><td>6 MB (synchronous)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Explain inbound vs outbound and what changes in your design.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Inbound</strong> — Salesforce is the <em>server</em>. You configure a Connected App, an
+OAuth flow, a least-privilege integration user, and you watch the daily API request allocation. Tools: standard
+REST/SOAP API, Apex REST/SOAP, Composite, Bulk.</p>
+<p><strong>Outbound</strong> — Salesforce is the <em>client</em>. You configure a Named Credential, live within 100
+callouts and 120 seconds per transaction, and you must deal with the DML-before-callout restriction. Tools: Apex HTTP
+callouts, WSDL2Apex, Outbound Messages, External Services.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> Which OAuth flow would you use for a nightly server-to-server job, and why not the others?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>JWT Bearer.</strong> It signs an assertion with a private key whose certificate is on the
+Connected App — no password stored anywhere, no browser prompt, unaffected by MFA policies or password expiry, and the
+key can live in a secrets vault.</p>
+<p><strong>Client Credentials</strong> is the simpler alternative when you can nominate a run-as user on the Connected
+App. <strong>Web Server</strong> needs a human to consent, so it can't run unattended.
+<strong>Username-Password</strong> is deprecated, blocked by default in new orgs, transmits credentials on every call
+and can't satisfy MFA — never use it in production.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Why is upsert by External Id the most important call in integration?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Because it makes the call <strong>idempotent</strong>. The external system issues
+<code>PATCH /sobjects/Account/Legacy_Id__c/A-1001</code> without ever knowing or storing a Salesforce Id — Salesforce
+creates the record (201) or updates it (204).</p>
+<p>That matters because networks fail: if a timeout leaves you unsure whether the call succeeded, you can safely replay
+it. Without idempotency, every retry risks a duplicate order. Note a 300 response means the External Id matched
+<em>multiple</em> records — a data problem to fix, not a retry.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Walk me through the status codes you'd handle in a callout, and which are retryable.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Families: 2xx success, 3xx redirect, 4xx <em>your</em> fault, 5xx <em>their</em> fault.</p>
+<p><strong>Retryable:</strong> 408, 429 (with backoff — honour <code>Retry-After</code>), 500, 502, 503, 504.
+<strong>Not retryable:</strong> 400 (malformed), 403 (permissions or API limit), 404 (wrong URL/version), 405, 415 —
+these need a code or config fix. <strong>401</strong> is the special case: retry once <em>after refreshing the
+token</em>. And remember 204 with an empty body is <strong>success</strong> for PATCH and DELETE, not an error.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> A trigger updates a record then calls an API and fails. Why, and what's the fix?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>"You have uncommitted work pending". Salesforce won't hold an open database transaction while
+waiting on an external system, so a callout can't follow DML in the same transaction.</p>
+<p><strong>Fix:</strong> move the callout to a <code>Queueable implements Database.AllowsCallouts</code> (preferred — it
+takes sObjects, returns a job Id, supports chaining and Finalizers) or <code>@future(callout=true)</code>. In Flow, use
+the <strong>asynchronous path</strong>. Both run after commit.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> Named Credential vs Remote Site Setting.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A <strong>Remote Site Setting</strong> only whitelists a URL — you still build the
+<code>Authorization</code> header, store the secret somewhere (usually a custom setting, which is a security smell) and
+handle token refresh yourself.</p>
+<p>A <strong>Named Credential</strong> stores the endpoint <em>and</em> the authentication. Salesforce injects the auth
+header and refreshes OAuth tokens automatically, and no secret ever appears in code:
+<code>req.setEndpoint('callout:ERP_API/v1/orders')</code>. Modern orgs split this into an
+<strong>External Credential</strong> (the auth protocol and principal) plus the Named Credential (the URL), with access
+granted through a permission set.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> When would you write Apex REST instead of using the standard REST API?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>When the operation is <strong>business logic, not CRUD</strong>. "Submit an order" might validate the
+customer, create the Order, create line items, apply pricing and return an order number — one call, one transaction,
+one clean contract for the partner.</p>
+<p>Also when you want to hide your internal data model, aggregate several objects into one payload, or version the
+endpoint (<code>/v1/orders</code>) independently of your schema. Stick to the standard API for plain record CRUD —
+it needs no code, no tests and no maintenance.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> What does the Composite API solve, and what are its four variants?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>It collapses multiple operations into <strong>one HTTP round trip and one API call</strong> —
+critical on mobile networks and for staying inside your daily allocation.</p>
+<ul>
+  <li><code>/composite</code> — up to 25 <strong>chained</strong> subrequests that reference each other via
+      <code>@{refId.id}</code>, optionally all-or-none.</li>
+  <li><code>/composite/batch</code> — 25 <strong>independent</strong> subrequests, no referencing, each succeeding or
+      failing alone.</li>
+  <li><code>/composite/tree</code> — up to 200 records in a nested parent/child tree of one object.</li>
+  <li><code>/composite/graph</code> — up to 500 records across 75 graphs, each graph committing independently.</li>
+</ul></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> When is an Outbound Message still the right tool in 2026?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>When you need <strong>guaranteed delivery with automatic retry for 24 hours and absolutely no
+code</strong>, and the receiver can accept SOAP and return <code>&lt;Ack&gt;true&lt;/Ack&gt;</code>. Nothing else in the
+platform gives you that retry behaviour declaratively.</p>
+<p>Its limits are why it's rarely chosen for new work: SOAP/XML only, one-way (the Ack carries no data back), a single
+object's fields, no transformation logic, and it's tied to Workflow Rules or Approval actions — and Workflow Rules can
+no longer be created. Platform Events are the modern answer.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> What are External Services and where do they fall short?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>You register an <strong>OpenAPI (Swagger) specification</strong> and Salesforce generates Apex types
+plus <strong>invocable actions</strong>, so an admin can call an external REST API from Flow with no code. Requires a
+Named Credential for the base URL and auth.</p>
+<p><strong>Shortfalls:</strong> the schema must be well-formed and fairly simple (size limits, no deeply nested or
+polymorphic types), error handling is limited to a Flow fault path, some auth patterns aren't supported, and the callout
+still can't run on a flow's immediate path after DML. For anything complex, hand-written Apex gives you retry logic and
+proper error capture.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. A trigger updates a record then makes a callout, and fails. Why, and what's the fix?</div>
+  <button class="opt">The endpoint isn't whitelisted — add a Remote Site Setting</button>
+  <button class="opt" data-correct="1">"Uncommitted work pending" — DML before a callout. Move the callout into a Queueable with Database.AllowsCallouts</button>
+  <button class="opt">Triggers can never make callouts</button>
+  <div class="explain">Salesforce won't hold a database transaction open while waiting on an external system. Async runs after commit, which resolves it.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. An external system must create a Salesforce Account without ever knowing Salesforce Ids. Best approach?</div>
+  <button class="opt">POST to /sobjects/Account and store the returned Id</button>
+  <button class="opt" data-correct="1">PATCH /sobjects/Account/Legacy_Id__c/{theirId} — upsert by External Id</button>
+  <button class="opt">Use the Metadata API</button>
+  <div class="explain">Upsert by External Id is idempotent: replaying the same call is safe, which is exactly what you want in an integration.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. You get a 401 from a Salesforce REST call that worked an hour ago. Cause?</div>
+  <button class="opt">The record was deleted</button>
+  <button class="opt" data-correct="1">The access token expired — use the refresh token to get a new one</button>
+  <button class="opt">You lack field-level security</button>
+  <div class="explain">401 = unauthenticated (INVALID_SESSION_ID). 403 would be the permissions answer; 404 the missing-record answer.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">4. Which needs zero code and retries automatically for 24 hours?</div>
+  <button class="opt">Apex REST callout</button>
+  <button class="opt" data-correct="1">Outbound Message</button>
+  <button class="opt">Composite API</button>
+  <div class="explain">Guaranteed retry with no code is the Outbound Message's unique selling point — the trade-off is SOAP-only, one-way, single-object.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · APIs &amp; Callouts</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

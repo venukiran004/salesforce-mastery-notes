@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Experience Cloud | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Platform</span> › <span>Experience Cloud</span></div>
+  <h1>Experience Cloud</h1>
+  <p class="lede">Portals, help centres and partner sites built on your Salesforce data — and the guest-user security
+     model that has caused more data breaches than any other Salesforce feature.</p>
+</header>
+
+<!-- ============================================ -->
+<h2 id="what">What it is</h2>
+<p>Experience Cloud (formerly Communities) publishes a branded website backed by your Salesforce org. External people
+   log in — or browse anonymously — and interact with real records, subject to a sharing model designed for people who
+   are <em>not</em> employees.</p>
+
+<div class="grid g3">
+  <div class="card accent-blue"><h4>Customer portal / Help Centre</h4><p>Case submission and status, Knowledge search, self-service. The classic case-deflection play.</p></div>
+  <div class="card accent-violet"><h4>Partner portal</h4><p>Deal registration, lead distribution, co-selling. Partners see Leads and Opportunities you share with them.</p></div>
+  <div class="card accent-teal"><h4>Public site</h4><p>Unauthenticated marketing pages, event registration, public knowledge — served to the <strong>guest user</strong>.</p></div>
+  <div class="card accent-green"><h4>Employee intranet</h4><p>Internal collaboration for users who don't need full CRM access.</p></div>
+  <div class="card accent-amber"><h4>Microsites &amp; forms</h4><p>Lightweight campaign pages that write straight into Salesforce.</p></div>
+  <div class="card accent-rose"><h4>Commerce storefronts</h4><p>B2B/B2C Commerce sites built on the same platform foundation.</p></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="templates">Templates: LWR vs Aura</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>LWR (Lightning Web Runtime)</th><th>Aura templates (Customer Service / Napili)</th></tr></thead>
+  <tbody>
+    <tr><td>Built on</td><td>LWC + a static-first runtime</td><td>Aura framework</td></tr>
+    <tr><td>Performance</td><td><strong>Much faster</strong> — pre-rendered, CDN-served</td><td>Slower initial load</td></tr>
+    <tr><td>Customisation</td><td>Full control of theme layouts and CSS</td><td>Constrained by the template</td></tr>
+    <tr><td>Out-of-the-box components</td><td>Fewer — you build more</td><td>Rich set (Case list, Knowledge, feeds)</td></tr>
+    <tr><td>Aura components supported</td><td>❌ LWC only</td><td>✅</td></tr>
+    <tr><td>Choose when</td><td>Public, high-traffic, brand-led sites</td><td>You need the ready-made service components fast</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="licences">Licence types</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Licence</th><th>Who</th><th>Access</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Customer Community</strong></td><td>High volume B2C customers</td><td>Cases, Knowledge, custom objects. <strong>No roles</strong> → no role hierarchy, so sharing needs <em>Sharing Sets</em></td></tr>
+    <tr><td><strong>Customer Community Plus</strong></td><td>Customers needing more</td><td>Adds roles, reports/dashboards and sharing-rule participation</td></tr>
+    <tr><td><strong>Partner Community</strong></td><td>Resellers, distributors</td><td>Leads, Opportunities, Campaigns; has roles; supports delegated administration</td></tr>
+    <tr><td><strong>External Apps / Channel Account</strong></td><td>Volume-priced variants</td><td>Login-based or member-based pricing models</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout note">
+  <span class="c-ico">👥</span>
+  <div class="c-body"><span class="c-title">The three-role limit</span>
+    Each partner/customer <strong>account</strong> can have up to <strong>3 portal roles</strong> (Executive, Manager,
+    User) by default, forming a mini hierarchy per account. High-volume Customer Community users have
+    <strong>no role at all</strong> — which is exactly why Sharing Sets exist.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="sharing">Sharing for external users</h2>
+
+<div class="dgm">
+  <div class="dgm-title">How an external user gets record access</div>
+  <svg viewBox="0 0 790 330" role="img" aria-label="External user sharing model with sharing sets and external OWD">
+    <rect class="s-box-r" x="40" y="20" width="710" height="52" rx="10"/>
+    <text class="s-t s-t-r" x="60" y="42">1 · External Org-Wide Defaults — a separate, stricter OWD column for external users</text>
+    <text class="s-t-sm" x="60" y="60">Set this to Private first. Internal OWD can never be tighter than external.</text>
+
+    <rect class="s-box-b" x="40" y="84" width="710" height="52" rx="10"/>
+    <text class="s-t s-t-b" x="60" y="106">2 · Sharing Sets  (Customer Community — the no-role licences)</text>
+    <text class="s-t-sm" x="60" y="124">"Grant access where Case.ContactId = the user's Contact" — access via a lookup path, not a hierarchy</text>
+
+    <rect class="s-box-v" x="40" y="148" width="710" height="52" rx="10"/>
+    <text class="s-t s-t-v" x="60" y="170">3 · Sharing Groups / Sharing Rules  (Plus &amp; Partner licences, which have roles)</text>
+    <text class="s-t-sm" x="60" y="188">Normal sharing rules and role hierarchy apply, plus portal role groups</text>
+
+    <rect class="s-box-t" x="40" y="212" width="710" height="52" rx="10"/>
+    <text class="s-t s-t-t" x="60" y="234">4 · Account Relationship &amp; Super User access</text>
+    <text class="s-t-sm" x="60" y="252">Partner Super User sees records owned by others in their account and below</text>
+
+    <rect class="s-box-a" x="40" y="276" width="710" height="44" rx="10"/>
+    <text class="s-t s-t-a" x="60" y="298">5 · Guest user — no login. Access ONLY via Guest User Sharing Rules, read-only, and heavily restricted.</text>
+  </svg>
+</div>
+
+<h3>Sharing Sets — the one to understand</h3>
+<pre><code class="language-apex">// Conceptually, a Sharing Set says:
+//   grant this community user access to records where
+//   Case.ContactId  ==  User.ContactId
+//   Case.AccountId  ==  User.Contact.AccountId
+//
+// Access level: Read Only or Read/Write, per object.
+// Works for: Account, Contact, Case, Opportunity, Work Order, custom objects
+//            with a lookup path back to the user's Contact or Account.</code></pre>
+<p>Sharing Sets exist because high-volume Customer Community users have <strong>no role</strong>, so the role hierarchy
+   and ordinary owner-based sharing rules simply don't apply to them. A <strong>Share Group</strong> then lets
+   <em>internal</em> users see records owned by those high-volume external users.</p>
+
+<!-- ============================================ -->
+<h2 id="guest-user">Guest user security — read this twice</h2>
+
+<div class="callout danger">
+  <span class="c-ico">🚨</span>
+  <div class="c-body"><span class="c-title">This is the single biggest breach source in Salesforce</span>
+    A misconfigured guest user profile has repeatedly exposed entire customer databases publicly. Salesforce responded
+    with a series of mandatory <em>Guest User Security</em> release updates. Treat the guest user as a hostile anonymous
+    visitor, because that's exactly what it is.</div>
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Control</th><th>Rule</th></tr></thead>
+  <tbody>
+    <tr><td>Guest user record access</td><td>Cannot be more than <strong>Read Only</strong>, enforced by the platform</td></tr>
+    <tr><td>Record ownership</td><td>Guest users <strong>cannot own records</strong>; a default owner is assigned instead</td></tr>
+    <tr><td>Sharing</td><td>Only <strong>Guest User Sharing Rules</strong> — they are not covered by ordinary sharing rules</td></tr>
+    <tr><td>"Secure guest user record access"</td><td>A mandatory setting; leave it <strong>on</strong></td></tr>
+    <tr><td>View All / Modify All</td><td>Never grant to a guest profile</td></tr>
+    <tr><td>Object permissions</td><td>Grant the absolute minimum. No Delete, ever</td></tr>
+    <tr><td>Apex</td><td>Guest-accessible Apex runs <strong>without sharing</strong> unless you declare otherwise — always use <code>with sharing</code> and <code>WITH USER_MODE</code></td></tr>
+    <tr><td>@AuraEnabled methods</td><td>Only expose what the public genuinely needs; validate every input</td></tr>
+    <tr><td>Field-level security</td><td>Hide everything not required for the page</td></tr>
+    <tr><td>Public site URL</td><td>Anyone can enumerate it — never rely on obscurity</td></tr>
+  </tbody>
+</table>
+</div>
+
+<pre><code class="language-apex">// A guest-facing Apex controller done properly
+public with sharing class PublicCaseController {
+
+    @AuraEnabled
+    public static Id submitCase(String subject, String description, String email) {
+        // 1. Validate — the caller is anonymous and untrusted
+        if (String.isBlank(subject) || subject.length() &gt; 255) {
+            throw new AuraHandledException('Invalid subject');
+        }
+        if (!Pattern.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$', email)) {
+            throw new AuraHandledException('Invalid email');
+        }
+        // 2. Never accept a record Id from the client and act on it blindly
+        // 3. Create only what is needed, with an explicit owner
+        Case c = new Case(
+            Subject     = subject.escapeHtml4(),
+            Description = description,
+            SuppliedEmail = email,
+            Origin      = 'Web',
+            OwnerId     = DEFAULT_QUEUE_ID
+        );
+        insert c;                       // consider AccessLevel.SYSTEM_MODE deliberately, and document why
+        return c.Id;                    // return the Id only if the page needs it
+    }
+}</code></pre>
+
+<h3>Guest security checklist</h3>
+<ul class="steps">
+  <li><b>Audit the guest profile</b> — object and field permissions, tabs, Apex class access, Visualforce page access.</li>
+  <li><b>Set external OWD to Private</b> on every object the site touches.</li>
+  <li><b>Review Guest User Sharing Rules</b> — each one is a deliberate public exposure.</li>
+  <li><b>Check every <code>@AuraEnabled</code> method</b> reachable by the guest profile; assume an attacker calls it directly, not through your page.</li>
+  <li><b>Turn on Clickjack protection and CSP</b> in the site's security settings.</li>
+  <li><b>Rate-limit and CAPTCHA</b> any form that creates records.</li>
+  <li><b>Test as the guest user</b> — browse the site logged out, and try the API with no session.</li>
+</ul>
+
+<!-- ============================================ -->
+<h2 id="building">Building and running a site</h2>
+<div class="grid g2">
+  <div class="card accent-teal"><h4>Experience Builder</h4>
+    <ul><li>Drag-and-drop pages from standard and custom LWCs</li>
+        <li><strong>Theme layouts</strong> and branding sets for look and feel</li>
+        <li><strong>Audience targeting</strong> — vary components or whole pages by profile, location or record criteria</li>
+        <li>Custom LWCs need <code>lightningCommunity__Page</code> / <code>lightningCommunity__Default</code> targets</li></ul></div>
+  <div class="card accent-amber"><h4>Operational concerns</h4>
+    <ul><li><strong>Self-registration</strong> and the Apex handler that decides what a new user becomes</li>
+        <li><strong>SSO</strong> and social sign-on</li>
+        <li>Custom login, logout, forgot-password and error pages</li>
+        <li><strong>Moderation</strong> rules for user-generated content</li>
+        <li>Custom domain, SEO settings and Google Analytics</li>
+        <li>Deploy via Metadata API (<code>ExperienceBundle</code>) or change sets</li></ul></div>
+</div>
+
+<div class="callout note">
+  <span class="c-ico">🔗</span>
+  <div class="c-body"><span class="c-title">Related modules</span>
+    <a href="security.html">Security &amp; Sharing</a> for the internal model this extends,
+    <a href="sales-service.html#service-cloud">Service Cloud</a> for the case deflection story, and
+    <a href="lwc-core.html">LWC</a> for the components you'll build.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Why do Sharing Sets exist?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Because high-volume <strong>Customer Community</strong> users have <strong>no role</strong>. Without
+a role there's no role hierarchy and owner-based sharing rules can't reach them, so the normal model has nothing to work
+with.</p>
+<p>A Sharing Set grants access by <strong>lookup path instead</strong> — "share Cases where <code>Case.ContactId</code>
+equals the user's Contact". A <strong>Share Group</strong> then lets internal users see records owned by those external
+users.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> What's the maximum access a guest user can have to a record?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Read Only</strong> — the platform enforces this, and guest users cannot own records.
+Access can only come from <strong>Guest User Sharing Rules</strong>, which are a separate, restricted category; ordinary
+sharing rules don't apply to guests. The "Secure guest user record access" setting enforcing this is mandatory and must
+stay enabled.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Your public site exposes data it shouldn't. Where do you look?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><ol>
+  <li><strong>External OWD</strong> — is it Private for the exposed object?</li>
+  <li><strong>Guest User Sharing Rules</strong> — each one is a deliberate public grant; is there a stale one?</li>
+  <li><strong>Guest profile</strong> — object permissions, FLS, and especially any View All.</li>
+  <li><strong>Apex</strong> — a guest-accessible <code>@AuraEnabled</code> method in a class without
+      <code>with sharing</code> runs in system context and will happily return everything. Attackers call these
+      directly, not through your page.</li>
+  <li><strong>Site-level settings</strong> — public API access, clickjack protection, CSP.</li>
+</ol></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Customer Community vs Customer Community Plus vs Partner Community.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Customer Community</strong>: high-volume B2C, no roles, no reports, Cases and Knowledge —
+sharing via Sharing Sets. <strong>Customer Community Plus</strong>: adds roles, reports and dashboards, and participates
+in normal sharing rules. <strong>Partner Community</strong>: adds Leads, Opportunities and Campaigns for channel sales,
+with roles, delegated administration and Super User access. Pick the cheapest licence that supports the objects and
+sharing model the use case genuinely needs.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> LWR or an Aura template — how do you decide?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>LWR</strong> for public, high-traffic, brand-led sites where page speed and design
+control matter — it's pre-rendered and CDN-served, and substantially faster. <strong>Aura templates</strong> (Customer
+Service/Napili) when you want the rich out-of-the-box service components — case lists, Knowledge, feeds — working within
+days rather than building them. Note LWR supports LWC only, so any existing Aura components would need rewriting.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> How do you deflect cases on a help centre, and prove it worked?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Surface <strong>Knowledge</strong> search prominently, show suggested articles <em>while</em> the
+user types their case subject, and add an Einstein bot for routine questions. Publish articles to the public channel
+with the right data categories.</p>
+<p>Prove it with Experience Cloud's <strong>case deflection tracking</strong> (article viewed, then no case created),
+article view counts and ratings, and by trending case volume per channel against site traffic. The business value is
+straightforward: a deflected case costs nothing; an agent-handled one costs an agent-hour.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> A partner must see opportunities owned by colleagues at their company. How?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Partner Community licences <em>do</em> have roles — each partner account gets up to
+<strong>3 portal roles</strong> forming a mini hierarchy. Place the manager at a higher portal role than their
+colleagues and the hierarchy grants access upward, exactly as internally.</p>
+<p>For broader access within the account, enable <strong>Partner Super User</strong> access, which lets a user see
+records owned by others at their account and below in the portal role hierarchy. Avoid solving this with a broad sharing
+rule — that would leak data across partner accounts.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> What happens in Apex when the running user is a guest?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Nothing special is enforced for you — which is the danger. A class without a sharing declaration
+runs <strong>without sharing</strong> when it's the entry point, and <code>@AuraEnabled</code> methods don't enforce FLS
+by default. So a guest-callable method can return records the site was never meant to show.</p>
+<p>Always declare <code>with sharing</code>, use <code>WITH USER_MODE</code> or <code>stripInaccessible</code>, validate
+every parameter (never trust a record Id from the client), and assume the method is being called directly with crafted
+arguments rather than through your page.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. High-volume Customer Community users can't see their own Cases. Why?</div>
+  <button class="opt">Their profile lacks Read on Case</button>
+  <button class="opt" data-correct="1">They have no role, so you need a Sharing Set granting access via Case.ContactId</button>
+  <button class="opt">External OWD is set to Public Read</button>
+  <div class="explain">No role means no hierarchy and no owner-based sharing rules. Sharing Sets grant access through a lookup path instead.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. What's the maximum record access a guest user can be granted?</div>
+  <button class="opt">Read/Write</button>
+  <button class="opt" data-correct="1">Read Only, via Guest User Sharing Rules</button>
+  <button class="opt">Whatever the profile allows</button>
+  <div class="explain">Platform-enforced since the guest user security release updates. Guests also cannot own records.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. Which template would you choose for a fast, heavily branded public marketing site?</div>
+  <button class="opt">Customer Service (Napili) Aura template</button>
+  <button class="opt" data-correct="1">LWR — pre-rendered, CDN-served, full design control</button>
+  <button class="opt">Salesforce Tabs + Visualforce</button>
+  <div class="explain">LWR trades ready-made components for speed and design freedom, which is the right trade for public brand-led sites.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Experience Cloud</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>App Builder, UX &amp; Mobile | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>UI</span> › <span>App Builder &amp; Mobile</span></div>
+  <h1>App Builder, UX &amp; Mobile</h1>
+  <p class="lede">Assembling the interface without code — Lightning pages, Dynamic Forms and Actions, SLDS,
+     accessibility, performance, and the mobile experience.</p>
+</header>
+
+<!-- ============================================ -->
+<h2 id="pages">Lightning pages &amp; App Builder</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Page type</th><th>Used for</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Record Page</strong></td><td>The layout of a single record — assignable by app, record type and profile</td></tr>
+    <tr><td><strong>App Page</strong></td><td>A custom landing page with a tab, built from components</td></tr>
+    <tr><td><strong>Home Page</strong></td><td>The user's start page, assignable by app and profile</td></tr>
+    <tr><td><strong>Email Application Pane</strong></td><td>The Salesforce panel inside Outlook/Gmail integration</td></tr>
+    <tr><td><strong>Experience Page</strong></td><td><a href="experience-cloud.html">Experience Cloud</a> sites (separate builder)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="dgm">
+  <div class="dgm-title">How a record page is assembled and chosen</div>
+  <svg viewBox="0 0 790 280" role="img" aria-label="Lightning record page assignment and component visibility">
+    <rect class="s-box-b" x="20" y="30" width="150" height="46" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="95" y="46">App</text><text class="s-t-sm anchor-mid" x="95" y="64">Sales / Service</text>
+    <rect class="s-box-v" x="20" y="90" width="150" height="46" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="95" y="106">Record Type</text><text class="s-t-sm anchor-mid" x="95" y="124">B2B / B2C</text>
+    <rect class="s-box-t" x="20" y="150" width="150" height="46" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="95" y="166">Profile</text><text class="s-t-sm anchor-mid" x="95" y="184">Rep / Manager</text>
+
+    <path class="s-line" d="M170 53 H240 V110 M170 113 H240 M170 173 H240 V116"/>
+    <path class="s-line" d="M240 113 H290" marker-end="url(#ux1)"/>
+
+    <rect class="s-box-a" x="290" y="86" width="180" height="56" rx="9"/>
+    <text class="s-t s-t-a anchor-mid" x="380" y="108">Page Assignment</text>
+    <text class="s-t-sm anchor-mid" x="380" y="128">picks ONE Lightning page</text>
+    <path class="s-line-a" d="M470 114 H520" marker-end="url(#ux1)"/>
+
+    <rect class="s-box-g" x="520" y="60" width="250" height="110" rx="9"/>
+    <text class="s-t s-t-g anchor-mid" x="645" y="84">The rendered page</text>
+    <text class="s-t-sm anchor-mid" x="645" y="108">Regions + components</text>
+    <text class="s-t-sm anchor-mid" x="645" y="128">each with its own</text>
+    <text class="s-t-sm anchor-mid" x="645" y="146">Component Visibility filter</text>
+
+    <text class="s-t-sm anchor-mid" x="395" y="216">Assignment decides WHICH page. Component Visibility decides WHAT SHOWS on it.</text>
+    <text class="s-t-sm s-t-r anchor-mid" x="395" y="244">Prefer one page with visibility rules over five near-identical pages you must maintain in parallel.</text>
+    <defs><marker id="ux1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<!-- ============================================ -->
+<h2 id="dynamic">Dynamic Forms, Actions &amp; Related Lists</h2>
+<div class="vs">
+  <div class="card accent-rose"><h4>The old way — Page Layouts</h4>
+    <ul><li>Fields live in one monolithic layout</li>
+        <li>To show different fields to different people you clone the layout — or invent a record type</li>
+        <li>Layout assignment is only by record type × profile</li>
+        <li>Ends with 12 layouts nobody dares change</li></ul></div>
+  <div class="vs-mid">→</div>
+  <div class="card accent-green"><h4>The modern way — Dynamic Forms</h4>
+    <ul><li>Fields placed <strong>individually</strong> in App Builder</li>
+        <li>Each field or section has its own <strong>visibility rule</strong> (record value, user field, device, permission)</li>
+        <li>Sections and tabs arranged freely</li>
+        <li>One page, many audiences — far less to maintain</li></ul></div>
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Feature</th><th>What it gives you</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Dynamic Forms</strong></td><td>Field-level placement and conditional visibility, replacing the layout's field section</td></tr>
+    <tr><td><strong>Dynamic Actions</strong></td><td>Buttons shown conditionally — "Escalate" only appears on open, high-priority cases</td></tr>
+    <tr><td><strong>Dynamic Related Lists</strong></td><td>A related list filtered to specific criteria, with chosen columns and sort — several on one page, each showing a different slice</td></tr>
+    <tr><td><strong>Component Visibility</strong></td><td>Any component shown by record field, user field, custom permission, device form factor or a combination</td></tr>
+    <tr><td><strong>Tabs &amp; Accordions</strong></td><td>Reduce a wall of fields to a scannable page</td></tr>
+    <tr><td><strong>Page Performance analysis</strong></td><td>Built into App Builder — flags slow components and too many on one page</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout tip">
+  <span class="c-ico">⚡</span>
+  <div class="c-body"><span class="c-title">Page performance rules of thumb</span>
+    Keep components per page modest — every one is a server call. Put heavy components (charts, related lists, custom
+    LWCs doing Apex work) in <strong>tabs that aren't the default</strong>, so they load only when clicked. Use
+    <code>cacheable=true</code> Apex or LDS wherever possible. Run the Page Analysis tool before go-live: users judge
+    the whole platform by how fast the account page opens.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="slds">SLDS &amp; design consistency</h2>
+<ul>
+  <li><strong>Salesforce Lightning Design System</strong> is the CSS framework and design language. Using it means your custom components look native and stay consistent through Salesforce's own redesigns.</li>
+  <li><strong>Base components</strong> (<code>lightning-card</code>, <code>lightning-datatable</code>, <code>lightning-input</code>) already implement SLDS, accessibility and responsiveness — always try these before hand-rolling markup.</li>
+  <li><strong>Utility classes</strong> handle spacing and layout: <code>slds-var-m-around_medium</code>, <code>slds-grid</code>, <code>slds-col</code>, <code>slds-text-heading_small</code>.</li>
+  <li><strong>Styling Hooks</strong> (CSS custom properties) are the supported way to theme base components — never target SLDS internal class names, which change without notice.</li>
+  <li><strong>Themes and branding</strong> at app level control colours and logo without any CSS.</li>
+</ul>
+<pre><code class="language-css">/* Supported: styling hooks and your own scoped classes */
+:host {
+    --slds-c-card-color-background: var(--lwc-colorBackgroundAlt);
+}
+.risk-banner {
+    border-left: 3px solid var(--lwc-colorTextError, #ea001e);
+    padding: var(--lwc-spacingSmall, .75rem);
+}
+
+/* NOT supported: reaching into SLDS internals — breaks without warning
+.slds-card__header .slds-media__body { ... }  */</code></pre>
+
+<!-- ============================================ -->
+<h2 id="accessibility">Accessibility</h2>
+<div class="callout warn">
+  <span class="c-ico">♿</span>
+  <div class="c-body"><span class="c-title">Not optional</span>
+    Accessibility is a legal requirement in many markets and a procurement question in most enterprise deals. Salesforce
+    targets WCAG 2.1 AA; if your custom components break it, the org is non-compliant regardless of what the platform
+    does.</div>
+</div>
+<div class="grid g2">
+  <div class="card accent-teal"><h4>Build it in</h4>
+    <ul><li>Use <strong>base components</strong> — they handle roles, focus and ARIA already</li>
+        <li>Every input needs a real <code>label</code>, not just a placeholder</li>
+        <li>Meaningful <code>alt</code> text; decorative images get <code>alt=""</code></li>
+        <li>Keyboard operability: everything reachable and actionable by Tab and Enter</li>
+        <li>Visible focus indicators — never <code>outline: none</code> without a replacement</li>
+        <li>Colour contrast ≥ 4.5:1, and never colour alone to convey meaning</li>
+        <li>Announce dynamic changes with <code>aria-live</code></li></ul></div>
+  <div class="card accent-violet"><h4>Test it</h4>
+    <ul><li>Navigate a whole flow with the keyboard only</li>
+        <li>Run a screen reader (NVDA, VoiceOver) over the page</li>
+        <li>Automated checks: axe DevTools, Lighthouse</li>
+        <li>Zoom to 200% and confirm nothing is lost</li>
+        <li>Check in both light and dark backgrounds</li></ul></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="mobile">Mobile</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Option</th><th>What it is</th><th>When</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Salesforce Mobile App</strong></td><td>The standard app — your Lightning pages rendered for phone, configured with a mobile-specific navigation menu</td><td>The default for most users</td></tr>
+    <tr><td><strong>Mobile Publisher</strong></td><td>Package your Experience Cloud site or Salesforce app as a <strong>branded app</strong> in the App Store / Play Store</td><td>Customer- or employee-facing branded apps</td></tr>
+    <tr><td><strong>Field Service Mobile</strong></td><td>A separate, offline-first app for technicians</td><td>See <a href="field-service.html#mobile">Field Service</a></td></tr>
+    <tr><td><strong>Mobile SDK</strong></td><td>Build a fully native iOS/Android app against Salesforce APIs</td><td>Bespoke consumer apps</td></tr>
+    <tr><td><strong>Briefcase Builder</strong></td><td>Defines which records are cached for <strong>offline</strong> access in the mobile app</td><td>Field sales in poor coverage</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Designing for mobile</h3>
+<ul>
+  <li><strong>Component Visibility by form factor</strong> — hide dense components on phones rather than shipping a cramped page.</li>
+  <li><strong>Compact Layouts</strong> drive the mobile record header — pick the 4–5 fields that identify the record.</li>
+  <li><strong>Mobile navigation menu</strong> is separate from desktop; curate it ruthlessly.</li>
+  <li><strong>Quick Actions</strong> are the primary mobile interaction — global actions appear in the action bar.</li>
+  <li>Test on a real device: touch targets, thumb reach, and how a 40-field Dynamic Form actually feels.</li>
+  <li>LWCs are responsive by default with SLDS grid; verify at 375px width.</li>
+</ul>
+
+<!-- ============================================ -->
+<h2 id="patterns">UX patterns that work</h2>
+<div class="grid g3">
+  <div class="card accent-green"><h4>Reduce, then arrange</h4><p>The best page redesign removes fields. Ask which are read weekly vs never. Move the rest to a collapsed section or a tab.</p></div>
+  <div class="card accent-blue"><h4>Guide, don't validate</h4><p>Path with guidance-for-success, and screen flows for complex entry, beat a wall of validation-rule errors after the fact.</p></div>
+  <div class="card accent-violet"><h4>Progressive disclosure</h4><p>Show the summary; reveal detail on demand. Tabs, accordions and Dynamic Forms visibility rules all serve this.</p></div>
+  <div class="card accent-amber"><h4>Make the next action obvious</h4><p>Dynamic Actions surface exactly the buttons valid right now, instead of 14 buttons of which 12 are irrelevant.</p></div>
+  <div class="card accent-teal"><h4>Consistency over cleverness</h4><p>Users learn one pattern. A bespoke component that behaves differently costs more in confusion than it gains in elegance.</p></div>
+  <div class="card accent-rose"><h4>Measure adoption</h4><p>Lightning Usage App and login/report metrics show whether the redesign actually helped, rather than whether people said they liked it.</p></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Page Layout vs Dynamic Forms — what changed?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A <strong>page layout</strong> is monolithic: to show different fields to different users you clone
+the layout, and assignment is only by record type × profile — which is how orgs end up with a dozen near-identical
+layouts.</p>
+<p><strong>Dynamic Forms</strong> place fields individually in App Builder, each with its own visibility rule based on
+record values, user fields, custom permissions or device. One page serves many audiences, and you stop creating record
+types purely to hide fields. Page layouts still control related lists and buttons in some contexts, so both concepts
+persist.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> A record page takes 8 seconds to load. What do you do?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Run <strong>App Builder's Page Performance analysis</strong> first — it names the slow components.
+Then: reduce the number of components (each is a server call); move heavy ones (charts, custom LWCs doing Apex work,
+long related lists) into <strong>non-default tabs</strong> so they load lazily; ensure Apex is
+<code>cacheable=true</code> or replaced by LDS; check for a custom component doing SOQL in a loop or querying without
+limits; and confirm you're not rendering a 60-field Dynamic Form on a phone.</p>
+<p>Also check the Lightning Usage App for EPT (Experienced Page Time) trends across users.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> How do you show a button only to managers on high-value open deals?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Dynamic Actions</strong> with a visibility filter combining record and user criteria:
+<code>Amount &gt; 100000</code> AND <code>IsClosed = false</code> AND a <strong>custom permission</strong> such as
+<code>Approve_Large_Discount</code> held by the manager's permission set.</p>
+<p>Using a custom permission rather than a profile name is the detail interviewers look for — it survives profile
+restructuring and is testable in Apex with <code>FeatureManagement.checkPermission()</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Why shouldn't you style SLDS internal classes?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Because they're implementation detail, not API. Salesforce changes the internal DOM and class names
+of base components between releases, so a rule targeting <code>.slds-card__header .slds-media__body</code> silently
+breaks — and with native Shadow DOM it may not apply at all.</p>
+<p>The supported route is <strong>SLDS Styling Hooks</strong> — CSS custom properties like
+<code>--slds-c-card-color-background</code> — plus your own scoped classes inside your component. Those are contractual
+and survive upgrades.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> What accessibility issues would you check in a custom LWC?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Labels on every input (not placeholders), meaningful <code>alt</code> text, full keyboard
+operability with a visible focus indicator, logical tab order, colour contrast of at least 4.5:1, never using colour
+alone to convey state, correct heading hierarchy, and <code>aria-live</code> regions so dynamic updates are announced.</p>
+<p>Then test properly: keyboard-only navigation through the whole flow, a screen reader pass, axe DevTools or
+Lighthouse, and 200% zoom. Best answer of all: use <strong>base components</strong>, which already handle most of
+this.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> How do you support users with poor mobile coverage?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Briefcase Builder</strong> defines which records are cached offline in the Salesforce
+mobile app, so field sales can view and edit key accounts with no signal. For technicians, the
+<strong>Field Service mobile app</strong> is fully offline-first.</p>
+<p>Design accordingly: avoid logic requiring a server round trip, keep on-device work simple, and make server-side
+post-sync processing <strong>idempotent and order-tolerant</strong>, because records may arrive hours later and out of
+sequence.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> The business asks for 60 fields on one page. How do you respond?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Push back with data, not opinion. Ask which fields are actually read or edited — usually a
+report on field usage (or Salesforce Optimizer) shows many are never populated. Then apply
+<strong>progressive disclosure</strong>: the 8 fields that identify and drive the record at the top, the rest in
+collapsed sections or tabs, with <strong>Dynamic Forms visibility rules</strong> so each role sees only what's relevant
+to them.</p>
+<p>Frame it as speed and adoption: fewer components load faster, and a scannable page is used, whereas a wall of fields
+gets ignored and the data quality problem persists.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. You need different fields visible to Sales vs Support on the same record type. Best approach?</div>
+  <button class="opt">Two record types with two page layouts</button>
+  <button class="opt" data-correct="1">One Lightning page using Dynamic Forms with field-level visibility rules</button>
+  <button class="opt">Two separate Lightning apps</button>
+  <div class="explain">Dynamic Forms removed the old reason for creating record types purely to vary which fields appear.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. Which is the supported way to theme a base component?</div>
+  <button class="opt">Override its .slds- internal classes</button>
+  <button class="opt" data-correct="1">SLDS Styling Hooks (CSS custom properties)</button>
+  <button class="opt">Inject global CSS via a static resource</button>
+  <div class="explain">Internal class names are implementation detail and change between releases; styling hooks are a supported contract.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. What controls which records are available offline in the Salesforce mobile app?</div>
+  <button class="opt">Compact Layouts</button>
+  <button class="opt" data-correct="1">Briefcase Builder</button>
+  <button class="opt">Component Visibility</button>
+  <div class="explain">Briefcase Builder defines the offline record set; Compact Layouts control the mobile record header fields.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · App Builder, UX &amp; Mobile</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

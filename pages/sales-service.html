@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sales &amp; Service Cloud | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Admin</span> › <span>Sales &amp; Service Cloud</span></div>
+  <h1>Sales &amp; Service Cloud</h1>
+  <p class="lede">The standard objects in depth — what each one is <em>for</em>, how they connect, and the features
+     built on top of them. This is the business knowledge that makes the technical knowledge useful.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">🔗</span>
+  <div class="c-body"><span class="c-title">Related</span>
+    The end-to-end <a href="admin.html#standard-objects-end-to-end">Lead → Cash process</a> is on the Admin page.
+    This module goes feature by feature through the objects that process touches.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="sales-cloud">Sales Cloud — the object map</h2>
+
+<div class="dgm">
+  <div class="dgm-title">How the Sales Cloud objects relate</div>
+  <svg viewBox="0 0 790 420" role="img" aria-label="Sales Cloud standard object relationships">
+    <rect class="s-box-v" x="20" y="20" width="140" height="46" rx="9"/>
+    <text class="s-t anchor-mid" x="90" y="43">Campaign</text>
+    <path class="s-line-v" d="M90 66 V96" marker-end="url(#ss1)"/>
+    <rect class="s-box" x="20" y="96" width="140" height="40" rx="8"/>
+    <text class="s-t-sm anchor-mid" x="90" y="116">Campaign Member</text>
+    <path class="s-line-v" d="M160 116 H230" marker-end="url(#ss1)"/>
+
+    <rect class="s-box-b" x="230" y="96" width="130" height="40" rx="8"/>
+    <text class="s-t anchor-mid" x="295" y="116">Lead</text>
+    <path class="s-line-b" d="M295 136 V166" marker-end="url(#ss1)"/>
+    <rect class="s-box-a" x="215" y="166" width="160" height="36" rx="8"/>
+    <text class="s-t s-t-a anchor-mid" x="295" y="184">Convert</text>
+
+    <path class="s-line-a" d="M215 184 H120 V226" marker-end="url(#ss1)"/>
+    <path class="s-line-a" d="M295 202 V226" marker-end="url(#ss1)"/>
+    <path class="s-line-a" d="M375 184 H470 V226" marker-end="url(#ss1)"/>
+
+    <rect class="s-box-t" x="40"  y="226" width="150" height="40" rx="8"/>
+    <text class="s-t anchor-mid" x="115" y="246">Account</text>
+    <rect class="s-box-t" x="220" y="226" width="150" height="40" rx="8"/>
+    <text class="s-t anchor-mid" x="295" y="246">Contact</text>
+    <rect class="s-box-g" x="400" y="226" width="150" height="40" rx="8"/>
+    <text class="s-t anchor-mid" x="475" y="246">Opportunity</text>
+
+    <path class="s-line" d="M190 246 H220" /><text class="s-t-sm anchor-mid" x="205" y="236">1:N</text>
+    <path class="s-line s-dash" d="M370 246 H400"/>
+    <text class="s-t-sm anchor-mid" x="385" y="278">OpportunityContactRole</text>
+
+    <path class="s-line-g" d="M475 266 V300" marker-end="url(#ss1)"/>
+    <rect class="s-box" x="380" y="300" width="190" height="40" rx="8"/>
+    <text class="s-t-sm anchor-mid" x="475" y="320">Opportunity Line Item</text>
+    <path class="s-line" d="M570 320 H620" marker-end="url(#ss1)"/>
+    <rect class="s-box-a" x="620" y="300" width="150" height="40" rx="8"/>
+    <text class="s-t-sm anchor-mid" x="695" y="320">PricebookEntry</text>
+    <path class="s-line-a" d="M695 300 V266" marker-end="url(#ss1)"/>
+    <rect class="s-box-a" x="620" y="226" width="150" height="40" rx="8"/>
+    <text class="s-t-sm anchor-mid" x="695" y="246">Product2 / Price Book</text>
+
+    <path class="s-line-g" d="M550 246 H600 V196" marker-end="url(#ss1)"/>
+    <rect class="s-box-g" x="600" y="156" width="170" height="40" rx="8"/>
+    <text class="s-t-sm anchor-mid" x="685" y="176">Quote → Contract → Order</text>
+
+    <path class="s-line-r" d="M115 266 V366" marker-end="url(#ss1)"/>
+    <rect class="s-box-r" x="40" y="366" width="150" height="40" rx="8"/>
+    <text class="s-t-sm anchor-mid" x="115" y="386">Case (Service)</text>
+    <text class="s-t-sm anchor-mid" x="420" y="392">Activities (Task / Event) attach to almost everything via WhoId and WhatId</text>
+    <defs><marker id="ss1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<h3>The core objects</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Object</th><th>Represents</th><th>Key fields &amp; behaviour</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Campaign</strong></td><td>A marketing initiative</td><td>Members are Leads or Contacts via <code>CampaignMember</code>. Tracks cost, expected revenue and ROI. Campaign Influence attributes revenue back to campaigns.</td></tr>
+    <tr><td><strong>Lead</strong></td><td>An unqualified person <em>and</em> company in one record</td><td>Status drives the qualification process. Becomes read-only on conversion. Custom fields need explicit mapping.</td></tr>
+    <tr><td><strong>Account</strong></td><td>A company (B2B) or a person (B2C, via Person Accounts)</td><td>Supports a parent hierarchy. Account Teams add named collaborators.</td></tr>
+    <tr><td><strong>Contact</strong></td><td>An individual at an Account</td><td><em>Contacts to Multiple Accounts</em> lets one person relate to several accounts with a role.</td></tr>
+    <tr><td><strong>Opportunity</strong></td><td>A potential deal</td><td>Amount, Close Date, Stage. Stage drives Probability and Forecast Category. <code>OpportunityContactRole</code> records who is involved and how.</td></tr>
+    <tr><td><strong>Product2 / Pricebook2</strong></td><td>What you sell, and at what price</td><td>A Product exists once; a <code>PricebookEntry</code> gives it a price in a given price book and currency. There is always one <strong>Standard Price Book</strong>.</td></tr>
+    <tr><td><strong>OpportunityLineItem</strong></td><td>A product on a deal</td><td>Adding line items makes the Opportunity Amount a calculated roll-up of the products.</td></tr>
+    <tr><td><strong>Quote</strong></td><td>A formal, versioned offer</td><td>Multiple quotes per opportunity; <strong>syncing</strong> a quote pushes its line items and amount back to the Opportunity. Generates a Quote PDF.</td></tr>
+    <tr><td><strong>Contract / Order</strong></td><td>The agreement and its fulfilment</td><td>Orders can have Order Products and support reduction orders.</td></tr>
+    <tr><td><strong>Task / Event</strong></td><td>Activities</td><td><code>WhoId</code> points to a Lead or Contact; <code>WhatId</code> to almost anything else. They surface in the Activity Timeline.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout warn">
+  <span class="c-ico">💷</span>
+  <div class="c-body"><span class="c-title">The Products puzzle everyone hits</span>
+    You can't add a product to an opportunity until it has a <strong>PricebookEntry in the price book selected on that
+    opportunity</strong>. In tests, the standard price book isn't visible — use
+    <code>Id pbId = Test.getStandardPricebookId();</code> and create your <code>PricebookEntry</code> against it.
+    Also: once line items exist, the Amount field becomes read-only because it's a roll-up.</div>
+</div>
+
+<h3>Sales process features</h3>
+<div class="grid g2">
+  <div class="card accent-blue"><h4>Sales Process &amp; Path</h4>
+    <p>A <strong>Sales Process</strong> defines which Stage values a record type may use. <strong>Path</strong> renders
+       those stages as a guided bar with per-stage key fields and guidance text — the highest-adoption feature in
+       Sales Cloud for very little configuration effort.</p></div>
+  <div class="card accent-violet"><h4>Forecasting</h4>
+    <p>Each stage maps to a <strong>Forecast Category</strong> (Pipeline, Best Case, Commit, Closed). Collaborative
+       Forecasts roll amounts up the <em>role hierarchy</em>, so the hierarchy design directly determines whether the
+       forecast is correct.</p></div>
+  <div class="card accent-teal"><h4>Opportunity Teams &amp; Splits</h4>
+    <p>Teams add collaborators with a role and access level. <strong>Opportunity Splits</strong> divide credit between
+       them — revenue splits must total 100%, overlay splits need not.</p></div>
+  <div class="card accent-amber"><h4>Territory Management</h4>
+    <p>Assigns Accounts to territories and users to territories, granting record access by geography or segment rather
+       than by the org chart. Use it when the role hierarchy can't express who should see what.</p></div>
+  <div class="card accent-green"><h4>Duplicate &amp; data quality</h4>
+    <p><a href="admin.html#duplicate-rules">Duplicate and matching rules</a>, Account hierarchies, and
+       <strong>Data.com-style</strong> enrichment keep the account base clean.</p></div>
+  <div class="card accent-rose"><h4>Einstein for Sales</h4>
+    <p>Opportunity Scoring, Lead Scoring, Activity Capture and Conversation Insights — declarative AI that needs enough
+       historical data to train. Worth knowing by name.</p></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="service-cloud">Service Cloud</h2>
+
+<div class="dgm">
+  <div class="dgm-title">Case lifecycle with routing, entitlements and escalation</div>
+  <svg viewBox="0 0 790 400" role="img" aria-label="Service Cloud case lifecycle from intake to closure">
+    <text class="s-t s-t-b" x="20" y="20">INTAKE — every channel creates a Case</text>
+    <rect class="s-box-b" x="20"  y="32" width="120" height="36" rx="7"/><text class="s-t-sm anchor-mid" x="80"  y="50">Email-to-Case</text>
+    <rect class="s-box-b" x="150" y="32" width="120" height="36" rx="7"/><text class="s-t-sm anchor-mid" x="210" y="50">Web-to-Case</text>
+    <rect class="s-box-b" x="280" y="32" width="120" height="36" rx="7"/><text class="s-t-sm anchor-mid" x="340" y="50">Experience Cloud</text>
+    <rect class="s-box-b" x="410" y="32" width="110" height="36" rx="7"/><text class="s-t-sm anchor-mid" x="465" y="50">Chat / Messaging</text>
+    <rect class="s-box-b" x="530" y="32" width="110" height="36" rx="7"/><text class="s-t-sm anchor-mid" x="585" y="50">Phone (CTI)</text>
+    <rect class="s-box-b" x="650" y="32" width="120" height="36" rx="7"/><text class="s-t-sm anchor-mid" x="710" y="50">API / Partner</text>
+
+    <path class="s-line-b" d="M395 68 V96" marker-end="url(#sc2)"/>
+    <rect class="s-box-v" x="280" y="96" width="230" height="44" rx="9"/>
+    <text class="s-t s-t-v anchor-mid" x="395" y="112">Case created</text>
+    <text class="s-t-sm anchor-mid" x="395" y="130">Entitlement checked · Milestone clock starts</text>
+
+    <path class="s-line-v" d="M395 140 V168" marker-end="url(#sc2)"/>
+    <rect class="s-box-t" x="280" y="168" width="230" height="44" rx="9"/>
+    <text class="s-t s-t-t anchor-mid" x="395" y="184">Routing</text>
+    <text class="s-t-sm anchor-mid" x="395" y="202">Assignment rule → Queue, or Omni-Channel</text>
+
+    <path class="s-line-t" d="M395 212 V240" marker-end="url(#sc2)"/>
+    <rect class="s-box-a" x="280" y="240" width="230" height="44" rx="9"/>
+    <text class="s-t s-t-a anchor-mid" x="395" y="256">Agent works the case</text>
+    <text class="s-t-sm anchor-mid" x="395" y="274">Console · Knowledge · Macros · Quick Text</text>
+
+    <path class="s-line-r" d="M280 262 H150 V216" marker-end="url(#sc2)"/>
+    <rect class="s-box-r" x="60" y="176" width="180" height="40" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="150" y="190">Escalation rule fires</text>
+    <text class="s-t-sm anchor-mid" x="150" y="208">if the milestone is breached</text>
+
+    <path class="s-line-g" d="M395 284 V312" marker-end="url(#sc2)"/>
+    <rect class="s-box-g" x="280" y="312" width="230" height="44" rx="9"/>
+    <text class="s-t s-t-g anchor-mid" x="395" y="328">Closed</text>
+    <text class="s-t-sm anchor-mid" x="395" y="346">Knowledge article attached/created · CSAT survey</text>
+
+    <path class="s-line-g" d="M510 334 H620 V300" marker-end="url(#sc2)"/>
+    <rect class="s-box" x="560" y="256" width="180" height="44" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="650" y="272">Auto-response rule</text>
+    <text class="s-t-sm anchor-mid" x="650" y="290">acknowledges the customer</text>
+    <defs><marker id="sc2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<h3>Case management</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Feature</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Case</strong></td><td>The support request. Key fields: Status, Priority, Origin, Type, Reason, Contact, Account, Owner (user <em>or</em> queue).</td></tr>
+    <tr><td><strong>Support Process</strong></td><td>Like a Sales Process — restricts Status values per record type.</td></tr>
+    <tr><td><strong>Case Teams</strong></td><td>Named collaborators with a role and access level, defined ad hoc or from a predefined team.</td></tr>
+    <tr><td><strong>Case Hierarchy</strong></td><td>Parent/child cases for grouping related incidents under one problem.</td></tr>
+    <tr><td><strong>Assignment Rules</strong></td><td>First-match-wins routing to a user or queue. See <a href="admin.html#assignment-rules">Assignment rules</a>.</td></tr>
+    <tr><td><strong>Auto-Response Rules</strong></td><td>Sends an acknowledgement email with the case number.</td></tr>
+    <tr><td><strong>Escalation Rules</strong></td><td>Re-assigns or notifies when a case ages past a threshold, with business hours applied.</td></tr>
+    <tr><td><strong>Macros &amp; Quick Text</strong></td><td>One-click multi-step actions and reusable snippets — the biggest agent-productivity wins.</td></tr>
+    <tr><td><strong>Case Feed / Email Publisher</strong></td><td>Reply by email from within the case, threaded into the record.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Entitlements &amp; milestones (SLA management)</h3>
+<ul class="steps">
+  <li><b>Entitlement</b> — proof a customer is eligible for support, attached to an Account, Contact or Asset, with a start and end date.</li>
+  <li><b>Entitlement Process</b> — the SLA definition, containing one or more milestones.</li>
+  <li><b>Milestone</b> — a required step with a time target, e.g. "First Response within 1 hour", "Resolution within 24 hours".</li>
+  <li><b>Business Hours &amp; Holidays</b> — milestone clocks respect them, so a Friday-evening case isn't breached over the weekend.</li>
+  <li><b>Milestone Actions</b> — Success, Warning and Violation actions (email alert, field update, task) drive escalation automatically.</li>
+</ul>
+
+<h3>Omni-Channel</h3>
+<div class="vs">
+  <div class="card accent-amber"><h4>Assignment rules (push to a queue)</h4>
+    <ul><li>Record lands in a queue and waits</li><li>Agents choose what to pick up — cherry-picking is possible</li>
+        <li>No visibility of agent capacity</li><li>Simple to configure</li></ul></div>
+  <div class="vs-mid">vs</div>
+  <div class="card accent-green"><h4>Omni-Channel (push to an agent)</h4>
+    <ul><li>Routes to a specific available agent</li><li><strong>Capacity model</strong> — each work item has a size, each agent a maximum</li>
+        <li>Routing by <strong>skills</strong>, priority and availability</li><li>Real-time supervisor view of queues and agent status</li>
+        <li>Works across cases, chats, calls and leads</li></ul></div>
+</div>
+<p><strong>Configuration pieces:</strong> Service Channel (which object) → Routing Configuration (priority, capacity model,
+   routing model: Least Active / Most Available / External) → Queue or Skills → Presence Configuration and Presence
+   Statuses → add the Omni-Channel widget to the console's utility bar.</p>
+
+<h3>Knowledge</h3>
+<div class="grid g2">
+  <div class="card accent-violet"><h4>Structure</h4>
+    <ul><li><strong>Knowledge__kav</strong> — the article version object (<em>kav</em> = knowledge article version)</li>
+        <li><strong>Record Types</strong> replace the old article types</li>
+        <li><strong>Data Categories</strong> classify articles and control visibility by role</li>
+        <li><strong>Channels</strong>: Internal App, Customer, Partner, Public Knowledge Base</li></ul></div>
+  <div class="card accent-teal"><h4>Lifecycle</h4>
+    <ul><li>Draft → (approval process) → Published → Archived</li><li>Each publish creates a new <strong>version</strong>; the previous stays available</li>
+        <li>Translation into multiple languages</li><li>Article ratings and view counts drive gap analysis</li>
+        <li>Attach articles to Cases; <strong>Knowledge-Centered Service</strong> encourages agents to author as they resolve</li></ul></div>
+</div>
+
+<h3>Channels &amp; the console</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Feature</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Service Console</strong></td><td>A tabbed, split-view app with a utility bar — designed for agents handling many records at once.</td></tr>
+    <tr><td><strong>Open CTI</strong></td><td>The JavaScript API that embeds a softphone in the console; click-to-dial, screen pop on inbound calls.</td></tr>
+    <tr><td><strong>Chat / Messaging</strong></td><td>Web chat and messaging channels (SMS, WhatsApp, Facebook) routed through Omni-Channel.</td></tr>
+    <tr><td><strong>Experience Cloud</strong></td><td>Self-service portal: case deflection through Knowledge search, case submission and status tracking.</td></tr>
+    <tr><td><strong>Field Service</strong></td><td>Work Orders, Service Appointments, Service Resources and the dispatcher console for on-site work.</td></tr>
+    <tr><td><strong>Surveys</strong></td><td>CSAT/NPS after case closure, feeding satisfaction reporting.</td></tr>
+    <tr><td><strong>Einstein Case Classification / Bots</strong></td><td>Predicts field values on intake and deflects routine questions before an agent is involved.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="metrics">The metrics the business will ask for</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Sales</th><th>Service</th></tr></thead>
+  <tbody>
+    <tr><td>Pipeline by stage and by rep</td><td>Case volume by channel, type and product</td></tr>
+    <tr><td>Win rate (<code>WON:SUM / CLOSED:SUM</code>)</td><td>First response time vs SLA</td></tr>
+    <tr><td>Average deal size and sales cycle length</td><td>Average handle time and time to resolution</td></tr>
+    <tr><td>Conversion rate by lead source</td><td>First contact resolution rate</td></tr>
+    <tr><td>Forecast vs quota attainment</td><td>Backlog and reopen rate</td></tr>
+    <tr><td>Stage slippage (historical trending)</td><td>CSAT / NPS, and case deflection rate</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Most of these are Summary or Matrix reports with a <a href="reports.html#advanced-reports">summary formula</a>;
+   trending needs a <a href="reports.html#advanced-reports">reporting snapshot</a>.</p>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Why can't I add a product to this Opportunity?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Because the product has no <strong>PricebookEntry in the price book selected on the
+opportunity</strong>. The chain is: <code>Product2</code> (the thing) → <code>PricebookEntry</code> (its price in a given
+book and currency) → <code>OpportunityLineItem</code> (it on this deal). Common causes: the product is inactive, it has
+no entry in the <em>Standard</em> price book (required before any custom book), the opportunity has no price book
+selected, or the currency doesn't match. In Apex tests, use <code>Test.getStandardPricebookId()</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> What's the difference between Stage, Probability and Forecast Category?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Stage</strong> is where the deal is in the sales process — the value reps update.
+<strong>Probability</strong> is a default percentage that auto-populates from the stage (editable per record) and drives
+Expected Revenue. <strong>Forecast Category</strong> (Pipeline, Best Case, Commit, Omitted, Closed) is what rolls into
+Collaborative Forecasts, also defaulted from the stage but independently changeable — so a rep can leave a deal in
+"Negotiation" while moving it to Commit.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> When would you use Person Accounts, and what's the downside?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>For <strong>B2C</strong>, where your customer is an individual rather than a company — retail,
+banking, healthcare. A Person Account is a single record rendered from a linked Account and Contact.</p>
+<p><strong>Downsides:</strong> once enabled it <strong>cannot be turned off</strong>; it changes record-type and sharing
+behaviour; many AppExchange packages and integrations assume the standard model; and reporting becomes more complex
+because a Person Account appears in both Account and Contact contexts. Consider the "Individual" object or a standard
+B2B model with a personal contact first.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Assignment rules or Omni-Channel — how do you choose?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Assignment rules</strong> push work into a <em>queue</em> and agents pull from it. Simple,
+declarative, no capacity awareness — and agents can cherry-pick the easy cases.</p>
+<p><strong>Omni-Channel</strong> pushes work to a <em>specific available agent</em> based on capacity, priority and
+skills, across cases, chats and calls, with a real-time supervisor view. Choose it when volume is high, work types are
+mixed, or SLAs depend on even distribution. Choose assignment rules for low-volume, single-channel support.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> How do you implement "first response within 1 hour, resolution within 24"?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Entitlements and milestones.</strong> Create an Entitlement Process with two milestones
+("First Response" 60 minutes, "Resolution" 24 hours), attach the Entitlement to the Account/Contact/Asset, and set
+<strong>Business Hours</strong> so the clock pauses outside working hours and on holidays.</p>
+<p>Then configure <strong>milestone actions</strong>: a Warning action at 75% to email the agent, a Violation action to
+escalate. Add an <strong>escalation rule</strong> as a safety net. Report on milestone completion for SLA compliance.
+Doing this with a scheduled flow instead is a common but inferior answer — it ignores business hours and has no native
+SLA reporting.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> What is case deflection and how do you measure it?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Answering a customer's question <em>before</em> a case is created — Knowledge search on an
+Experience Cloud site, an Einstein bot, or suggested articles in a case-submission form.</p>
+<p>Measure it with the <strong>Case Deflection</strong> tracking on Experience Cloud (article viewed then no case
+created), Knowledge article view counts and ratings, and by trending case volume per channel against traffic. The
+business case is straightforward: a deflected case costs nothing, an agent-handled case costs an agent-hour.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> A rep says the forecast is wrong. Where do you look?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Forecasts roll up the <strong>role hierarchy</strong>, so start there: is the rep under the right
+manager? Then check the <strong>Forecast Category</strong> mapping on each stage (a stage mapped to Omitted silently
+disappears), the <strong>Close Date</strong> falling in the expected period, the <strong>fiscal year</strong> settings
+(custom fiscal years shift period boundaries), currency and dated exchange rates in multi-currency orgs, and whether
+Opportunity Splits are enabled — if so, the forecast uses the split amounts, not the full opportunity amount.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> Lead vs Contact — when should a record be which?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A <strong>Lead</strong> is an unqualified prospect where you don't yet know whether there's a real
+company or a real opportunity — it holds person <em>and</em> company data in one record precisely because that
+relationship is unconfirmed. A <strong>Contact</strong> is a known individual related to an <strong>Account</strong>.</p>
+<p>Convert once the prospect is qualified. Some organisations skip Leads entirely and create Accounts and Contacts
+directly — valid when every enquiry comes from an existing customer, but you lose lead-source conversion reporting and
+the marketing funnel.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. An Opportunity's Amount field is greyed out. Why?</div>
+  <button class="opt">The user lacks field-level security</button>
+  <button class="opt" data-correct="1">The opportunity has line items, so Amount is a roll-up of the products</button>
+  <button class="opt">The opportunity is closed</button>
+  <div class="explain">Once Opportunity Products exist, Amount is calculated from them. Remove the line items to edit it directly.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. Which feature pauses the SLA clock outside working hours?</div>
+  <button class="opt">Escalation rules alone</button>
+  <button class="opt" data-correct="1">Business Hours applied to the entitlement process milestones</button>
+  <button class="opt">A scheduled flow</button>
+  <div class="explain">Business Hours and Holidays are respected natively by milestone clocks and escalation rules — a scheduled flow would have to reimplement all of that.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. What does <code>kav</code> stand for in <code>Knowledge__kav</code>?</div>
+  <button class="opt">Knowledge Article Value</button>
+  <button class="opt" data-correct="1">Knowledge Article Version</button>
+  <button class="opt">Knowledge Access View</button>
+  <div class="explain">Each publish creates a new version; you almost always query the <code>__kav</code> object rather than the base article.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Sales &amp; Service Cloud</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

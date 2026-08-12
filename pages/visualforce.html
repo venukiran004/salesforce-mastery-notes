@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visualforce &amp; Aura | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>UI</span> › <span>Visualforce &amp; Aura</span></div>
+  <h1>Visualforce &amp; Aura</h1>
+  <p class="lede">The two generations of UI before LWC. Still very much alive in real orgs — and still asked about
+     in interviews. Plus a clear comparison of all three.</p>
+</header>
+
+<!-- ============================================ -->
+<h2 id="visualforce">Visualforce</h2>
+<p>A <strong>server-side</strong>, tag-based markup language (2008). The page is assembled on the server, sent as HTML,
+   and every interaction posts back to the server.</p>
+
+<div class="dgm">
+  <div class="dgm-title">Visualforce request cycle vs LWC</div>
+  <svg viewBox="0 0 780 250" role="img" aria-label="Visualforce server round trip compared to LWC client rendering">
+    <text class="s-t s-t-a" x="20" y="20">Visualforce — server renders everything</text>
+    <rect class="s-box" x="20" y="34" width="100" height="40" rx="7"/><text class="s-t-sm anchor-mid" x="70" y="54">Browser</text>
+    <path class="s-line-a" d="M120 54 H200" marker-end="url(#v1)"/><text class="s-t-sm anchor-mid" x="160" y="42">request</text>
+    <rect class="s-box-a" x="200" y="26" width="200" height="56" rx="7"/>
+    <text class="s-t-sm anchor-mid" x="300" y="46">Controller runs · SOQL</text>
+    <text class="s-t-sm anchor-mid" x="300" y="66">Page rendered to HTML</text>
+    <path class="s-line-a" d="M400 54 H480" marker-end="url(#v1)"/><text class="s-t-sm anchor-mid" x="440" y="42">full HTML</text>
+    <rect class="s-box" x="480" y="34" width="100" height="40" rx="7"/><text class="s-t-sm anchor-mid" x="530" y="54">Repaint</text>
+    <text class="s-t-sm s-t-r" x="600" y="54">Every click = round trip</text>
+
+    <text class="s-t s-t-g" x="20" y="130">LWC — client renders, server sends data only</text>
+    <rect class="s-box" x="20" y="144" width="100" height="40" rx="7"/><text class="s-t-sm anchor-mid" x="70" y="164">Browser</text>
+    <path class="s-line-g" d="M120 164 H200" marker-end="url(#v1)"/><text class="s-t-sm anchor-mid" x="160" y="152">@wire</text>
+    <rect class="s-box-g" x="200" y="146" width="200" height="36" rx="7"/>
+    <text class="s-t-sm anchor-mid" x="300" y="164">Apex returns JSON</text>
+    <path class="s-line-g" d="M400 164 H480" marker-end="url(#v1)"/><text class="s-t-sm anchor-mid" x="440" y="152">data</text>
+    <rect class="s-box" x="480" y="144" width="140" height="40" rx="7"/><text class="s-t-sm anchor-mid" x="550" y="164">DOM diff update</text>
+    <text class="s-t-sm s-t-g" x="640" y="164">Fast, no reload</text>
+    <defs><marker id="v1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<h3>Where Visualforce is still the right answer</h3>
+<div class="grid g3">
+  <div class="card accent-amber"><h4>PDF generation</h4><p><code>renderAs="pdf"</code> is still the simplest way to produce a printable quote or invoice.</p></div>
+  <div class="card accent-teal"><h4>Visualforce email templates</h4><p>Rich, data-driven emails with full markup control.</p></div>
+  <div class="card accent-violet"><h4>Legacy maintenance</h4><p>Thousands of orgs run VF pages that work perfectly well and won't be rewritten.</p></div>
+  <div class="card accent-green"><h4>File downloads</h4><p><code>contentType="text/csv"</code> to stream a generated CSV.</p></div>
+  <div class="card accent-rose"><h4>Full-page control</h4><p>When you need to control the entire page including <code>&lt;head&gt;</code>.</p></div>
+  <div class="card"><h4>Some Classic features</h4><p>Overriding standard buttons in Salesforce Classic.</p></div>
+</div>
+
+<h3>Page anatomy</h3>
+<pre data-file="AccountDashboard.page"><code class="language-html">&lt;apex:page standardController="Account"
+           extensions="AccountDashboardExtension"
+           lightningStylesheets="true"
+           docType="html-5.0"&gt;
+
+    &lt;apex:form&gt;
+        &lt;apex:pageMessages /&gt;    &lt;!-- displays ApexPages.addMessage output --&gt;
+
+        &lt;apex:pageBlock title="Account Details" mode="edit"&gt;
+            &lt;apex:pageBlockButtons&gt;
+                &lt;apex:commandButton value="Save"   action="{!save}" /&gt;
+                &lt;apex:commandButton value="Cancel" action="{!cancel}" immediate="true" /&gt;
+            &lt;/apex:pageBlockButtons&gt;
+
+            &lt;apex:pageBlockSection columns="2"&gt;
+                &lt;!-- inputField inherits type, FLS, help text and validation --&gt;
+                &lt;apex:inputField  value="{!Account.Name}" /&gt;
+                &lt;apex:inputField  value="{!Account.Industry}" /&gt;
+                &lt;apex:outputField value="{!Account.CreatedDate}" /&gt;
+            &lt;/apex:pageBlockSection&gt;
+
+            &lt;apex:pageBlockSection title="Contacts" columns="1"&gt;
+                &lt;apex:pageBlockTable value="{!contacts}" var="c"&gt;
+                    &lt;apex:column value="{!c.Name}"  headerValue="Name" /&gt;
+                    &lt;apex:column value="{!c.Email}" headerValue="Email" /&gt;
+                    &lt;apex:column&gt;
+                        &lt;apex:commandLink value="Remove" action="{!removeContact}" reRender="tablePanel"&gt;
+                            &lt;apex:param name="cid" value="{!c.Id}" assignTo="{!selectedContactId}" /&gt;
+                        &lt;/apex:commandLink&gt;
+                    &lt;/apex:column&gt;
+                &lt;/apex:pageBlockTable&gt;
+            &lt;/apex:pageBlockSection&gt;
+        &lt;/apex:pageBlock&gt;
+
+        &lt;!-- Partial page refresh: only this panel is re-rendered --&gt;
+        &lt;apex:outputPanel id="tablePanel"&gt;
+            &lt;apex:outputText value="Total: {!contactCount}" /&gt;
+        &lt;/apex:outputPanel&gt;
+    &lt;/apex:form&gt;
+&lt;/apex:page&gt;</code></pre>
+
+<h3>Controllers — the three flavours</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>Standard Controller</th><th>Custom Controller</th><th>Controller Extension</th></tr></thead>
+  <tbody>
+    <tr><td>Declared as</td><td><code>standardController="Account"</code></td><td><code>controller="MyController"</code></td><td><code>extensions="MyExt"</code></td></tr>
+    <tr><td>You write code?</td><td>❌ Free from the platform</td><td>✅ Everything</td><td>✅ Just the additions</td></tr>
+    <tr><td>Built-in actions</td><td><code>save, quicksave, edit, delete, cancel, list</code></td><td>None</td><td>Inherits the standard ones</td></tr>
+    <tr><td>Respects sharing/FLS</td><td>✅ Always</td><td>Only if you declare <code>with sharing</code></td><td>Follows its own class declaration</td></tr>
+    <tr><td>Constructor signature</td><td>—</td><td><code>public MyController()</code></td><td><code>public MyExt(ApexPages.StandardController c)</code></td></tr>
+    <tr><td>Use when</td><td>Simple record CRUD</td><td>The page isn't tied to one record</td><td>Standard behaviour + extra logic</td></tr>
+  </tbody>
+</table>
+</div>
+
+<pre data-file="AccountDashboardExtension.cls"><code class="language-apex">public with sharing class AccountDashboardExtension {
+
+    private final Account account;
+    private ApexPages.StandardController stdCtrl;
+
+    public List&lt;Contact&gt; contacts { get; private set; }
+    public Integer contactCount   { get { return contacts == null ? 0 : contacts.size(); } }
+    public Id selectedContactId   { get; set; }
+
+    // Extension constructor MUST take a StandardController
+    public AccountDashboardExtension(ApexPages.StandardController controller) {
+        this.stdCtrl = controller;
+        // addFields must be called before getRecord() in non-test contexts
+        if (!Test.isRunningTest()) {
+            controller.addFields(new List&lt;String&gt;{ 'Name', 'Industry', 'AnnualRevenue' });
+        }
+        this.account = (Account) controller.getRecord();
+        loadContacts();
+    }
+
+    private void loadContacts() {
+        contacts = [SELECT Id, Name, Email FROM Contact
+                    WHERE AccountId = :account.Id WITH USER_MODE ORDER BY Name];
+    }
+
+    public PageReference removeContact() {
+        try {
+            delete [SELECT Id FROM Contact WHERE Id = :selectedContactId];
+            loadContacts();
+            ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.CONFIRM, 'Contact removed'));
+        } catch (DmlException e) {
+            ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.ERROR, e.getDmlMessage(0)));
+        }
+        return null;                       // null = stay on the same page
+    }
+
+    public PageReference saveAndRedirect() {
+        update account;
+        PageReference pr = new PageReference('/' + account.Id);
+        pr.setRedirect(true);
+        return pr;
+    }
+}</code></pre>
+
+<h3>View state — the classic Visualforce problem</h3>
+<p>Every <code>&lt;apex:form&gt;</code> carries an encrypted hidden field containing all the controller state needed to
+   rebuild the page on postback. It is capped at <strong>170 KB</strong>.</p>
+<div class="grid g2">
+  <div class="card accent-rose"><h4>What bloats it</h4>
+    <ul><li>Large collections held in non-transient member variables</li>
+        <li>Querying more fields/rows than the page displays</li>
+        <li>Wrapper objects holding whole sObjects</li>
+        <li>Multiple forms on one page</li>
+        <li>Component tree size itself</li></ul></div>
+  <div class="card accent-green"><h4>How to fix it</h4>
+    <ul><li>Mark variables <code>transient</code> — excluded from view state</li>
+        <li>Use <code>StandardSetController</code> for pagination</li>
+        <li>Query only the fields you render, with a <code>LIMIT</code></li>
+        <li>Use <code>&lt;apex:actionRegion&gt;</code> to submit only part of the form</li>
+        <li>Move logic client-side with JS Remoting / <code>@RemoteAction</code></li>
+        <li>Check the View State tab in the Developer Console</li></ul></div>
+</div>
+<pre data-file="ViewState.cls"><code class="language-apex">public class BigListController {
+    // NOT in view state — recalculated on every request
+    public transient List&lt;Account&gt; accounts { get; set; }
+
+    // In view state — keep it small
+    public String searchTerm { get; set; }
+
+    public BigListController() { loadAccounts(); }
+    private void loadAccounts() {
+        accounts = [SELECT Id, Name FROM Account LIMIT 200];
+    }
+}</code></pre>
+
+<h3>AJAX &amp; partial refresh</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Tag</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><code>reRender="panelId"</code></td><td>Re-render only that panel after an action</td></tr>
+    <tr><td><code>&lt;apex:actionFunction&gt;</code></td><td>Call a controller method from JavaScript</td></tr>
+    <tr><td><code>&lt;apex:actionSupport&gt;</code></td><td>Fire an action on a DOM event (onchange, onclick)</td></tr>
+    <tr><td><code>&lt;apex:actionPoller&gt;</code></td><td>Poll the server on an interval (minimum 5 s)</td></tr>
+    <tr><td><code>&lt;apex:actionStatus&gt;</code></td><td>Show a spinner while an action runs</td></tr>
+    <tr><td><code>&lt;apex:actionRegion&gt;</code></td><td>Submit and validate only part of the form</td></tr>
+    <tr><td><code>@RemoteAction</code></td><td>JS Remoting — static Apex called directly from JS, <strong>no view state</strong>, fastest option</td></tr>
+  </tbody>
+</table>
+</div>
+<pre data-file="remoting.html"><code class="language-html">&lt;apex:page controller="RemoteController"&gt;
+&lt;script&gt;
+    function search(term) {
+        Visualforce.remoting.Manager.invokeAction(
+            '{!$RemoteAction.RemoteController.findAccounts}',
+            term,
+            function(result, event) {
+                if (event.status) { render(result); }
+                else { console.error(event.message); }
+            },
+            { escape: true, timeout: 30000 }
+        );
+    }
+&lt;/script&gt;
+&lt;/apex:page&gt;</code></pre>
+<pre data-file="RemoteController.cls"><code class="language-apex">global with sharing class RemoteController {
+    @RemoteAction
+    global static List&lt;Account&gt; findAccounts(String term) {
+        String key = '%' + String.escapeSingleQuotes(term) + '%';
+        return [SELECT Id, Name FROM Account WHERE Name LIKE :key WITH USER_MODE LIMIT 20];
+    }
+}</code></pre>
+
+<h3>PDF rendering</h3>
+<pre data-file="Invoice.page"><code class="language-html">&lt;apex:page standardController="Invoice__c" renderAs="pdf" applyBodyTag="false"&gt;
+    &lt;head&gt;
+        &lt;style type="text/css"&gt;
+            @page { size: A4; margin: 20mm;
+                    @bottom-center { content: "Page " counter(page) " of " counter(pages); } }
+            body  { font-family: Arial Unicode MS; font-size: 11pt; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #999; padding: 6px; }
+        &lt;/style&gt;
+    &lt;/head&gt;
+    &lt;body&gt;
+        &lt;h1&gt;Invoice {!Invoice__c.Name}&lt;/h1&gt;
+        &lt;apex:dataTable value="{!Invoice__c.Line_Items__r}" var="li"&gt;
+            &lt;apex:column value="{!li.Product__c}" /&gt;
+            &lt;apex:column value="{!li.Amount__c}" /&gt;
+        &lt;/apex:dataTable&gt;
+    &lt;/body&gt;
+&lt;/apex:page&gt;</code></pre>
+<div class="callout warn">
+  <span class="c-ico">🖨️</span>
+  <div class="c-body"><span class="c-title">PDF gotchas</span>
+    The PDF renderer is old: no JavaScript, limited CSS, no Lightning components, and non-Latin characters need
+    <code>font-family: 'Arial Unicode MS'</code>. Max render time 10 minutes / 60 MB heap. Modern alternative: a
+    third-party PDF service called from Apex.</div>
+</div>
+
+<h3>Visualforce security</h3>
+<ul>
+  <li>Output is HTML-escaped by default. <code>escape="false"</code> or <code>&lt;apex:outputText escape="false"&gt;</code> opens you to XSS — only use with sanitised content.</li>
+  <li><code>{!$CurrentPage.parameters.name}</code> is user input — never trust it in SOQL or output without escaping.</li>
+  <li>Standard controllers enforce CRUD/FLS/sharing automatically; custom controllers do not. Declare <code>with sharing</code> and check <code>isAccessible()</code>.</li>
+  <li>Use <code>JSENCODE()</code>, <code>HTMLENCODE()</code>, <code>URLENCODE()</code>, <code>JSINHTMLENCODE()</code> in markup.</li>
+</ul>
+
+<h3>Other Visualforce essentials</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Feature</th><th>Note</th></tr></thead>
+  <tbody>
+    <tr><td><code>StandardSetController</code></td><td>Pagination and list views for a set of records — <code>next()</code>, <code>previous()</code>, <code>setPageSize()</code>, <code>getSelected()</code></td></tr>
+    <tr><td>Custom components</td><td><code>&lt;apex:component&gt;</code> with <code>&lt;apex:attribute&gt;</code> — reusable markup</td></tr>
+    <tr><td>Global variables</td><td><code>$User</code>, <code>$Label</code>, <code>$Resource</code>, <code>$Setup</code>, <code>$ObjectType</code>, <code>$Action</code>, <code>$Page</code></td></tr>
+    <tr><td>Static resources</td><td><code>{!URLFOR($Resource.MyZip, 'img/logo.png')}</code></td></tr>
+    <tr><td>Embedding LWC in VF</td><td>Use <code>&lt;apex:includeLightning /&gt;</code> + <code>$Lightning.createComponent</code> with an Aura wrapper (Lightning Out)</td></tr>
+    <tr><td>Testing</td><td><code>Test.setCurrentPage(Page.MyPage)</code>, set <code>ApexPages.currentPage().getParameters().put()</code>, then call controller methods</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="aura">Aura Components</h2>
+<p>The 2014 component framework that introduced Lightning Experience. Still required for a few things LWC can't do,
+   and still present in most mature orgs.</p>
+
+<h3>The bundle</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>File</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><code>.cmp</code></td><td>The markup</td></tr>
+    <tr><td><code>Controller.js</code></td><td>Event handlers (thin — delegate to the helper)</td></tr>
+    <tr><td><code>Helper.js</code></td><td>Reusable logic — where the real code lives</td></tr>
+    <tr><td><code>.css</code></td><td>Styles (scoped by <code>.THIS</code>)</td></tr>
+    <tr><td><code>Renderer.js</code></td><td>Override rendering lifecycle (rare)</td></tr>
+    <tr><td><code>.design</code></td><td>Attributes exposed to App Builder</td></tr>
+    <tr><td><code>.svg</code></td><td>Custom icon</td></tr>
+    <tr><td><code>.auradoc</code></td><td>Documentation</td></tr>
+  </tbody>
+</table>
+</div>
+
+<pre data-file="AccountList.cmp"><code class="language-html">&lt;aura:component controller="AccountController"
+                implements="flexipage:availableForAllPageTypes,force:hasRecordId"
+                access="global"&gt;
+
+    &lt;aura:attribute name="accounts" type="Account[]" /&gt;
+    &lt;aura:attribute name="recordId" type="Id" /&gt;
+    &lt;aura:attribute name="isLoading" type="Boolean" default="false" /&gt;
+
+    &lt;aura:handler name="init" value="{!this}" action="{!c.doInit}" /&gt;
+    &lt;aura:registerEvent name="accountSelected" type="c:AccountSelectedEvent" /&gt;
+
+    &lt;lightning:card title="Accounts"&gt;
+        &lt;aura:if isTrue="{!v.isLoading}"&gt;
+            &lt;lightning:spinner /&gt;
+            &lt;aura:set attribute="else"&gt;
+                &lt;aura:iteration items="{!v.accounts}" var="acc"&gt;
+                    &lt;p onclick="{!c.handleSelect}" data-id="{!acc.Id}"&gt;{!acc.Name}&lt;/p&gt;
+                &lt;/aura:iteration&gt;
+            &lt;/aura:set&gt;
+        &lt;/aura:if&gt;
+    &lt;/lightning:card&gt;
+&lt;/aura:component&gt;</code></pre>
+
+<pre data-file="AccountListController.js"><code class="language-js">({
+    doInit : function(component, event, helper) {
+        helper.loadAccounts(component);          // controllers stay thin
+    },
+    handleSelect : function(component, event, helper) {
+        var id = event.currentTarget.dataset.id;
+        var evt = component.getEvent("accountSelected");
+        evt.setParams({ accountId : id });
+        evt.fire();
+    }
+})</code></pre>
+
+<pre data-file="AccountListHelper.js"><code class="language-js">({
+    loadAccounts : function(component) {
+        component.set("v.isLoading", true);
+        var action = component.get("c.getAccounts");   // server-side Apex method
+        action.setParams({ limitSize : 10 });
+        action.setCallback(this, function(response) {
+            var state = response.getState();
+            if (state === "SUCCESS") {
+                component.set("v.accounts", response.getReturnValue());
+            } else if (state === "ERROR") {
+                console.error(response.getError()[0].message);
+            }
+            component.set("v.isLoading", false);
+        });
+        $A.enqueueAction(action);                      // queued, then batched
+    }
+})</code></pre>
+
+<h3>Aura events</h3>
+<div class="dgm">
+  <div class="dgm-title">Component event vs Application event</div>
+  <svg viewBox="0 0 780 250" role="img" aria-label="Aura component event bubbling versus application event broadcast">
+    <text class="s-t s-t-b" x="20" y="20">Component Event — bubbles up the containment hierarchy</text>
+    <rect class="s-box-b" x="40" y="34" width="300" height="120" rx="9"/>
+    <text class="s-t-sm" x="56" y="54">Grandparent (handles it)</text>
+    <rect class="s-box" x="70" y="66" width="250" height="76" rx="8"/>
+    <text class="s-t-sm" x="86" y="86">Parent</text>
+    <rect class="s-box-t" x="100" y="98" width="200" height="34" rx="7"/>
+    <text class="s-t-sm anchor-mid" x="200" y="115">Child fires the event</text>
+    <path class="s-line-b" d="M200 98 V78 M200 66 V56" marker-end="url(#au1)"/>
+    <text class="s-t-sm s-t-g" x="40" y="180">Only ancestors can handle it → decoupled, predictable</text>
+
+    <text class="s-t s-t-v" x="420" y="20">Application Event — broadcast to everyone</text>
+    <rect class="s-box-v" x="420" y="34" width="330" height="120" rx="9"/>
+    <rect class="s-box-t" x="440" y="52" width="120" height="34" rx="7"/><text class="s-t-sm anchor-mid" x="500" y="69">Firing cmp</text>
+    <path class="s-line-v" d="M560 69 H600" marker-end="url(#au1)"/>
+    <rect class="s-box" x="600" y="52" width="130" height="34" rx="7"/><text class="s-t-sm anchor-mid" x="665" y="69">Any handler</text>
+    <rect class="s-box" x="600" y="96" width="130" height="34" rx="7"/><text class="s-t-sm anchor-mid" x="665" y="113">Any handler</text>
+    <path class="s-line-v" d="M500 86 V113 H600" marker-end="url(#au1)"/>
+    <text class="s-t-sm s-t-r" x="420" y="180">No hierarchy needed → powerful but hard to trace</text>
+    <text class="s-t-sm anchor-mid" x="390" y="222">In LWC these became: CustomEvent (component) and LMS (application)</text>
+    <defs><marker id="au1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<h3>Useful Aura interfaces</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Interface</th><th>Gives you</th></tr></thead>
+  <tbody>
+    <tr><td><code>force:hasRecordId</code></td><td>The <code>recordId</code> attribute on a record page</td></tr>
+    <tr><td><code>force:hasSObjectName</code></td><td>The object API name</td></tr>
+    <tr><td><code>flexipage:availableForAllPageTypes</code></td><td>Usable in Lightning App Builder anywhere</td></tr>
+    <tr><td><code>flexipage:availableForRecordHome</code></td><td>Record pages only</td></tr>
+    <tr><td><code>force:lightningQuickAction</code></td><td>Usable as a quick action (with a panel)</td></tr>
+    <tr><td><code>force:appHostable</code></td><td>Usable as a custom tab</td></tr>
+    <tr><td><code>lightning:isUrlAddressable</code></td><td>Navigable by URL with state parameters</td></tr>
+    <tr><td><code>lightning:availableForFlowScreens</code></td><td>Usable inside a Screen Flow</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout note">
+  <span class="c-ico">🧩</span>
+  <div class="c-body"><span class="c-title">What still needs Aura today</span>
+    ① A quick action that must programmatically <strong>close itself</strong> in some contexts.
+    ② Being the target of <code>standard__component</code> navigation (LWC can't be navigated to directly).
+    ③ Lightning Out (embedding Lightning in an external site or VF page) requires an Aura dependency app.
+    ④ A few console APIs. Everything else should be LWC — and an Aura component can <strong>contain</strong> an LWC.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="comparison">Visualforce vs Aura vs LWC</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>Visualforce</th><th>Aura</th><th>LWC</th></tr></thead>
+  <tbody>
+    <tr><td>Released</td><td>2008</td><td>2014</td><td>2019</td></tr>
+    <tr><td>Rendering</td><td>Server-side</td><td>Client-side</td><td>Client-side</td></tr>
+    <tr><td>Based on</td><td>Proprietary tags</td><td>Proprietary framework</td><td><strong>Web standards</strong> (ES6+, Custom Elements, Shadow DOM)</td></tr>
+    <tr><td>Performance</td><td>Slow (round trips, view state)</td><td>Moderate (heavy framework layer)</td><td><strong>Fast</strong> (thin layer over the browser)</td></tr>
+    <tr><td>Data binding</td><td>Two-way with the controller</td><td>Two-way (<code>v.attr</code>)</td><td><strong>One-way</strong> + events</td></tr>
+    <tr><td>Encapsulation</td><td>None</td><td>Partial</td><td><strong>Shadow DOM</strong></td></tr>
+    <tr><td>Learning curve</td><td>Salesforce-specific</td><td>Salesforce-specific</td><td>Transferable JS skills</td></tr>
+    <tr><td>Unit testing</td><td>Apex tests</td><td>Lightning Testing Service (clunky)</td><td><strong>Jest</strong></td></tr>
+    <tr><td>Mobile ready</td><td>Poor</td><td>Yes</td><td>Yes</td></tr>
+    <tr><td>Status</td><td>Supported, not evolving</td><td>Supported, maintenance mode</td><td><strong>Where all investment goes</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout tip">
+  <span class="c-ico">🔀</span>
+  <div class="c-body"><span class="c-title">Interoperability rules</span>
+    An <strong>Aura component can contain an LWC</strong>, but an <strong>LWC cannot contain an Aura component</strong>.
+    That's why migration goes leaf-first: rewrite the innermost components as LWC, keep the Aura shell, then replace the
+    shell last. Both can talk through LMS.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Standard controller, custom controller or extension — which and when?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Standard controller</strong> for simple CRUD on one record: you get
+<code>save</code>, <code>edit</code>, <code>delete</code>, <code>cancel</code> free, and it enforces sharing, CRUD and
+FLS automatically. <strong>Custom controller</strong> when the page isn't tied to a single record, or you need complete
+control — but it only respects sharing if you declare <code>with sharing</code>. <strong>Extension</strong> when you
+want standard behaviour plus extra logic; its constructor must accept an
+<code>ApexPages.StandardController</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> What is view state and how do you fix "Maximum view state size limit exceeded"?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Every <code>&lt;apex:form&gt;</code> carries an encrypted hidden field holding all the controller state
+needed to rebuild the page on postback, capped at <strong>170 KB</strong>.</p>
+<p><strong>Fixes:</strong> mark large collections <code>transient</code> so they're excluded; query only the fields and
+rows you actually render; paginate with <code>StandardSetController</code>; use
+<code>&lt;apex:actionRegion&gt;</code> so only part of the form posts back; avoid multiple forms; and move heavy
+interaction to JS Remoting (<code>@RemoteAction</code>), which bypasses view state entirely. Inspect it in the Developer
+Console's View State tab.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Where is Visualforce still the right choice in a Lightning org?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>PDF generation</strong> (<code>renderAs="pdf"</code>) — still the simplest native way to
+produce a branded quote or invoice. <strong>Visualforce email templates</strong> for rich, data-driven emails.
+<strong>File downloads</strong> via <code>contentType="text/csv"</code>. And maintaining the thousands of pages already
+running perfectly well in mature orgs. Everything user-facing and new should be LWC.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> What is <code>@RemoteAction</code> and why is it faster?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>JS Remoting: a <code>global static</code> Apex method called directly from JavaScript via
+<code>Visualforce.remoting.Manager.invokeAction</code>. It sends only the arguments and returns only the result —
+<strong>no view state, no full page postback</strong>, so it's dramatically faster and lighter than an
+<code>&lt;apex:actionFunction&gt;</code> rerender.</p>
+<p>The trade-off: you lose the automatic binding and must update the DOM yourself. Also, being static, it has no access
+to controller instance state.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> How do you prevent XSS in Visualforce?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Output is HTML-escaped by default — the danger is <code>escape="false"</code> on
+<code>&lt;apex:outputText&gt;</code>, which people add to render stored HTML and thereby open an injection hole.</p>
+<p>Treat <code>{!$CurrentPage.parameters.x}</code> as untrusted, and apply the right encoder for the context:
+<code>HTMLENCODE()</code>, <code>JSENCODE()</code>, <code>URLENCODE()</code> or <code>JSINHTMLENCODE()</code> when a
+value lands inside a script block within HTML. In Apex, bind SOQL variables and use
+<code>String.escapeSingleQuotes()</code> for any dynamic query.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> Component event vs application event in Aura — and what replaced them?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A <strong>component event</strong> bubbles up the containment hierarchy, so only ancestors can handle
+it — decoupled and predictable, and the right default. An <strong>application event</strong> broadcasts to every
+component that registered a handler, regardless of hierarchy — powerful but very hard to trace.</p>
+<p>In LWC these became <strong>CustomEvent</strong> (component) and <strong>Lightning Message Service</strong>
+(application), with LMS adding a declared schema and cross-technology reach.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> Can an LWC contain an Aura component? What does that mean for migration?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>No</strong> — Aura can contain LWC, never the reverse. So migration proceeds
+<strong>leaf-first</strong>: rewrite the innermost components as LWC, keep the Aura shell hosting them, and replace the
+shell last. During the transition the two layers communicate through LMS, or through the Aura component passing
+<code>@api</code> properties down and listening for the LWC's custom events.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> What still requires Aura today?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A shrinking list: being the target of <code>standard__component</code> navigation (you can't navigate
+directly to an LWC); <strong>Lightning Out</strong>, which needs an Aura dependency app to embed Lightning in an external
+site or Visualforce page; a few console API interactions; and some quick-action behaviours around programmatically
+closing the action panel. Everything else should be LWC — and an Aura wrapper hosting an LWC is the standard bridge.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. Your Visualforce page throws "Maximum view state size limit exceeded". First fix?</div>
+  <button class="opt">Add more pageBlockSections</button>
+  <button class="opt" data-correct="1">Mark large collections <code>transient</code> and query fewer fields/rows</button>
+  <button class="opt">Switch to a standard controller</button>
+  <div class="explain">View state carries all non-transient controller state, capped at 170 KB. <code>transient</code> excludes a variable entirely.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. You need a printable, branded invoice PDF. What do you reach for?</div>
+  <button class="opt">An LWC with window.print()</button>
+  <button class="opt" data-correct="1">A Visualforce page with renderAs="pdf"</button>
+  <button class="opt">A report export</button>
+  <div class="explain">This remains one of the few areas where Visualforce is still the standard native answer.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. Can you put an Aura component inside an LWC?</div>
+  <button class="opt">Yes, with a wrapper</button>
+  <button class="opt" data-correct="1">No — only the other way round</button>
+  <button class="opt">Only in Experience Cloud</button>
+  <div class="explain">Aura can host LWC; LWC cannot host Aura. This one-way rule drives every migration plan.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Visualforce &amp; Aura</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

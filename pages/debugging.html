@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Debugging &amp; Troubleshooting | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Ship</span> › <span>Debugging</span></div>
+  <h1>Debugging &amp; Troubleshooting</h1>
+  <p class="lede">How to find out what actually happened — debug logs, the Developer Console, checkpoints, LWC
+     debugging, and a lookup table for the errors you'll meet most often.</p>
+</header>
+
+<!-- ============================================ -->
+<h2 id="method">A method, not guesswork</h2>
+<div class="dgm">
+  <div class="dgm-title">The troubleshooting loop</div>
+  <svg viewBox="0 0 790 260" role="img" aria-label="Systematic troubleshooting loop">
+    <rect class="s-box-b" x="20" y="30" width="170" height="56" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="105" y="50">1 · Reproduce</text>
+    <text class="s-t-sm anchor-mid" x="105" y="70">exact user, exact data</text>
+    <path class="s-line-b" d="M190 58 H230" marker-end="url(#db1)"/>
+    <rect class="s-box-v" x="230" y="30" width="170" height="56" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="315" y="50">2 · Capture</text>
+    <text class="s-t-sm anchor-mid" x="315" y="70">debug log at FINEST</text>
+    <path class="s-line-v" d="M400 58 H440" marker-end="url(#db1)"/>
+    <rect class="s-box-t" x="440" y="30" width="170" height="56" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="525" y="50">3 · Locate</text>
+    <text class="s-t-sm anchor-mid" x="525" y="70">CODE_UNIT / limits block</text>
+    <path class="s-line-t" d="M610 58 H650" marker-end="url(#db1)"/>
+    <rect class="s-box-a" x="650" y="30" width="120" height="56" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="710" y="50">4 · Isolate</text>
+    <text class="s-t-sm anchor-mid" x="710" y="70">bisect the cause</text>
+
+    <path class="s-line-a" d="M710 86 V120 H395" marker-end="url(#db1)"/>
+    <rect class="s-box-g" x="230" y="130" width="330" height="50" rx="9"/>
+    <text class="s-t s-t-g anchor-mid" x="395" y="150">5 · Fix, then write the test that would have caught it</text>
+    <text class="s-t-sm anchor-mid" x="395" y="170">A bug without a regression test will come back</text>
+
+    <text class="s-t-sm s-t-r anchor-mid" x="395" y="222">Before anything else: is it a permission problem? "Login As" the user — it's the answer surprisingly often.</text>
+    <defs><marker id="db1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<!-- ============================================ -->
+<h2 id="debug-logs">Debug logs</h2>
+<ul class="steps">
+  <li><b>Setup → Debug Logs → New</b>, add a trace flag on the <em>user</em> who reproduces the issue (not yourself).</li>
+  <li><b>Choose a debug level</b> — start with Apex = <code>FINEST</code>, Database = <code>INFO</code>, and leave the rest low.</li>
+  <li><b>Reproduce</b> the problem.</li>
+  <li><b>Open the log</b> and read it in this order: the exception at the bottom → <code>CUMULATIVE_LIMIT_USAGE</code> →
+      the <code>CODE_UNIT_STARTED</code> entries showing what ran, in order.</li>
+</ul>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Log category</th><th>Set it high when…</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Apex Code</strong></td><td>Debugging your own logic — FINEST shows every statement and variable assignment</td></tr>
+    <tr><td><strong>Database</strong></td><td>Investigating SOQL/DML counts and rows returned</td></tr>
+    <tr><td><strong>Workflow</strong></td><td>A flow, workflow rule or approval isn't firing — this shows entry criteria evaluation</td></tr>
+    <tr><td><strong>Validation</strong></td><td>A save is blocked and you don't know by what</td></tr>
+    <tr><td><strong>Callout</strong></td><td>Integration debugging — shows request and response</td></tr>
+    <tr><td><strong>System</strong></td><td>Rarely; very noisy</td></tr>
+    <tr><td><strong>Visualforce</strong> / <strong>Apex Profiling</strong></td><td>View state and performance analysis</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout warn">
+  <span class="c-ico">✂️</span>
+  <div class="c-body"><span class="c-title">Logs truncate at 20 MB</span>
+    And when they do, Salesforce drops the <em>earliest</em> entries — so a FINEST log of a bulk operation often loses
+    exactly the part you needed. Narrow the log level, reproduce with one record, or use targeted
+    <code>System.debug</code> statements with a distinctive prefix you can search for.</div>
+</div>
+
+<pre><code class="language-apex">// Make your debug statements findable and useful
+System.debug(LoggingLevel.ERROR, '### AccountService.calculate ENTRY ids=' + ids);
+
+// Log limits at checkpoints — the fastest way to find what's expensive
+System.debug(LoggingLevel.ERROR, '### after query: SOQL=' + Limits.getQueries()
+    + ' rows=' + Limits.getQueryRows()
+    + ' CPU=' + Limits.getCpuTime()
+    + ' heap=' + Limits.getHeapSize());
+
+// Dump a complex structure readably
+System.debug(LoggingLevel.ERROR, '### wrapper: ' + JSON.serializePretty(wrapperList));
+
+// LoggingLevel.ERROR survives lower log levels, so these still appear
+// when Apex Code is set to ERROR — useful for production diagnostics.</code></pre>
+
+<h3>Reading the log</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Marker</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td><code>CODE_UNIT_STARTED / FINISHED</code></td><td>A trigger, flow, class or validation began/ended — the execution tree. Repeated entries for the same trigger = <a href="apex-triggers.html#recursion">recursion</a></td></tr>
+    <tr><td><code>SOQL_EXECUTE_BEGIN / END</code></td><td>Each query and its row count — spot the query in a loop here</td></tr>
+    <tr><td><code>DML_BEGIN / END</code></td><td>Each DML and how many rows</td></tr>
+    <tr><td><code>FLOW_ELEMENT_BEGIN</code></td><td>Flow execution step by step, including decision outcomes</td></tr>
+    <tr><td><code>VALIDATION_RULE / VALIDATION_FAIL</code></td><td>Exactly which rule blocked the save</td></tr>
+    <tr><td><code>CUMULATIVE_LIMIT_USAGE</code></td><td>Final consumption of every governor limit</td></tr>
+    <tr><td><code>LIMIT_USAGE_FOR_NS</code></td><td>Usage broken down <strong>per namespace</strong> — how you prove a managed package consumed your queries</td></tr>
+    <tr><td><code>FATAL_ERROR</code></td><td>The exception, with the stack trace and line number</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="tools">The tools</h2>
+<div class="grid g2">
+  <div class="card accent-blue"><h4>Developer Console</h4>
+    <ul><li><strong>Execute Anonymous</strong> (<kbd>Ctrl</kbd>+<kbd>E</kbd>) — run Apex instantly</li>
+        <li><strong>Query Editor</strong> — SOQL with inline editing of results</li>
+        <li><strong>Checkpoints</strong> — heap dumps at a line, showing every variable's value</li>
+        <li><strong>Execution Overview</strong> — Timeline, Executed Units and a Limits tab</li>
+        <li><strong>Test</strong> tab with per-line code coverage highlighting</li></ul></div>
+  <div class="card accent-violet"><h4>VS Code</h4>
+    <ul><li><strong>Apex Replay Debugger</strong> — step through a downloaded debug log line by line with real variable values</li>
+        <li><strong>Apex Interactive Debugger</strong> (paid) — true breakpoints in a sandbox</li>
+        <li><code>sf apex tail log --color</code> — live streaming logs</li>
+        <li>Apex Log Analyzer extension for flame graphs</li></ul></div>
+  <div class="card accent-teal"><h4>Browser DevTools (LWC)</h4>
+    <ul><li>Enable <strong>Debug Mode</strong> (Setup → Debug Mode) for unminified JS</li>
+        <li>Inspect the shadow root in Elements; breakpoints in Sources</li>
+        <li>Network tab → <code>aura</code>/<code>webruntime</code> calls show Apex payloads and errors</li>
+        <li><code>console.log(JSON.parse(JSON.stringify(data)))</code> — wire results are Proxies and log unhelpfully raw</li></ul></div>
+  <div class="card accent-amber"><h4>Org health</h4>
+    <ul><li><strong>Salesforce Optimizer</strong> — a report on limits, unused fields, over-complex config</li>
+        <li><strong>Security Health Check</strong> — settings scored against a baseline</li>
+        <li><strong>Setup Audit Trail</strong> — who changed what config, last 6 months</li>
+        <li><strong>Apex Jobs</strong> and <strong>Apex Exception Email</strong> for async failures</li>
+        <li><strong>Event Monitoring</strong> (Shield) for full API/UI telemetry</li></ul></div>
+</div>
+
+<pre><code class="language-apex">// Execute Anonymous is your fastest diagnostic tool
+Account a = [SELECT Id, Name, OwnerId FROM Account LIMIT 1];
+System.debug(JSON.serializePretty(a));
+
+// Check what a specific user can see, without logging in as them
+System.runAs(new User(Id = '0055j00000XXXXX')) {          // test context only
+    System.debug([SELECT COUNT() FROM Opportunity]);
+}
+
+// Inspect why a query is slow
+System.debug([SELECT Id FROM Account WHERE Industry = 'Technology'].size());
+System.debug('Query rows used: ' + Limits.getQueryRows());</code></pre>
+
+<!-- ============================================ -->
+<h2 id="errors">Error lookup table</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Error</th><th>Real cause</th><th>Fix</th></tr></thead>
+  <tbody>
+    <tr><td><code>Attempt to de-reference a null object</code></td><td>A null variable or an unqueried field/relationship</td><td>Null-check; use <code>?.</code>; confirm the field was in the SELECT</td></tr>
+    <tr><td><code>List has no rows for assignment to SObject</code></td><td><code>[SELECT ...]</code> assigned to a single sObject returned 0 rows</td><td>Query into a <code>List</code> and check <code>isEmpty()</code></td></tr>
+    <tr><td><code>List index out of bounds: 0</code></td><td>Accessing <code>[0]</code> on an empty list</td><td>Guard with a size check</td></tr>
+    <tr><td><code>Too many SOQL queries: 101</code></td><td>Query in a loop — or other automation consumed the budget</td><td><a href="governor-limits.html#fixes">Bulkify</a>; check <code>LIMIT_USAGE_FOR_NS</code></td></tr>
+    <tr><td><code>Apex CPU time limit exceeded</code></td><td>Nested loops, describes, too much stacked automation</td><td>Maps instead of nested loops; cache describes; move async</td></tr>
+    <tr><td><code>You have uncommitted work pending</code></td><td>Callout after DML</td><td>Queueable / <code>@future(callout=true)</code> / async flow path</td></tr>
+    <tr><td><code>MIXED_DML_OPERATION</code></td><td>Setup + non-setup objects in one transaction</td><td>Split via async, or <code>System.runAs</code> in tests</td></tr>
+    <tr><td><code>UNABLE_TO_LOCK_ROW</code></td><td>Concurrent updates to the same parent</td><td>Sort by parent Id; serial mode; smaller batches</td></tr>
+    <tr><td><code>Record is read-only</code></td><td>Modifying <code>Trigger.new</code> in an <em>after</em> trigger</td><td>Move to a before trigger, or issue an explicit update</td></tr>
+    <tr><td><code>Maximum trigger depth exceeded</code></td><td>Recursion</td><td><a href="apex-triggers.html#recursion">Recursion guard</a></td></tr>
+    <tr><td><code>Non-selective query against large object type</code></td><td>Unindexed filter on a big object inside a trigger</td><td>Filter on indexed fields; request a custom index</td></tr>
+    <tr><td><code>INSUFFICIENT_ACCESS_ON_CROSS_REFERENCE_ENTITY</code></td><td>No access to a <em>related</em> record, often the parent</td><td>Check sharing on the parent, not the record you're editing</td></tr>
+    <tr><td><code>FIELD_INTEGRITY_EXCEPTION</code></td><td>Bad picklist value, wrong record type, or an invalid Id</td><td>Validate against the target org's metadata</td></tr>
+    <tr><td><code>Method does not exist or incorrect signature</code></td><td>Usually a wrong <code>@AuraEnabled</code> parameter name from LWC</td><td>JS keys must match the Apex parameter names exactly</td></tr>
+    <tr><td><code>[NoErrorObjectAvailable]</code> in LWC</td><td>An Apex exception without a message</td><td>Throw <code>AuraHandledException</code> with real text; use a <code>reduceErrors</code> helper</td></tr>
+    <tr><td>Flow: <em>An unhandled fault has occurred</em></td><td>No fault path on a data element</td><td>Add fault connectors; log <code>{!$Flow.FaultMessage}</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="production">Diagnosing in production</h2>
+<div class="callout tip">
+  <span class="c-ico">🏭</span>
+  <div class="c-body"><span class="c-title">You can't attach a debugger to production</span>
+    So build observability in advance: a custom <code>Error_Log__c</code> object written from every catch block and
+    Finalizer, with the class, method, record Id, stack trace and a correlation id. A report on today's errors and an
+    email alert turn "a user says it's broken" into "here is the exact failure at 14:03".</div>
+</div>
+<ul>
+  <li><strong>Apex Exception Email</strong> — Setup → Apex Exception Email, add the developer distribution list. Unhandled exceptions in async code go here.</li>
+  <li><strong>Setup Audit Trail</strong> — the first place to look when "it worked yesterday".</li>
+  <li><strong>Apex Jobs</strong> — check <code>Status</code> and <code>NumberOfErrors</code>; a Batch job can complete <em>with</em> failures.</li>
+  <li><strong>Debug logs on a specific user</strong> are allowed in production — just keep the level low and remove the trace flag afterwards.</li>
+  <li><strong>Event Monitoring</strong> (Shield) for API usage, report exports and page performance.</li>
+</ul>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> A user reports "it doesn't work". What are your first three steps?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>① <strong>Reproduce it as that user</strong> — "Login As" is the single highest-yield step, because
+a large share of reports are permission or sharing issues, not bugs. ② <strong>Get the exact error text</strong> and the
+record Id and timestamp. ③ <strong>Set a trace flag on that user</strong> and reproduce with a debug log capturing it.
+Only then start reading code.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> Where in a debug log do you look first, and why?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Bottom first — <code>FATAL_ERROR</code> gives the exception, line number and stack trace. Then
+<code>CUMULATIVE_LIMIT_USAGE</code> to see whether you're near a governor limit, and
+<code>LIMIT_USAGE_FOR_NS</code> to attribute usage per namespace. Then scan the <code>CODE_UNIT_STARTED</code> entries to
+see <em>what ran and in what order</em> — repeated entries for the same trigger reveal recursion, and unexpected entries
+reveal automation you didn't know existed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Your debug log is truncated and missing the part you need.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Logs cap at <strong>20 MB</strong> and drop the <em>earliest</em> entries. Reduce the noise: set only
+Apex Code to FINEST and everything else to NONE or ERROR; reproduce with a <strong>single record</strong> rather than a
+bulk operation; add targeted <code>System.debug(LoggingLevel.ERROR, '### marker')</code> statements you can search for;
+or use checkpoints in the Developer Console to capture a heap dump at one line instead of logging everything.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> What is the Apex Replay Debugger and when would you use it?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A VS Code feature that replays a <strong>downloaded debug log</strong> as if it were a live debugging
+session — you step line by line and inspect real variable values, with no need for a live connection. It needs the log
+captured at FINEST.</p>
+<p>Use it for logic bugs where you need to see how a value evolved. The paid <strong>Apex Interactive Debugger</strong>
+gives true live breakpoints in a sandbox, and there's a free Apex Debugger for scratch orgs.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> "It worked yesterday and nobody changed anything." How do you check?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Setup Audit Trail</strong> — six months of configuration changes with user and timestamp;
+someone almost always did change something. Then: was there a <strong>release</strong> (check Release Updates that
+auto-activated)? Was a <strong>managed package</strong> upgraded? Did a <strong>scheduled job</strong> fail overnight
+(Apex Jobs)? Did data volume cross a selectivity threshold, turning a fine query into a non-selective one? And check
+deployment history in your pipeline.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> An LWC shows a blank error with no message. How do you debug it?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Enable <strong>Debug Mode</strong> for your user so the JS is unminified. Open DevTools →
+<strong>Network</strong> and inspect the Apex/aura response, which carries the real server-side message. Add a
+<code>reduceErrors</code> helper because Apex, wire and LDS errors all have different shapes
+(<code>error.body.message</code>, <code>error.body.pageErrors</code>, <code>error.message</code>).</p>
+<p>The root cause is usually Apex throwing a raw exception — fix it at source by throwing
+<code>AuraHandledException</code> with a meaningful message.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> How do you find out whether a managed package is consuming your governor limits?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The <code>LIMIT_USAGE_FOR_NS</code> section of the debug log breaks consumption down
+<strong>per namespace</strong>, so you can see exactly how many queries and DML statements the package used versus your
+own code (the default namespace). The Developer Console's Execution Overview shows the same split.</p>
+<p>If a package is the problem, options are: reduce your own footprint, move your logic async so it gets a fresh
+transaction, or raise it with the vendor with the log as evidence.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> How do you make production failures diagnosable before they happen?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Build observability in: a custom <code>Error_Log__c</code> object populated from every catch block,
+Finalizer and flow fault path, capturing class, method, record Id, stack trace, timestamp and a
+<strong>correlation id</strong> shared with integrated systems. Add a report and an email/Slack alert on today's errors.</p>
+<p>Then: set <strong>Apex Exception Email</strong> recipients, redirect flow error emails away from "last modified by",
+monitor <code>AsyncApexJob</code> for failed batches, and log limit usage at checkpoints in expensive jobs. The goal is
+that the first person to know is you, not the customer.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. Which log section proves a managed package used your SOQL budget?</div>
+  <button class="opt">CODE_UNIT_STARTED</button>
+  <button class="opt" data-correct="1">LIMIT_USAGE_FOR_NS</button>
+  <button class="opt">FATAL_ERROR</button>
+  <div class="explain">It breaks limit consumption down per namespace, separating your code from installed packages.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. A user can't see a record. What's the fastest first check?</div>
+  <button class="opt">Read the trigger code</button>
+  <button class="opt" data-correct="1">Login As the user, then open the record's Sharing button</button>
+  <button class="opt">Set a FINEST debug log</button>
+  <div class="explain">Most "it doesn't work" reports are access issues. The Sharing button lists every reason a user does or doesn't have access.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. Your debug log is missing the beginning of the transaction. Why?</div>
+  <button class="opt">The trace flag expired</button>
+  <button class="opt" data-correct="1">The log hit the 20 MB cap and the earliest entries were dropped</button>
+  <button class="opt">FINEST doesn't log the start</button>
+  <div class="explain">Reduce the log level on other categories, or reproduce with a single record instead of a bulk operation.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Debugging</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

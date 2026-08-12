@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Certifications &amp; Career Path | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Practice</span> › <span>Certifications</span></div>
+  <h1>Certifications &amp; Career Path</h1>
+  <p class="lede">Which certification to take, in what order, how to prepare with these notes, and how to handle the
+     exam itself.</p>
+</header>
+
+<div class="callout warn">
+  <span class="c-ico">📅</span>
+  <div class="c-body"><span class="c-title">Verify the details before you book</span>
+    Exam names, question counts, pass marks and prerequisites change. The structure below reflects the long-standing
+    shape of the programme — always confirm current specifics on Trailhead / Webassessor before paying.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="paths">The certification map</h2>
+
+<div class="dgm">
+  <div class="dgm-title">Typical progression by role</div>
+  <svg viewBox="0 0 790 400" role="img" aria-label="Salesforce certification progression paths">
+    <rect class="s-box-b" x="300" y="16" width="190" height="44" rx="9"/>
+    <text class="s-t anchor-mid" x="395" y="32">Associate</text>
+    <text class="s-t-sm anchor-mid" x="395" y="50">optional entry point</text>
+    <path class="s-line" d="M395 60 V86" marker-end="url(#cert1)"/>
+
+    <rect class="s-box-v" x="300" y="86" width="190" height="44" rx="9"/>
+    <text class="s-t s-t-v anchor-mid" x="395" y="102">Administrator</text>
+    <text class="s-t-sm anchor-mid" x="395" y="120">the foundation for everyone</text>
+
+    <path class="s-line-v" d="M300 108 H150 V160" marker-end="url(#cert1)"/>
+    <path class="s-line-v" d="M395 130 V160" marker-end="url(#cert1)"/>
+    <path class="s-line-v" d="M490 108 H640 V160" marker-end="url(#cert1)"/>
+
+    <rect class="s-box-t" x="60" y="160" width="180" height="60" rx="9"/>
+    <text class="s-t s-t-t anchor-mid" x="150" y="180">ADMIN TRACK</text>
+    <text class="s-t-sm anchor-mid" x="150" y="200">Advanced Admin</text>
+    <text class="s-t-sm anchor-mid" x="150" y="214">Business Analyst</text>
+
+    <rect class="s-box-g" x="305" y="160" width="180" height="60" rx="9"/>
+    <text class="s-t s-t-g anchor-mid" x="395" y="180">DEVELOPER TRACK</text>
+    <text class="s-t-sm anchor-mid" x="395" y="200">Platform Developer I</text>
+    <text class="s-t-sm anchor-mid" x="395" y="214">Platform App Builder</text>
+
+    <rect class="s-box-a" x="550" y="160" width="180" height="60" rx="9"/>
+    <text class="s-t s-t-a anchor-mid" x="640" y="180">CONSULTANT TRACK</text>
+    <text class="s-t-sm anchor-mid" x="640" y="200">Sales Cloud Consultant</text>
+    <text class="s-t-sm anchor-mid" x="640" y="214">Service Cloud Consultant</text>
+
+    <path class="s-line" d="M150 220 V254" marker-end="url(#cert1)"/>
+    <path class="s-line" d="M395 220 V254" marker-end="url(#cert1)"/>
+    <path class="s-line" d="M640 220 V254" marker-end="url(#cert1)"/>
+
+    <rect class="s-box" x="60" y="254" width="180" height="52" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="150" y="274">Experience Cloud</text>
+    <text class="s-t-sm anchor-mid" x="150" y="292">Data Cloud · Marketing</text>
+
+    <rect class="s-box" x="305" y="254" width="180" height="52" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="395" y="274">Platform Developer II</text>
+    <text class="s-t-sm anchor-mid" x="395" y="292">JavaScript Developer I</text>
+
+    <rect class="s-box" x="550" y="254" width="180" height="52" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="640" y="274">Integration Architect</text>
+    <text class="s-t-sm anchor-mid" x="640" y="292">Sharing &amp; Visibility</text>
+
+    <path class="s-line-r" d="M150 306 V340 H640 V306"/>
+    <path class="s-line-r" d="M395 306 V340" marker-end="url(#cert1)"/>
+    <rect class="s-box-r" x="255" y="340" width="280" height="48" rx="9"/>
+    <text class="s-t s-t-r anchor-mid" x="395" y="360">Application / System Architect</text>
+    <text class="s-t-sm anchor-mid" x="395" y="378">→ Technical Architect (CTA)</text>
+    <defs><marker id="cert1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Certification</th><th>Who it's for</th><th>Which modules here</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Administrator</strong></td><td>The universal starting point — everyone should hold it</td><td><a href="fundamentals.html">Fundamentals</a> · <a href="admin.html">Admin</a> · <a href="security.html">Security</a> · <a href="flows.html">Flow</a> · <a href="reports.html">Reports</a> · <a href="sales-service.html">Sales &amp; Service</a> · <a href="data-management.html">Data Management</a></td></tr>
+    <tr><td><strong>Platform App Builder</strong></td><td>Declarative building — data model, automation, UI</td><td>Admin · Flow · Reports · <a href="lwc-core.html">LWC</a> (basics) · <a href="devops.html">DevOps</a></td></tr>
+    <tr><td><strong>Platform Developer I</strong></td><td>The core developer credential</td><td><a href="apex-core.html">Apex Core</a> · <a href="apex-triggers.html">Triggers</a> · <a href="async-apex.html">Async</a> · <a href="testing.html">Testing</a> · <a href="governor-limits.html">Limits</a> · <a href="lwc-core.html">LWC</a> · <a href="visualforce.html">Visualforce</a> · <a href="integration-core.html">Integration</a></td></tr>
+    <tr><td><strong>Platform Developer II</strong></td><td>Advanced Apex, design patterns, performance</td><td><a href="apex-advanced.html">Advanced Apex</a> · Async · <a href="debugging.html">Debugging</a> · <a href="integration-patterns.html">Patterns</a> · <a href="data-management.html#ldv">LDV</a></td></tr>
+    <tr><td><strong>Advanced Administrator</strong></td><td>Complex config, LDV, advanced reporting</td><td>Security · Reports · Data Management · Sales &amp; Service</td></tr>
+    <tr><td><strong>Sales / Service Cloud Consultant</strong></td><td>Solution design for a business area</td><td><a href="sales-service.html">Sales &amp; Service Cloud</a> · Admin · Reports · <a href="experience-cloud.html">Experience Cloud</a></td></tr>
+    <tr><td><strong>Integration Architect</strong></td><td>Designing the integration landscape</td><td><a href="integration-core.html">APIs</a> · <a href="integration-events.html">Events</a> · <a href="integration-patterns.html">Patterns</a> · <a href="postman.html">Postman</a></td></tr>
+    <tr><td><strong>Sharing &amp; Visibility Architect</strong></td><td>The hardest security questions</td><td><a href="security.html">Security &amp; Sharing</a> · <a href="experience-cloud.html#sharing">External sharing</a> · Data Management</td></tr>
+    <tr><td><strong>Data Architect</strong></td><td>Data modelling, LDV, migration, governance</td><td>Data Management · Admin (relationships) · Limits</td></tr>
+    <tr><td><strong>JavaScript Developer I</strong></td><td>Pure JS fundamentals plus LWC</td><td><a href="lwc-core.html">LWC Core</a> · <a href="lwc-advanced.html">LWC Data &amp; Events</a></td></tr>
+    <tr><td><strong>AI Associate / AI Specialist</strong></td><td>Prompt Builder, Agentforce, Trust Layer</td><td><a href="einstein-ai.html">Einstein, AI &amp; Data Cloud</a></td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="choosing">Which one first?</h2>
+<div class="grid g3">
+  <div class="card accent-violet"><h4>New to Salesforce</h4><p><strong>Administrator</strong>. It's the shared vocabulary for every other role, and a developer who doesn't understand sharing and the data model writes dangerous code.</p></div>
+  <div class="card accent-green"><h4>Coming from software development</h4><p><strong>Administrator → Platform Developer I</strong>. Resist skipping the Admin exam; most PD1 failures are on declarative and security topics, not Apex.</p></div>
+  <div class="card accent-teal"><h4>Business analyst / functional</h4><p><strong>Administrator → Platform App Builder → Sales or Service Cloud Consultant</strong>.</p></div>
+  <div class="card accent-amber"><h4>Aiming at architecture</h4><p>Collect the designer credentials (Sharing &amp; Visibility, Data, Integration) then Application and System Architect.</p></div>
+  <div class="card accent-rose"><h4>Already an admin</h4><p><strong>Advanced Admin</strong> or <strong>Platform App Builder</strong>, then pick a cloud consultant credential aligned to your work.</p></div>
+  <div class="card"><h4>Maintenance</h4><p>Certifications require periodic <strong>maintenance modules</strong> on Trailhead each release cycle. Miss them and the credential lapses — set a reminder.</p></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="prepare">How to prepare with these notes</h2>
+<ul class="steps">
+  <li><b>Read the exam guide first.</b> It lists sections with percentage weightings — that <em>is</em> your study plan, and it tells you what not to over-study.</li>
+  <li><b>Work the relevant modules here</b>, using the Interview questions on each page as active recall rather than re-reading.</li>
+  <li><b>Build it in a Developer org.</b> Reading about entitlements teaches you less in an hour than configuring one does in twenty minutes. Sign up for a free Developer Edition org that never expires.</li>
+  <li><b>Do the Trailhead trailmix</b> for the exam — the hands-on challenges catch gaps you'd otherwise skip.</li>
+  <li><b>Take practice exams</b> until you consistently score comfortably above the pass mark, and read the explanation for every question you get <em>right</em> as well as wrong.</li>
+  <li><b>Review the <a href="practice.html">Q&amp;A bank</a></b> and the rapid-fire limits table the day before.</li>
+</ul>
+
+<div class="callout tip">
+  <span class="c-ico">🧠</span>
+  <div class="c-body"><span class="c-title">Active recall beats re-reading</span>
+    Close the page and explain the topic out loud as if teaching someone. The gaps become obvious immediately — which is
+    exactly why every module here ends with interview questions rather than a summary.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="exam-technique">Exam technique</h2>
+<div class="grid g2">
+  <div class="card accent-green"><h4>✅ Do</h4>
+    <ul><li><strong>Read the last line first</strong> — it tells you what's actually being asked before you wade through the scenario.</li>
+        <li>Note how many answers are required; "choose two" is easy to miss.</li>
+        <li><strong>Eliminate</strong> obviously wrong options — usually two go immediately.</li>
+        <li>Prefer the <strong>declarative</strong> answer when both work; Salesforce exams favour clicks over code.</li>
+        <li>Prefer the <strong>least-privilege, most-specific</strong> security answer.</li>
+        <li>Flag and move on. Time pressure causes more failures than knowledge gaps.</li>
+        <li>Answer <em>every</em> question — there's no negative marking.</li></ul></div>
+  <div class="card accent-rose"><h4>❌ Don't</h4>
+    <ul><li>Pick an answer because you've used it at work — the exam wants the <em>platform-standard</em> approach.</li>
+        <li>Choose "Modify All Data" or a broad profile permission when a targeted one exists.</li>
+        <li>Over-think: if a straightforward option satisfies the requirement, it's usually right.</li>
+        <li>Change answers on a hunch during review — only change with a concrete reason.</li>
+        <li>Cram the night before; do a light review and sleep instead.</li></ul></div>
+</div>
+
+<h3>Answer patterns that recur across exams</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Question shape</th><th>Usually the answer</th></tr></thead>
+  <tbody>
+    <tr><td>"Without code" / "declaratively"</td><td>Flow, or a validation/duplicate/assignment rule</td></tr>
+    <tr><td>"Roll-up on a lookup relationship"</td><td>Record-triggered flow or Apex trigger — not a roll-up summary field</td></tr>
+    <tr><td>"Managers must see their team's records"</td><td>Role hierarchy</td></tr>
+    <tr><td>"Peers in another department need access"</td><td>Sharing rule (not role hierarchy)</td></tr>
+    <tr><td>"Must deploy with the code / move between orgs"</td><td>Custom Metadata Type</td></tr>
+    <tr><td>"Different values per user or profile"</td><td>Hierarchy Custom Setting</td></tr>
+    <tr><td>"Millions of records"</td><td>Batch Apex with a QueryLocator, or Bulk API</td></tr>
+    <tr><td>"Callout from a trigger"</td><td>Queueable / <code>@future(callout=true)</code>, never synchronous</td></tr>
+    <tr><td>"Multiple systems need the same notification"</td><td>Platform Events</td></tr>
+    <tr><td>"Show external data without storing it"</td><td>Salesforce Connect / external objects</td></tr>
+    <tr><td>"Components in different page regions must talk"</td><td>Lightning Message Service</td></tr>
+    <tr><td>"Each viewer sees only their own data on one dashboard"</td><td>Dynamic dashboard (run as logged-in user)</td></tr>
+    <tr><td>"Find records with no related child"</td><td>Cross filter, or a "with or without" custom report type</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="beyond">Beyond certifications</h2>
+<p>Certifications open doors; they don't prove capability on their own. What interviewers actually probe:</p>
+<ul>
+  <li><strong>A real org you've built.</strong> A Developer Edition org with a genuine app — data model, automation, an LWC, an integration — beats any number of badges.</li>
+  <li><strong>Git history.</strong> Being able to show and explain your own code.</li>
+  <li><strong>Trailhead</strong> for structured hands-on practice; Superbadges are the closest thing to real work.</li>
+  <li><strong>Trailblazer Community</strong> and local user groups — most Salesforce jobs are found through the community.</li>
+  <li><strong>Release notes</strong> every four months. Knowing what changed last release marks you out immediately.</li>
+  <li><strong>Explaining trade-offs.</strong> The senior signal isn't knowing that Batch Apex exists — it's explaining when <em>not</em> to use it.</li>
+</ul>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> You have PD1 but no Admin cert. Is that a problem?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>It's a signal worth addressing. A developer who doesn't deeply understand the sharing model, the
+data model and declarative automation writes code that duplicates a flow, bypasses sharing, or solves in Apex what a
+before-save flow does in two clicks. Most PD1 candidates who fail lose marks on the declarative and security sections
+rather than on Apex. Say you'd take Admin next, and be ready to answer sharing questions well.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> How do you keep up with three releases a year?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Read the <strong>release notes</strong> each cycle — at minimum the sections for the areas you own.
+Check <strong>Setup → Release Updates</strong> for behaviour changes with enforcement deadlines and test them in a
+preview sandbox before they auto-activate. Complete the <strong>certification maintenance</strong> modules.
+Follow the community for practical write-ups. Then actually try new features in a Developer org rather than only
+reading about them.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> An exam question offers a working Apex answer and a working declarative answer. Which do you pick?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>The <strong>declarative</strong> one, unless the scenario contains a constraint that rules it out —
+very high volume, complex branching, callouts with retry, or something Flow genuinely can't do. Salesforce's stated
+philosophy is clicks before code, because declarative solutions are cheaper to maintain and visible to admins. The same
+instinct is correct in real design reviews.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> How would you plan for the Sharing &amp; Visibility Architect exam?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>It goes far beyond "OWD then sharing rules". Be fluent in: implicit sharing, the difference between
+View All / Modify All and View All Data, Apex managed sharing with custom row causes, sharing recalculation and deferred
+calculation, <strong>data skew</strong> and its effect on recalculation performance, external sharing models, sharing
+sets and share groups for Experience Cloud, territory management, and restriction/scoping rules.</p>
+<p>Practise by <em>drawing</em> the access path for a scenario — that's what the exam actually tests.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> What would you build to prove you can do the job?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>One end-to-end app in a Developer org: a sensible custom data model with proper relationships, a
+record-triggered flow and a trigger with a handler framework, an LWC with an Apex controller, a mocked integration with
+a Named Credential, test classes with real assertions, and the whole thing in Git with a readme explaining the design
+decisions. That single artefact answers more interview questions than a wall of certificates — and it gives you
+concrete stories to tell.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. Which certification should almost everyone take first?</div>
+  <button class="opt">Platform Developer I</button>
+  <button class="opt" data-correct="1">Administrator</button>
+  <button class="opt">Platform App Builder</button>
+  <div class="explain">It's the shared foundation — data model, security and automation — that every other track builds on.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. An exam scenario says "without writing code". What family of answers are you looking for?</div>
+  <button class="opt">Apex triggers with a handler</button>
+  <button class="opt" data-correct="1">Flow, validation/duplicate/assignment rules, or other declarative config</button>
+  <button class="opt">A managed package</button>
+  <div class="explain">Salesforce exams consistently favour the declarative solution unless a stated constraint rules it out.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. What happens if you skip certification maintenance modules?</div>
+  <button class="opt">Nothing — certifications are permanent</button>
+  <button class="opt" data-correct="1">The credential lapses and must be reinstated</button>
+  <button class="opt">You must resit the full exam immediately</button>
+  <div class="explain">Maintenance is a short Trailhead module per release cycle. Diarise it — lapsing is avoidable and looks careless.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Certifications</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

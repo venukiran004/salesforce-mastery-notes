@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Security &amp; Sharing | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Admin</span> › <span>Security &amp; Sharing</span></div>
+  <h1>Security &amp; Sharing</h1>
+  <p class="lede">Who can log in, which objects they see, which fields they see, and which <em>records</em> they see.
+     Four independent layers — and record-level access is the one everybody finds hard.</p>
+</header>
+
+<!-- ============================================ -->
+<h2 id="data-security">The data security model</h2>
+<p>Salesforce security is <strong>layered and restrictive by default</strong>: access must be granted at every layer.
+   A user who has "Read" on Account but no record access sees an empty list; a user with record access but no object
+   permission sees nothing at all.</p>
+
+<div class="dgm">
+  <div class="dgm-title">Four layers of access — all must pass</div>
+  <svg viewBox="0 0 780 400" role="img" aria-label="Four layers of Salesforce security: org, object, field, record">
+    <rect class="s-box-b" x="40" y="16" width="560" height="76" rx="10"/>
+    <text class="s-t s-t-b" x="62" y="40">1 · Organisation level — can you log in at all?</text>
+    <text class="s-t-sm" x="62" y="62">MFA · Login IP ranges · Login hours · Session settings · Password policy</text>
+    <text class="s-t-sm" x="62" y="80">Trusted IP ranges · Device activation · Single Sign-On</text>
+
+    <rect class="s-box-v" x="40" y="104" width="560" height="76" rx="10"/>
+    <text class="s-t s-t-v" x="62" y="128">2 · Object level — can you see this <tspan font-style="italic">type</tspan> of record?</text>
+    <text class="s-t-sm" x="62" y="150">Profiles + Permission Sets + Permission Set Groups</text>
+    <text class="s-t-sm" x="62" y="168">CRUD: Create · Read · Edit · Delete · View All · Modify All</text>
+
+    <rect class="s-box-t" x="40" y="192" width="560" height="66" rx="10"/>
+    <text class="s-t s-t-t" x="62" y="216">3 · Field level — can you see this column?</text>
+    <text class="s-t-sm" x="62" y="238">Field-Level Security (FLS): Visible / Read-Only per profile or permission set</text>
+
+    <rect class="s-box-a" x="40" y="270" width="560" height="112" rx="10"/>
+    <text class="s-t s-t-a" x="62" y="294">4 · Record level — can you see <tspan font-style="italic">this specific row</tspan>?</text>
+    <text class="s-t-sm" x="62" y="316">OWD (baseline) → Role Hierarchy → Sharing Rules → Manual Share</text>
+    <text class="s-t-sm" x="62" y="334">→ Teams → Territories → Apex Managed Sharing → Implicit Sharing</text>
+    <text class="s-t-sm s-t-a" x="62" y="360">Access is cumulative here: the most permissive grant wins</text>
+
+    <rect class="s-box-g" x="620" y="16" width="130" height="366" rx="10"/>
+    <text class="s-t s-t-g anchor-mid" x="685" y="150" transform="rotate(-90 685 150)">ALL four must pass</text>
+    <text class="s-t-sm anchor-mid" x="685" y="270" transform="rotate(-90 685 270)">to see a field on a record</text>
+  </svg>
+</div>
+
+<div class="callout note">
+  <span class="c-ico">🧠</span>
+  <div class="c-body"><span class="c-title">The mental model</span>
+    Layers 1–3 are <strong>restrictive</strong> (you need permission). Layer 4 is <strong>additive</strong> —
+    OWD sets the floor, and everything else only ever <em>opens up</em> access. Nothing at record level can take
+    access away (except Restriction Rules, the modern exception).</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="org-level">1 · Organisation-level security</h2>
+<div class="grid g2">
+  <div class="card"><h4>Login restrictions</h4>
+    <ul><li><strong>Login IP Ranges (Profile)</strong> — hard block outside the range</li>
+        <li><strong>Trusted IP Ranges (Network Access)</strong> — inside = no verification code; outside = challenge, not block</li>
+        <li><strong>Login Hours (Profile)</strong> — deny logins outside working hours</li></ul></div>
+  <div class="card accent-violet"><h4>Authentication</h4>
+    <ul><li><strong>MFA</strong> — mandatory for all Salesforce logins</li>
+        <li><strong>SSO</strong> — SAML / OpenID Connect against your IdP</li>
+        <li><strong>Session settings</strong> — timeout, lock to IP, high-assurance sessions</li></ul></div>
+  <div class="card accent-teal"><h4>Auditing</h4>
+    <ul><li><strong>Login History</strong> — who logged in, from where</li>
+        <li><strong>Setup Audit Trail</strong> — last 6 months of config changes</li>
+        <li><strong>Field History Tracking</strong> — up to 20 fields per object</li>
+        <li><strong>Event Monitoring</strong> (Shield) — full API/UI telemetry</li></ul></div>
+  <div class="card accent-rose"><h4>Shield</h4>
+    <ul><li><strong>Platform Encryption</strong> — encrypt at rest</li>
+        <li><strong>Event Monitoring</strong></li>
+        <li><strong>Field Audit Trail</strong> — up to 10 years of history</li></ul></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="profile-permset-role">2 · Profiles, Permission Sets &amp; Roles</h2>
+<p>The classic confusion. Say this out loud: <strong>Profiles and Permission Sets control what you can <em>do</em>.
+   Roles control what you can <em>see</em>.</strong></p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>Profile</th><th>Permission Set</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Purpose</strong></td><td>Baseline of what a user can do</td><td>Extra permissions on top</td><td>Record visibility via hierarchy</td></tr>
+    <tr><td><strong>How many per user</strong></td><td>Exactly <strong>one</strong> (mandatory)</td><td>Many (optional)</td><td>Zero or one (optional)</td></tr>
+    <tr><td><strong>Can it remove access?</strong></td><td>Yes — it's the baseline</td><td>❌ Never (only Muting Permission Sets in a group can)</td><td>❌ No</td></tr>
+    <tr><td><strong>Controls</strong></td><td>Object CRUD, FLS, tabs, apps, page layouts, record types, login hours/IP, system &amp; user perms</td><td>Object CRUD, FLS, tabs, apps, record types, system &amp; user perms, custom permissions</td><td>Record-level roll-up: managers see subordinates' records</td></tr>
+    <tr><td><strong>Best practice</strong></td><td>Few, minimal profiles</td><td>Grant everything here — easy to add/remove</td><td>Mirror the data-visibility hierarchy, <em>not</em> the HR org chart</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="dgm">
+  <div class="dgm-title">Permission architecture — the modern approach</div>
+  <svg viewBox="0 0 780 300" role="img" aria-label="Minimum access profile plus permission set groups">
+    <rect class="s-box" x="30" y="120" width="150" height="70" rx="10"/>
+    <text class="s-t anchor-mid" x="105" y="145">User</text>
+    <text class="s-t-sm anchor-mid" x="105" y="167">Priya (Sales Rep)</text>
+
+    <path class="s-line-b" d="M180 140 H250" marker-end="url(#s1)"/>
+    <rect class="s-box-b" x="250" y="108" width="180" height="64" rx="10"/>
+    <text class="s-t s-t-b anchor-mid" x="340" y="130">Profile</text>
+    <text class="s-t-sm anchor-mid" x="340" y="152">"Minimum Access – Salesforce"</text>
+
+    <path class="s-line-v" d="M180 175 H250" marker-end="url(#s1)"/>
+    <rect class="s-box-v" x="250" y="190" width="180" height="64" rx="10"/>
+    <text class="s-t s-t-v anchor-mid" x="340" y="212">Permission Set Group</text>
+    <text class="s-t-sm anchor-mid" x="340" y="234">"Sales Rep Bundle"</text>
+
+    <path class="s-line-v" d="M430 222 H490" marker-end="url(#s1)"/>
+    <g>
+      <rect class="s-box-t" x="490" y="160" width="130" height="34" rx="8"/>
+      <text class="s-t-sm anchor-mid" x="555" y="177">PS: Opportunity Mgmt</text>
+      <rect class="s-box-t" x="490" y="204" width="130" height="34" rx="8"/>
+      <text class="s-t-sm anchor-mid" x="555" y="221">PS: Quote Creation</text>
+      <rect class="s-box-r" x="490" y="248" width="130" height="34" rx="8"/>
+      <text class="s-t-sm anchor-mid" x="555" y="265">Muting PS: no Delete</text>
+    </g>
+    <text class="s-t-sm s-t-r" x="636" y="265">← removes a perm</text>
+    <text class="s-t-sm anchor-mid" x="390" y="40">Give the profile almost nothing; grant capability through permission set groups</text>
+    <text class="s-t-sm anchor-mid" x="390" y="62">Result: onboarding = assign one group, not clone a profile</text>
+    <defs><marker id="s1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<h3>Permission Set Groups &amp; Muting</h3>
+<ul>
+  <li>A <strong>Permission Set Group</strong> bundles permission sets for a job function (e.g. "Sales Manager").</li>
+  <li>A <strong>Muting Permission Set</strong> inside the group <em>removes</em> specific permissions the constituent sets grant — the only subtractive tool in the permissions model.</li>
+  <li>Groups are recalculated asynchronously after changes; the status shows as "Updating".</li>
+</ul>
+
+<h3>The dangerous permissions</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Permission</th><th>Effect</th><th>Scope</th></tr></thead>
+  <tbody>
+    <tr><td><strong>View All</strong></td><td>See every record of one object, ignoring sharing</td><td>Per object</td></tr>
+    <tr><td><strong>Modify All</strong></td><td>Edit/delete every record of one object, ignoring sharing</td><td>Per object</td></tr>
+    <tr><td><strong>View All Data</strong></td><td>See every record of <em>every</em> object</td><td>Org-wide</td></tr>
+    <tr><td><strong>Modify All Data</strong></td><td>Edit/delete everything</td><td>Org-wide</td></tr>
+    <tr><td><strong>View All Users</strong></td><td>See all users regardless of user sharing</td><td>Org-wide</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout danger">
+  <span class="c-ico">🚨</span>
+  <div class="c-body"><span class="c-title">Interview favourite</span>
+    "View All Data" bypasses OWD, role hierarchy <em>and</em> sharing rules — but it does <strong>not</strong> bypass
+    Field-Level Security. Only <em>Modify All Data</em> plus FLS grants edit everything. Audit these permissions regularly.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="fls">3 · Field-Level Security</h2>
+<p>FLS is set per field per profile/permission set: <strong>Visible</strong> and <strong>Read-Only</strong> checkboxes.</p>
+<ul>
+  <li>FLS is enforced in the UI, reports, list views, search and the API — a hidden field simply isn't returned.</li>
+  <li><strong>Apex ignores FLS by default.</strong> That's a security review failure. Enforce it explicitly:</li>
+</ul>
+<pre><code class="language-apex">// 1. Query-level enforcement (recommended, API 48+)
+List&lt;Account&gt; accs = [SELECT Id, Name, AnnualRevenue FROM Account WITH USER_MODE];
+
+// or the older form
+List&lt;Account&gt; accs2 = [SELECT Id, Name FROM Account WITH SECURITY_ENFORCED];
+
+// 2. DML in user mode (API 55+)
+Database.insert(newAccounts, AccessLevel.USER_MODE);
+
+// 3. Strip fields the user can't see (great for building JSON responses)
+SObjectAccessDecision d = Security.stripInaccessible(AccessType.READABLE, accs);
+List&lt;Account&gt; safe = (List&lt;Account&gt;) d.getRecords();
+
+// 4. Manual describe check
+if (Schema.sObjectType.Account.fields.AnnualRevenue.isAccessible()) { /* ... */ }
+if (Schema.sObjectType.Account.isUpdateable()) { /* ... */ }</code></pre>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Approach</th><th>Behaviour on violation</th><th>Use when</th></tr></thead>
+  <tbody>
+    <tr><td><code>WITH USER_MODE</code></td><td>Throws <code>QueryException</code></td><td>Default choice — also enforces sharing</td></tr>
+    <tr><td><code>WITH SECURITY_ENFORCED</code></td><td>Throws exception</td><td>Legacy orgs (FLS/CRUD only, not sharing)</td></tr>
+    <tr><td><code>stripInaccessible</code></td><td>Silently removes fields</td><td>Returning data to LWC/API without hard failure</td></tr>
+    <tr><td>Describe checks</td><td>You decide</td><td>Fine-grained conditional UI</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="record-level-security">4 · Record-level security</h2>
+<p>Everything below answers one question: <em>which rows of an object can this user see?</em>
+   Start closed with OWD, then open access up.</p>
+
+<div class="dgm">
+  <div class="dgm-title">Record access decision order</div>
+  <svg viewBox="0 0 790 430" role="img" aria-label="Order in which record access is granted">
+    <rect class="s-box-r" x="270" y="14" width="240" height="52" rx="10"/>
+    <text class="s-t s-t-r anchor-mid" x="390" y="34">① OWD — the baseline</text>
+    <text class="s-t-sm anchor-mid" x="390" y="54">Private / Public Read / Public Read-Write</text>
+    <path class="s-line" d="M390 66 V96" marker-end="url(#s2)"/>
+
+    <rect class="s-box-b" x="250" y="96" width="280" height="52" rx="10"/>
+    <text class="s-t s-t-b anchor-mid" x="390" y="116">② Record Ownership</text>
+    <text class="s-t-sm anchor-mid" x="390" y="136">The owner always has full access (unless OWD is stricter for them)</text>
+    <path class="s-line" d="M390 148 V178" marker-end="url(#s2)"/>
+
+    <rect class="s-box-v" x="250" y="178" width="280" height="52" rx="10"/>
+    <text class="s-t s-t-v anchor-mid" x="390" y="198">③ Role Hierarchy</text>
+    <text class="s-t-sm anchor-mid" x="390" y="218">Managers inherit access to subordinates' records</text>
+    <path class="s-line" d="M390 230 V260" marker-end="url(#s2)"/>
+
+    <rect class="s-box-t" x="250" y="260" width="280" height="52" rx="10"/>
+    <text class="s-t s-t-t anchor-mid" x="390" y="280">④ Sharing Rules</text>
+    <text class="s-t-sm anchor-mid" x="390" y="300">Owner-based or criteria-based, to roles/groups/territories</text>
+    <path class="s-line" d="M390 312 V342" marker-end="url(#s2)"/>
+
+    <rect class="s-box-a" x="250" y="342" width="280" height="52" rx="10"/>
+    <text class="s-t s-t-a anchor-mid" x="390" y="362">⑤ Manual · Teams · Apex Sharing</text>
+    <text class="s-t-sm anchor-mid" x="390" y="382">One-off grants for the exceptions</text>
+
+    <text class="s-t-sm s-t-g" x="560" y="120">More open ↓</text>
+    <path class="s-line-g" d="M600 140 V370" marker-end="url(#s2)"/>
+    <text class="s-t-sm" x="30" y="200">Never</text>
+    <text class="s-t-sm" x="30" y="220">removes</text>
+    <text class="s-t-sm" x="30" y="240">access —</text>
+    <text class="s-t-sm" x="30" y="260">only adds</text>
+    <text class="s-t-sm anchor-mid" x="390" y="418">Exception: Restriction Rules (⑥) can filter access back down</text>
+    <defs><marker id="s2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<h3 id="sharing-settings">Org-Wide Defaults (Sharing Settings)</h3>
+<p>Setup → Sharing Settings. Set per object, and separately for internal and external users.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>OWD value</th><th>Meaning</th><th>Typical for</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Private</strong></td><td>Only the owner (and people above them in the hierarchy) can see it</td><td>Opportunity, Case in competitive orgs</td></tr>
+    <tr><td><strong>Public Read Only</strong></td><td>Everyone can view, only owner/hierarchy can edit</td><td>Account, Contact</td></tr>
+    <tr><td><strong>Public Read/Write</strong></td><td>Everyone can view and edit</td><td>Reference data</td></tr>
+    <tr><td><strong>Public Read/Write/Transfer</strong></td><td>Plus change owner</td><td>Lead, Case only</td></tr>
+    <tr><td><strong>Controlled by Parent</strong></td><td>Inherits from the master record</td><td>Master-Detail children, Contact under Account</td></tr>
+    <tr><td><strong>Public Full Access</strong></td><td>View/edit/transfer/delete</td><td>Campaign only</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout warn">
+  <span class="c-ico">📉</span>
+  <div class="c-body"><span class="c-title">Golden rule</span>
+    Set OWD to the <strong>most restrictive</strong> level any user should have, then open up. You cannot use sharing
+    rules to <em>restrict</em> — if OWD is Public Read, no sharing rule can hide a record.
+    Also: "Grant Access Using Hierarchies" can be unticked for <strong>custom objects only</strong>.</div>
+</div>
+
+<h3>Role hierarchy</h3>
+<div class="dgm">
+  <div class="dgm-title">Access flows upward, never sideways</div>
+  <svg viewBox="0 0 720 280" role="img" aria-label="Role hierarchy showing upward access inheritance">
+    <rect class="s-box-b" x="280" y="16" width="160" height="44" rx="9"/>
+    <text class="s-t anchor-mid" x="360" y="38">CEO</text>
+    <path class="s-line" d="M360 60 V86 M180 86 H540" />
+    <path class="s-line" d="M180 86 V110 M540 86 V110"/>
+
+    <rect class="s-box-v" x="100" y="110" width="160" height="44" rx="9"/>
+    <text class="s-t anchor-mid" x="180" y="132">VP Sales</text>
+    <rect class="s-box-v" x="460" y="110" width="160" height="44" rx="9"/>
+    <text class="s-t anchor-mid" x="540" y="132">VP Service</text>
+
+    <path class="s-line" d="M180 154 V178 M110 178 H250 M110 178 V202 M250 178 V202"/>
+    <rect class="s-box-t" x="40"  y="202" width="140" height="44" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="110" y="224">Rep — East</text>
+    <rect class="s-box-t" x="190" y="202" width="140" height="44" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="260" y="224">Rep — West</text>
+
+    <path class="s-line-g" d="M110 202 V166 M110 166 L104 176 M110 166 L116 176"/>
+    <text class="s-t-sm s-t-g" x="330" y="246">✔ VP Sales sees both reps' records</text>
+    <text class="s-t-sm s-t-r" x="330" y="268">✘ Rep East cannot see Rep West's records (peers don't share)</text>
+  </svg>
+</div>
+<ul>
+  <li>Role hierarchy grants <strong>upward</strong> access only. Peers see nothing of each other by default.</li>
+  <li>A role is <em>not</em> the job title — it exists purely for data visibility. Two VPs who must not see each other's data belong on separate branches.</li>
+  <li>Max 500 roles; keep the hierarchy under ~10 levels for performance.</li>
+</ul>
+
+<h3>Sharing rules</h3>
+<div class="grid g2">
+  <div class="card accent-teal"><h4>Owner-based</h4><p>"Records <em>owned by</em> members of Role X are shared with Public Group Y at Read/Write."</p></div>
+  <div class="card accent-violet"><h4>Criteria-based</h4><p>"Records <em>where</em> Country = 'India' are shared with Role Z." Field values drive it, not ownership.</p></div>
+</div>
+<ul>
+  <li>Share <em>to</em>: Roles, Roles &amp; Subordinates, Public Groups, Territories, Portal roles.</li>
+  <li>Access level: Read Only or Read/Write (never less than OWD).</li>
+  <li>Limits: 300 rules per object (50 criteria-based). Changing them triggers a sharing recalculation — do it in a maintenance window for large orgs, or use <strong>deferred sharing calculation</strong>.</li>
+  <li><strong>Guest user sharing rules</strong> are a separate, restricted category (Read-only, no criteria-based on some objects).</li>
+</ul>
+
+<h3>Manual sharing, teams &amp; territories</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Mechanism</th><th>How it works</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Manual Sharing</strong></td><td>Owner/admin clicks Sharing on a record and adds a user</td><td>Only available when OWD is more restrictive than Public R/W. <strong>Removed automatically if the owner changes.</strong></td></tr>
+    <tr><td><strong>Account / Opportunity / Case Teams</strong></td><td>Named collaborators with a role and access level</td><td>Great for "the SE and the AE both work this deal"</td></tr>
+    <tr><td><strong>Enterprise Territory Management</strong></td><td>Assign accounts to territories, users to territories</td><td>Best when geography/segment drives access, not the org chart</td></tr>
+    <tr><td><strong>Implicit Sharing</strong></td><td>Built-in, invisible: Account access grants access to child Contacts/Cases/Opportunities per the Account's related-object settings; Contact/Case/Opp access grants Read on the parent Account</td><td>Cannot be disabled; explains "why can they see this?" mysteries</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Restriction &amp; scoping rules (the modern additions)</h3>
+<div class="grid g2">
+  <div class="card accent-rose"><h4>Restriction Rule</h4><p><strong>Removes</strong> access that sharing granted — the only true subtractive record control. "Even though Reps can see all Cases, HR Cases are visible only to HR."</p><p>Applies to list views, reports, SOQL, API. Does not apply to users with View All Data.</p></div>
+  <div class="card accent-teal"><h4>Scoping Rule</h4><p>Changes the <em>default filter</em>, not access. "Reps see only their region's records by default, but can still switch the filter." A UX convenience, not a security control.</p></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="apex-sharing">Apex sharing &amp; sharing keywords</h2>
+<h3>Sharing keywords on classes</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Keyword</th><th>Behaviour</th><th>When to use</th></tr></thead>
+  <tbody>
+    <tr><td><code>with sharing</code></td><td>Enforces the running user's <strong>record sharing</strong> (not FLS/CRUD)</td><td>Anything triggered by a user action</td></tr>
+    <tr><td><code>without sharing</code></td><td>Runs in system context, ignores sharing</td><td>Deliberate elevation — e.g. a service that must aggregate all records</td></tr>
+    <tr><td><code>inherited sharing</code></td><td>Takes the sharing mode of the caller; defaults to <em>with sharing</em> if entered directly (e.g. from a VF page)</td><td><strong>Best default for utility/service classes</strong> — secure and reusable</td></tr>
+    <tr><td>(none)</td><td>Inherits from caller; if it's the entry point, runs <strong>without sharing</strong></td><td>Avoid — implicit and unsafe</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout danger">
+  <span class="c-ico">⚠️</span>
+  <div class="c-body"><span class="c-title">Triggers always run in system context</span>
+    A trigger itself ignores sharing. If your trigger calls a handler, declare that handler
+    <code>with sharing</code> or <code>inherited sharing</code> when the logic should respect the user's access.</div>
+</div>
+
+<h3>Apex Managed Sharing</h3>
+<p>Programmatically share a record by inserting into the object's share table:
+   <code>AccountShare</code> for standard objects, <code>MyObject__Share</code> for custom ones.</p>
+<pre><code class="language-apex">public without sharing class ProjectSharingService {
+
+    // Share a custom object record with a user at Read access
+    public static void shareWithUser(Id projectId, Id userId) {
+        Project__Share share = new Project__Share();
+        share.ParentId       = projectId;              // the record
+        share.UserOrGroupId  = userId;                 // who gets access
+        share.AccessLevel    = 'Read';                 // Read | Edit | All
+        share.RowCause       = Schema.Project__Share.RowCause.Manual;
+        // Custom reason (Apex sharing reason) survives owner changes:
+        // share.RowCause = Schema.Project__Share.RowCause.Team_Member__c;
+
+        Database.SaveResult sr = Database.insert(share, false);
+        if (!sr.isSuccess()) {
+            System.debug('Share failed: ' + sr.getErrors()[0].getMessage());
+        }
+    }
+
+    // Recalculate: delete Apex shares then rebuild
+    public static void revoke(Id projectId, Id userId) {
+        delete [SELECT Id FROM Project__Share
+                WHERE ParentId = :projectId
+                  AND UserOrGroupId = :userId
+                  AND RowCause = 'Manual'];
+    }
+}</code></pre>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Share record field</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td><code>ParentId</code> (or <code>AccountId</code> for standard)</td><td>The record being shared</td></tr>
+    <tr><td><code>UserOrGroupId</code></td><td>User, public group, role group or queue receiving access</td></tr>
+    <tr><td><code>AccessLevel</code></td><td>Read / Edit / All (All is reserved for the owner)</td></tr>
+    <tr><td><code>RowCause</code></td><td>Why the share exists. <strong>Custom Apex Sharing Reasons survive owner changes</strong>; Manual shares don't</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout note">
+  <span class="c-ico">💡</span>
+  <div class="c-body"><span class="c-title">Requirements</span>
+    Apex sharing only works when the object's OWD is <strong>more restrictive than Public Read/Write</strong>.
+    Apex Sharing Reasons are available on custom objects only, and are defined in the object's setup page.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="debug-access">Debugging "why can't they see this record?"</h2>
+<ul class="steps">
+  <li><b>Check the object permission</b> — Profile/Permission Sets → does the user have Read on the object?</li>
+  <li><b>Check FLS</b> — is the field visible for their profile?</li>
+  <li><b>Open the record → Sharing button</b> — shows every reason a user has access.</li>
+  <li><b>Use "Login As"</b> the user to reproduce it exactly.</li>
+  <li><b>Check OWD</b> for the object, and whether "Grant Access Using Hierarchies" is on.</li>
+  <li><b>Look for Restriction Rules</b> — the newest cause of unexplained invisibility.</li>
+  <li><b>Query the share table</b>: <code>SELECT UserOrGroupId, AccessLevel, RowCause FROM AccountShare WHERE AccountId = '001…'</code></li>
+</ul>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Explain the Salesforce security model to a new admin in under two minutes.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Four layers, all of which must pass. <strong>Org</strong> — can you log in (MFA, IP ranges, login
+hours)? <strong>Object</strong> — can you see this <em>type</em> of record (profiles and permission sets, CRUD)?
+<strong>Field</strong> — can you see this column (FLS)? <strong>Record</strong> — can you see this specific row
+(OWD, role hierarchy, sharing rules, manual/team/Apex sharing)?</p>
+<p>The key nuance: layers 1–3 are restrictive — you need explicit permission. Layer 4 is <strong>additive</strong> —
+OWD sets the floor and everything else only opens access up. The single exception is a Restriction Rule.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> Profile vs Permission Set — what's the modern best practice?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Assign the <strong>"Minimum Access – Salesforce"</strong> profile to everyone and grant all capability
+through <strong>Permission Set Groups</strong> built per job function. A user has exactly one profile but many permission
+sets, so onboarding becomes "assign one group" rather than "clone and maintain another profile". Profiles are also being
+de-emphasised by Salesforce. Add a <strong>Muting Permission Set</strong> inside a group when you need to subtract a
+specific permission the constituent sets grant.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Does <code>with sharing</code> enforce field-level security?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>No — and this is the most common security-review failure.</strong> It enforces record-level
+sharing only: which <em>rows</em> the user can see. FLS and object CRUD need explicit handling:
+<code>WITH USER_MODE</code> on the query, <code>AccessLevel.USER_MODE</code> or <code>insert as user</code> on DML,
+<code>Security.stripInaccessible()</code> when returning data to an LWC, or describe checks like
+<code>isAccessible()</code>. Also remember triggers always run in system context.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> OWD is Private on Opportunity. Give three ways to open access, and when each is right.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><ol>
+  <li><strong>Role hierarchy</strong> — a manager should see their team's deals. Vertical access, zero maintenance.</li>
+  <li><strong>Sharing rule</strong> — owner-based ("records owned by the India role go to the India Support group") or
+      criteria-based ("all records where Type = Partner"). This is lateral access between peers.</li>
+  <li><strong>Opportunity Teams / manual sharing</strong> — one-off collaboration on a specific deal.</li>
+</ol>
+<p>Escalate to <strong>Apex managed sharing</strong> only when the rule can't be expressed declaratively, and to
+<strong>View All</strong> only when the user genuinely needs every record of that object.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> A user's manual share disappeared after the record changed owner. Why, and how do you make it stick?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Shares with <code>RowCause = 'Manual'</code> are <strong>deleted automatically on owner change</strong> —
+the platform assumes the new owner will decide who else needs access. To make a programmatic share survive, insert into
+the share object with a <strong>custom Apex Sharing Reason</strong> (defined on the custom object) rather than Manual:
+<code>share.RowCause = Schema.Project__Share.RowCause.Team_Member__c;</code>. Apex Sharing Reasons are available on
+custom objects only.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> Distinguish View All, Modify All, View All Data and Modify All Data.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>View All / Modify All</strong> are <em>per object</em> and bypass sharing for that object
+only — the right tool for "support must see every Case". <strong>View All Data / Modify All Data</strong> are
+<em>org-wide</em> across every object and should be limited to a handful of admins.</p>
+<p>Important detail: none of them bypass <strong>field-level security</strong>. A user with View All Data still can't
+see a field hidden by FLS. Audit these permissions regularly — they're the most common cause of accidental data
+exposure.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> What is implicit sharing and why does it confuse people?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Built-in, invisible, non-configurable sharing between an Account and its child Contacts, Cases and
+Opportunities. Access to a child grants <strong>Read on the parent Account</strong>; access to an Account grants access
+to children based on the Account's related-object settings. You can't switch it off and it appears in no sharing rule —
+so it's the usual answer to "why can this user see this record when nothing grants it?" Check the record's
+<strong>Sharing</strong> button, which lists every reason.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> The business says "reps can see all Cases, but HR Cases must be hidden from them." How?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>This needs a <strong>Restriction Rule</strong> — the only feature that <em>removes</em> record access
+that sharing granted. Define it on Case with a criterion such as <code>RecordType != 'HR'</code> for the relevant user
+population; it applies to list views, reports, SOQL and the API.</p>
+<p>Sharing rules and permission sets can't help because they're purely additive, and tightening OWD would break the
+"reps see all Cases" requirement. Note restriction rules don't apply to users with View All Data.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. OWD for Opportunity is Private. A sales manager must see their team's opportunities. Simplest solution?</div>
+  <button class="opt">Criteria-based sharing rule</button>
+  <button class="opt" data-correct="1">Put the manager above the reps in the role hierarchy</button>
+  <button class="opt">Give the manager Modify All Data</button>
+  <div class="explain">Role hierarchy exists exactly for this. Sharing rules are for lateral access; Modify All Data is a sledgehammer.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. Which can actually <em>remove</em> record access a user already had?</div>
+  <button class="opt">Permission Set</button>
+  <button class="opt">Sharing Rule</button>
+  <button class="opt" data-correct="1">Restriction Rule</button>
+  <div class="explain">Sharing rules and permission sets are additive only. Restriction rules (and Muting Permission Sets, for permissions rather than records) are the subtractive tools.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. Your Apex returns records the running user shouldn't see. The class is declared <code>with sharing</code>. What else could be wrong?</div>
+  <button class="opt">Nothing — with sharing covers everything</button>
+  <button class="opt" data-correct="1"><code>with sharing</code> enforces record sharing but not FLS/CRUD; also the class may be called from a <code>without sharing</code> context for some logic</button>
+  <button class="opt">Sharing keywords don't work in Apex</button>
+  <div class="explain">Use <code>WITH USER_MODE</code> on queries or <code>stripInaccessible</code> for field-level enforcement — <code>with sharing</code> only governs which rows are visible.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Security &amp; Sharing</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

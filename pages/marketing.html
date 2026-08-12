@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marketing Cloud &amp; Account Engagement | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Clouds</span> › <span>Marketing</span></div>
+  <h1>Marketing Cloud &amp; Account Engagement</h1>
+  <p class="lede">The two marketing products, why they're completely different platforms, how each connects back to
+     CRM, and the deliverability and consent rules that decide whether any of it works.</p>
+</header>
+
+<div class="callout warn">
+  <span class="c-ico">🧩</span>
+  <div class="c-body"><span class="c-title">The key fact people get wrong</span>
+    <strong>Marketing Cloud Engagement is not built on the Salesforce platform.</strong> It's a separate acquisition with
+    its own data model, its own login, its own languages (AMPscript, SSJS, SQL) and its own API. Account Engagement
+    (formerly Pardot) is also separate, though far more tightly coupled to CRM. Neither uses Apex, SOQL or the
+    sharing model.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="which">Which product for which job</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>Account Engagement (Pardot)</th><th>Marketing Cloud Engagement</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Built for</strong></td><td><strong>B2B</strong> — long sales cycles, lead nurture, hand-off to sales</td><td><strong>B2C</strong> — high volume, multi-channel, 1:1 personalisation</td></tr>
+    <tr><td><strong>Audience size</strong></td><td>Thousands to hundreds of thousands</td><td>Millions</td></tr>
+    <tr><td><strong>Core record</strong></td><td>Prospect (syncs with Lead/Contact)</td><td>Contact / Subscriber in Data Extensions</td></tr>
+    <tr><td><strong>Channels</strong></td><td>Email, forms, landing pages</td><td>Email, SMS, push, in-app, ads, web</td></tr>
+    <tr><td><strong>Automation</strong></td><td>Engagement Studio</td><td>Journey Builder, Automation Studio</td></tr>
+    <tr><td><strong>Scoring</strong></td><td>Scoring &amp; Grading built in</td><td>Not native in the same way</td></tr>
+    <tr><td><strong>CRM coupling</strong></td><td>Tight — a native connector syncing to Lead/Contact/Campaign</td><td>Looser — Marketing Cloud Connect, synchronised data extensions</td></tr>
+    <tr><td><strong>Skills needed</strong></td><td>Admin-style config</td><td>AMPscript, SSJS, SQL, Data Extensions</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="account-engagement">Account Engagement (Pardot)</h2>
+
+<div class="dgm">
+  <div class="dgm-title">The B2B demand funnel</div>
+  <svg viewBox="0 0 790 300" role="img" aria-label="Account Engagement funnel from visitor to sales-qualified lead">
+    <rect class="s-box-b" x="20" y="30" width="140" height="52" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="90" y="50">Anonymous Visitor</text>
+    <text class="s-t-sm anchor-mid" x="90" y="68">tracked by cookie</text>
+    <path class="s-line-b" d="M160 56 H210" marker-end="url(#mk1)"/>
+
+    <rect class="s-box-v" x="210" y="30" width="140" height="52" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="280" y="50">Form submit</text>
+    <text class="s-t-sm anchor-mid" x="280" y="68">→ becomes a Prospect</text>
+    <path class="s-line-v" d="M350 56 H400" marker-end="url(#mk1)"/>
+
+    <rect class="s-box-t" x="400" y="20" width="160" height="72" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="480" y="42">Engagement Studio</text>
+    <text class="s-t-sm anchor-mid" x="480" y="62">nurture · wait · branch</text>
+    <text class="s-t-sm anchor-mid" x="480" y="80">score &amp; grade update</text>
+    <path class="s-line-t" d="M560 56 H610" marker-end="url(#mk1)"/>
+
+    <rect class="s-box-a" x="610" y="30" width="160" height="52" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="690" y="50">Threshold reached</text>
+    <text class="s-t-sm anchor-mid" x="690" y="68">MQL</text>
+
+    <path class="s-line-a" d="M690 82 V130" marker-end="url(#mk1)"/>
+    <rect class="s-box-g" x="580" y="130" width="190" height="52" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="675" y="150">Assigned to a sales user</text>
+    <text class="s-t-sm anchor-mid" x="675" y="168">→ syncs to CRM Lead</text>
+    <path class="s-line-g" d="M580 156 H430" marker-end="url(#mk1)"/>
+
+    <rect class="s-box-b" x="270" y="130" width="160" height="52" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="350" y="150">Salesforce Lead</text>
+    <text class="s-t-sm anchor-mid" x="350" y="168">→ convert → Opportunity</text>
+    <path class="s-line-b s-dash" d="M350 182 V226" marker-end="url(#mk1)"/>
+    <rect class="s-box-r" x="250" y="226" width="200" height="52" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="350" y="246">Campaign Influence</text>
+    <text class="s-t-sm anchor-mid" x="350" y="264">attributes revenue back to marketing</text>
+    <defs><marker id="mk1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Concept</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Prospect</strong></td><td>The core record; syncs bidirectionally with a Salesforce Lead or Contact via the connector</td></tr>
+    <tr><td><strong>Scoring</strong></td><td>Numeric, behaviour-based — "how interested are they?" (page views, downloads, email clicks)</td></tr>
+    <tr><td><strong>Grading</strong></td><td>Letter grade, profile-based — "how well do they fit our ICP?" (industry, size, job title)</td></tr>
+    <tr><td><strong>Engagement Studio</strong></td><td>The visual nurture program: actions, triggers, rules and waits</td></tr>
+    <tr><td><strong>Automation Rule</strong></td><td>Runs continuously against matching prospects</td></tr>
+    <tr><td><strong>Completion Action</strong></td><td>Fires when a specific asset is engaged with (form submitted, file downloaded)</td></tr>
+    <tr><td><strong>Dynamic List</strong></td><td>Membership recalculated automatically; a static list is manual</td></tr>
+    <tr><td><strong>Landing pages &amp; Forms</strong></td><td>Hosted assets with progressive profiling</td></tr>
+    <tr><td><strong>Connected Campaigns</strong></td><td>Aligns Account Engagement campaigns with Salesforce Campaigns so attribution works</td></tr>
+    <tr><td><strong>Business Units</strong></td><td>Data separation for multi-brand or multi-region marketing</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout note">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">The connector and sync behaviour</span>
+    The Salesforce connector syncs Prospects with Leads/Contacts on a schedule (near-real-time in modern versions).
+    Understand <strong>which system wins</strong> on each field — the sync behaviour is configurable per field
+    (Salesforce wins / Account Engagement wins / most recently updated). Getting this wrong overwrites sales-entered
+    data with stale marketing data, which is the classic complaint.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="marketing-cloud">Marketing Cloud Engagement</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Studio / Builder</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Email Studio</strong></td><td>Build and send email; manage subscribers and lists</td></tr>
+    <tr><td><strong>Journey Builder</strong></td><td>Multi-step, multi-channel customer journeys with entry events, waits, decision splits and goals</td></tr>
+    <tr><td><strong>Automation Studio</strong></td><td>Scheduled/triggered back-office automations — imports, SQL queries, file transfers, sends</td></tr>
+    <tr><td><strong>Content Builder</strong></td><td>Central asset library — templates, images, blocks</td></tr>
+    <tr><td><strong>Contact Builder</strong></td><td>Defines the data model: Data Extensions and their relationships</td></tr>
+    <tr><td><strong>Mobile Studio</strong></td><td>SMS (MobileConnect), push (MobilePush), group messaging</td></tr>
+    <tr><td><strong>Advertising Studio</strong></td><td>Audience sync to ad platforms</td></tr>
+    <tr><td><strong>Interaction Studio / Personalization</strong></td><td>Real-time web and app personalisation</td></tr>
+    <tr><td><strong>Datorama / Intelligence</strong></td><td>Cross-channel marketing analytics</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>The data model — Data Extensions</h3>
+<p>Marketing Cloud does not use Salesforce objects. Its tables are <strong>Data Extensions</strong>:</p>
+<ul>
+  <li><strong>Standard DE</strong> — a plain table you define, with a primary key.</li>
+  <li><strong>Sendable DE</strong> — has a subscriber relationship, so it can be emailed to.</li>
+  <li><strong>Synchronized DE</strong> — a replicated copy of a Salesforce object, kept in sync by Marketing Cloud Connect.</li>
+  <li><strong>Data Views</strong> — system tables holding send, open, click, bounce and unsubscribe history, queryable with SQL.</li>
+</ul>
+
+<pre><code class="language-json">/* Automation Studio SQL Query activity — standard ANSI SQL over Data Extensions */
+SELECT
+    s.SubscriberKey,
+    s.EmailAddress,
+    o.EventDate AS LastOpen
+FROM   Master_Subscribers  s
+JOIN   _Open               o  ON o.SubscriberKey = s.SubscriberKey
+WHERE  o.EventDate &gt; DATEADD(day, -30, GETDATE())
+  AND  s.Status = 'Active'</code></pre>
+
+<pre><code class="language-html">&lt;!-- AMPscript: server-side personalisation inside an email --&gt;
+%%[
+  VAR @firstName, @tier
+  SET @firstName = AttributeValue("FirstName")
+  SET @tier      = Lookup("Loyalty_DE", "Tier", "SubscriberKey", _subscriberkey)
+  IF EMPTY(@firstName) THEN SET @firstName = "there" ENDIF
+]%%
+
+&lt;p&gt;Hi %%=v(@firstName)=%%,&lt;/p&gt;
+
+%%[ IF @tier == "Gold" THEN ]%%
+  &lt;p&gt;As a Gold member, here is your exclusive offer.&lt;/p&gt;
+%%[ ELSE ]%%
+  &lt;p&gt;Upgrade to Gold for exclusive offers.&lt;/p&gt;
+%%[ ENDIF ]%%</code></pre>
+
+<h3>Marketing Cloud Connect</h3>
+<ul>
+  <li>Links a Marketing Cloud account to one or more Salesforce orgs.</li>
+  <li>Enables <strong>Synchronized Data Extensions</strong>, sending to Salesforce Reports and Campaigns, and writing engagement activity back to CRM.</li>
+  <li>Requires a dedicated integration user in Salesforce with the right permissions.</li>
+  <li>Journey Builder can use a <strong>Salesforce Data entry source</strong> and take Salesforce actions (create a Task, update a record) mid-journey.</li>
+</ul>
+
+<!-- ============================================ -->
+<h2 id="deliverability">Deliverability &amp; consent</h2>
+<div class="callout danger">
+  <span class="c-ico">📮</span>
+  <div class="c-body"><span class="c-title">The most under-appreciated topic in marketing</span>
+    A technically perfect campaign that lands in spam has failed. Deliverability is an engineering concern, not a
+    marketing one, and it comes up in interviews far more than people expect.</div>
+</div>
+<div class="grid g2">
+  <div class="card accent-teal"><h4>Technical setup</h4>
+    <ul><li><strong>SPF, DKIM and DMARC</strong> records on your sending domain</li>
+        <li>A <strong>dedicated IP</strong> for high volume, warmed gradually</li>
+        <li>A branded <strong>sending domain</strong> rather than a shared one</li>
+        <li>Reply handling and bounce processing</li>
+        <li>Salesforce-side: <strong>Deliverability settings</strong> — set sandboxes to "System email only"</li></ul></div>
+  <div class="card accent-rose"><h4>List hygiene &amp; consent</h4>
+    <ul><li><strong>Opt-in</strong> (explicit consent) — legally required in many jurisdictions</li>
+        <li>Honour <strong>unsubscribes immediately</strong> and globally</li>
+        <li>Suppress hard bounces and long-term non-openers</li>
+        <li>Never buy lists — spam traps destroy sender reputation</li>
+        <li>Salesforce: the <strong>Individual</strong> object holds consent; respect "Don't Market"</li>
+        <li>Preference centres beat all-or-nothing unsubscribe</li></ul></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="attribution">Campaigns &amp; attribution in CRM</h2>
+<ul>
+  <li><strong>Campaign</strong> and <strong>Campaign Member</strong> are the CRM-side record of who was targeted and how they responded.</li>
+  <li><strong>Campaign Influence</strong> attributes Opportunity revenue back to campaigns — models include Primary Campaign Source, even distribution, and custom models.</li>
+  <li><strong>Connected Campaigns</strong> (Account Engagement) keeps the two systems' campaigns aligned so influence reporting is meaningful.</li>
+  <li>The metric marketing is judged on is usually <strong>pipeline and revenue influenced</strong>, not email opens — build the reporting for that.</li>
+</ul>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Account Engagement or Marketing Cloud — how do you advise a client?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Ask about the <strong>motion, not the size</strong>. B2B with a long considered sales cycle, lead
+nurture and a hand-off to sales reps → <strong>Account Engagement</strong>: scoring and grading, Engagement Studio, tight
+Lead/Contact sync. B2C with millions of consumers across email, SMS, push and ads, needing 1:1 personalisation →
+<strong>Marketing Cloud Engagement</strong>.</p>
+<p>Also flag the skills implication: Account Engagement is admin-style configuration; Marketing Cloud needs AMPscript,
+SQL and Data Extension modelling — a genuinely different hire.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> Scoring vs grading — what's the difference?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Scoring</strong> is numeric and behavioural: how <em>interested</em> are they, based on
+actions like page views, downloads and email clicks. <strong>Grading</strong> is a letter and profile-based: how well do
+they <em>fit</em> your ideal customer profile — industry, company size, job title.</p>
+<p>You want both. A high score with a poor grade is an enthusiastic student who'll never buy; a high grade with a low
+score is a perfect-fit company that hasn't engaged yet. MQL thresholds should use both dimensions.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Is Marketing Cloud built on the Salesforce platform?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>No.</strong> Marketing Cloud Engagement is a separate acquisition with its own
+infrastructure, login, data model (Data Extensions, not sObjects), languages (AMPscript, SSJS, SQL) and REST/SOAP APIs.
+There is no Apex, no SOQL and no Salesforce sharing model inside it.</p>
+<p>Integration is via <strong>Marketing Cloud Connect</strong>, which enables Synchronized Data Extensions and lets
+journeys read from and write back to CRM. Knowing this prevents a lot of bad architecture assumptions.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Sales complains marketing is overwriting their data. What's happening?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The Account Engagement connector's <strong>per-field sync behaviour</strong> is set so that
+Account Engagement wins, or "most recently updated" wins and an automation is touching the prospect after the rep edits
+the record.</p>
+<p>Fix by auditing field-level sync settings: for fields sales owns (phone, title corrections), set
+<em>Salesforce wins</em>. Also check automation rules that blanket-update prospects, and confirm the sync user's
+permissions. Agree a field-ownership matrix with both teams — this is a governance problem as much as a config one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> Emails are landing in spam. Where do you start?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Technical authentication first: <strong>SPF, DKIM and DMARC</strong> correctly configured on the
+sending domain, a branded sending domain rather than shared, and — for high volume — a dedicated IP that has been
+<strong>warmed gradually</strong> rather than blasted from day one.</p>
+<p>Then reputation: are you suppressing hard bounces and long-term non-openers? Was any list purchased (spam traps are
+fatal)? Is the unsubscribe honoured immediately? Are complaint rates elevated? Check the deliverability dashboard and
+seed-list testing. In Salesforce specifically, confirm sandbox Deliverability is set to "System email only" so test
+sends never hit real inboxes.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> What is a Data Extension and how does it differ from a Salesforce object?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A Data Extension is Marketing Cloud's table — you define its columns and primary key. It has no
+page layouts, no sharing model, no triggers and no SOQL; you query it with <strong>ANSI SQL</strong> in Automation
+Studio.</p>
+<p>Variants: <em>Sendable</em> (has a subscriber relationship so it can be emailed), <em>Synchronized</em> (a replicated
+Salesforce object via Marketing Cloud Connect), and <em>Data Views</em> — system tables of send, open, click, bounce and
+unsubscribe history that you join against for engagement reporting.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> How do you prove marketing generated revenue?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Campaign Influence</strong> in CRM. Campaign Members record who was touched; influence
+models attribute Opportunity revenue back to campaigns — Primary Campaign Source, even distribution across all
+influencing campaigns, or a custom model weighting first-touch and last-touch.</p>
+<p>For Account Engagement, enable <strong>Connected Campaigns</strong> so marketing and CRM campaigns are the same
+records — otherwise attribution silently breaks. Then report on pipeline and closed-won revenue influenced, which is the
+number the business actually cares about, rather than opens and clicks.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. Which product would you choose for a B2B software company nurturing 40,000 leads?</div>
+  <button class="opt">Marketing Cloud Engagement</button>
+  <button class="opt" data-correct="1">Account Engagement (Pardot)</button>
+  <button class="opt">Standard Campaigns only</button>
+  <div class="explain">B2B nurture with scoring, grading and a hand-off to sales is exactly Account Engagement's design point — and its Lead/Contact sync is far tighter.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. What language personalises content inside a Marketing Cloud email?</div>
+  <button class="opt">Apex</button>
+  <button class="opt" data-correct="1">AMPscript (or SSJS)</button>
+  <button class="opt">Visualforce</button>
+  <div class="explain">Marketing Cloud is a separate platform — no Apex, no SOQL. Personalisation is AMPscript/SSJS, and data manipulation is SQL over Data Extensions.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. Which three DNS records underpin email deliverability?</div>
+  <button class="opt">MX, CNAME, TXT</button>
+  <button class="opt" data-correct="1">SPF, DKIM and DMARC</button>
+  <button class="opt">A, AAAA, PTR</button>
+  <div class="explain">They prove the sender is authorised, that the message wasn't tampered with, and tell receivers what to do when a check fails.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Marketing</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

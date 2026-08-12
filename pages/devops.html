@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deployment &amp; DevOps | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Ship</span> › <span>DevOps</span></div>
+  <h1>Deployment &amp; DevOps</h1>
+  <p class="lede">Getting your work from a sandbox into production safely — change sets, the Metadata API, the SF CLI,
+     scratch orgs, packages, Git branching and a working CI/CD pipeline.</p>
+</header>
+
+<!-- ============================================ -->
+<h2 id="models">Two development models</h2>
+<div class="dgm">
+  <div class="dgm-title">Org-based vs source-driven development</div>
+  <svg viewBox="0 0 790 280" role="img" aria-label="Org development model compared to package development model">
+    <rect class="s-box-a" x="20" y="20" width="360" height="230" rx="12"/>
+    <text class="s-t s-t-a anchor-mid" x="200" y="46">Org Development Model</text>
+    <text class="s-t-sm anchor-mid" x="200" y="70">The org is the source of truth</text>
+    <rect class="s-box" x="50" y="86" width="130" height="34" rx="7"/><text class="s-t-sm anchor-mid" x="115" y="103">Dev Sandbox</text>
+    <path class="s-line-a" d="M180 103 H220" marker-end="url(#dv1)"/>
+    <rect class="s-box" x="220" y="86" width="130" height="34" rx="7"/><text class="s-t-sm anchor-mid" x="285" y="103">UAT Sandbox</text>
+    <path class="s-line-a" d="M285 120 V150" marker-end="url(#dv1)"/>
+    <rect class="s-box" x="220" y="150" width="130" height="34" rx="7"/><text class="s-t-sm anchor-mid" x="285" y="167">Production</text>
+    <text class="s-t-sm" x="50" y="164">Change Sets or</text>
+    <text class="s-t-sm" x="50" y="182">Metadata API</text>
+    <text class="s-t-sm s-t-g" x="50" y="212">✔ Familiar to admins, low setup</text>
+    <text class="s-t-sm s-t-r" x="50" y="234">✘ No real version control or rollback</text>
+
+    <rect class="s-box-g" x="410" y="20" width="360" height="230" rx="12"/>
+    <text class="s-t s-t-g anchor-mid" x="590" y="46">Package Development Model</text>
+    <text class="s-t-sm anchor-mid" x="590" y="70">Git is the source of truth</text>
+    <rect class="s-box-b" x="440" y="86" width="120" height="34" rx="7"/><text class="s-t-sm anchor-mid" x="500" y="103">Git repo</text>
+    <path class="s-line-g" d="M560 103 H600" marker-end="url(#dv1)"/>
+    <rect class="s-box" x="600" y="86" width="140" height="34" rx="7"/><text class="s-t-sm anchor-mid" x="670" y="103">Scratch Org</text>
+    <path class="s-line-g" d="M500 120 V150" marker-end="url(#dv1)"/>
+    <rect class="s-box-v" x="440" y="150" width="120" height="34" rx="7"/><text class="s-t-sm anchor-mid" x="500" y="167">CI/CD</text>
+    <path class="s-line-g" d="M560 167 H600" marker-end="url(#dv1)"/>
+    <rect class="s-box" x="600" y="150" width="140" height="34" rx="7"/><text class="s-t-sm anchor-mid" x="670" y="167">Prod / Packages</text>
+    <text class="s-t-sm s-t-g" x="440" y="212">✔ Versioned, reviewable, automated</text>
+    <text class="s-t-sm s-t-r" x="440" y="234">✘ Steeper learning curve</text>
+    <defs><marker id="dv1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<!-- ============================================ -->
+<h2 id="change-sets">Change sets</h2>
+<p>The click-based way to move metadata between <strong>connected orgs</strong> (orgs sharing the same production org).</p>
+<ul class="steps">
+  <li><b>Source org → Setup → Outbound Change Set → New.</b></li>
+  <li><b>Add components</b>, then click <strong>View/Add Dependencies</strong> — the step everyone forgets, and the
+      cause of most failed deployments.</li>
+  <li><b>Upload</b> to the target org (must be a Deployment Connection with "Allow Inbound Changes" enabled there).</li>
+  <li><b>Target org → Inbound Change Sets</b> → <strong>Validate</strong> first, then Deploy.</li>
+  <li><b>Choose the test level</b>: Default, Run Local Tests, Run All Tests, or Run Specified Tests.</li>
+</ul>
+<div class="grid g2">
+  <div class="card accent-green"><h4>✅ Good for</h4><ul><li>Small admin changes</li><li>Teams with no developer tooling</li><li>Emergency fixes when the pipeline is down</li></ul></div>
+  <div class="card accent-rose"><h4>❌ Painful because</h4>
+    <ul><li>Can't be edited after upload — you rebuild from scratch</li><li>No version control, no diff, no rollback</li>
+        <li>Manual and slow for large releases</li><li>Doesn't support all metadata types (e.g. some picklist value changes)</li>
+        <li>Doesn't <strong>delete</strong> components — you must delete manually in the target</li>
+        <li>Only between connected orgs — no deploying to a scratch org or a fresh org</li></ul></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="sf-cli">Salesforce CLI (<code>sf</code>)</h2>
+<pre><code class="language-bash"># ---------- Install &amp; auth ----------
+npm install -g @salesforce/cli
+sf --version
+sf org login web --alias devhub --set-default-dev-hub
+sf org login web --alias uat --instance-url https://test.salesforce.com
+sf org list
+sf org display --target-org uat
+
+# ---------- Project ----------
+sf project generate --name my-sf-app
+cd my-sf-app
+
+# ---------- Retrieve metadata from an org into source ----------
+sf project retrieve start --metadata ApexClass:AccountService --target-org uat
+sf project retrieve start --metadata "ApexClass,LightningComponentBundle" --target-org uat
+sf project retrieve start --manifest manifest/package.xml --target-org uat
+
+# ---------- Deploy source to an org ----------
+sf project deploy start --source-dir force-app --target-org uat
+sf project deploy start --manifest manifest/package.xml --target-org uat \
+    --test-level RunLocalTests --wait 60
+
+# VALIDATE ONLY (no changes committed) — always do this first for production
+sf project deploy validate --source-dir force-app --target-org prod \
+    --test-level RunLocalTests --wait 90
+# Then deploy the validated result in minutes instead of hours (valid for 10 days)
+sf project deploy quick --job-id 0Af5j00000XXXXX --target-org prod
+
+# ---------- Deletions ----------
+sf project delete source --metadata ApexClass:OldClass --target-org uat
+
+# ---------- Tests ----------
+sf apex run test --target-org uat --test-level RunLocalTests --code-coverage --result-format human --wait 20
+sf apex run test --tests AccountServiceTest --target-org uat --result-format json
+
+# ---------- Data ----------
+sf data query --query "SELECT Id, Name FROM Account LIMIT 5" --target-org uat
+sf data query --query "SELECT Id FROM Contact" --bulk --target-org uat
+sf data export tree --query "SELECT Id, Name, (SELECT LastName FROM Contacts) FROM Account" \
+    --output-dir ./data --plan
+sf data import tree --plan ./data/Account-Contact-plan.json --target-org scratch
+sf data create record --sobject Account --values "Name='Acme' Industry='Technology'"
+
+# ---------- Apex &amp; logs ----------
+sf apex run --file scripts/apex/hello.apex --target-org uat
+sf apex tail log --target-org uat --color
+sf apex get log --number 1 --target-org uat
+
+# ---------- Scratch orgs ----------
+sf org create scratch --definition-file config/project-scratch-def.json \
+    --alias scratch1 --duration-days 7 --set-default
+sf project deploy start --target-org scratch1
+sf org open --target-org scratch1
+sf org delete scratch --target-org scratch1 --no-prompt
+
+# ---------- Packaging ----------
+sf package create --name "Core Sales" --package-type Unlocked --path force-app
+sf package version create --package "Core Sales" --installation-key-bypass --wait 20 --code-coverage
+sf package version promote --package "Core Sales@1.0.0-1"
+sf package install --package 04t5j000000XXXX --target-org uat --wait 20
+
+# ---------- Useful extras ----------
+sf org assign permset --name Sales_Rep_Bundle --target-org scratch1
+sf apex generate class --name AccountService --output-dir force-app/main/default/classes
+sf lightning generate component --name accountList --type lwc \
+    --output-dir force-app/main/default/lwc</code></pre>
+
+<div class="callout note">
+  <span class="c-ico">🔤</span>
+  <div class="c-body"><span class="c-title">sfdx vs sf</span>
+    The old <code>sfdx force:...</code> commands still work but are deprecated. Modern syntax is
+    <code>sf &lt;topic&gt; &lt;command&gt;</code>, e.g. <code>sfdx force:source:deploy</code> →
+    <code>sf project deploy start</code>. Learn the new form.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="metadata-api">Metadata API &amp; package.xml</h2>
+<p>Underneath every deployment tool sits the Metadata API. The manifest that drives it is <code>package.xml</code>.</p>
+<pre><code class="language-xml">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;Package xmlns="http://soap.sforce.com/2006/04/metadata"&gt;
+
+    &lt;!-- Specific components --&gt;
+    &lt;types&gt;
+        &lt;members&gt;AccountService&lt;/members&gt;
+        &lt;members&gt;AccountServiceTest&lt;/members&gt;
+        &lt;name&gt;ApexClass&lt;/name&gt;
+    &lt;/types&gt;
+
+    &lt;!-- Wildcard: everything of this type --&gt;
+    &lt;types&gt;
+        &lt;members&gt;*&lt;/members&gt;
+        &lt;name&gt;ApexTrigger&lt;/name&gt;
+    &lt;/types&gt;
+
+    &lt;!-- Custom object with specific fields --&gt;
+    &lt;types&gt;
+        &lt;members&gt;Invoice__c&lt;/members&gt;
+        &lt;members&gt;Invoice__c.Amount__c&lt;/members&gt;
+        &lt;name&gt;CustomObject&lt;/name&gt;
+    &lt;/types&gt;
+    &lt;types&gt;
+        &lt;members&gt;Invoice__c.Amount__c&lt;/members&gt;
+        &lt;name&gt;CustomField&lt;/name&gt;
+    &lt;/types&gt;
+
+    &lt;types&gt;
+        &lt;members&gt;accountList&lt;/members&gt;
+        &lt;name&gt;LightningComponentBundle&lt;/name&gt;
+    &lt;/types&gt;
+
+    &lt;version&gt;62.0&lt;/version&gt;
+&lt;/Package&gt;</code></pre>
+
+<h3>Destructive changes</h3>
+<pre><code class="language-xml">&lt;!-- destructiveChangesPost.xml — deletes AFTER the deployment --&gt;
+&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;Package xmlns="http://soap.sforce.com/2006/04/metadata"&gt;
+    &lt;types&gt;
+        &lt;members&gt;ObsoleteClass&lt;/members&gt;
+        &lt;name&gt;ApexClass&lt;/name&gt;
+    &lt;/types&gt;
+    &lt;version&gt;62.0&lt;/version&gt;
+&lt;/Package&gt;</code></pre>
+<pre><code class="language-bash">sf project deploy start --manifest package.xml \
+    --post-destructive-changes destructiveChangesPost.xml --target-org uat</code></pre>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Test level</th><th>Runs</th><th>Use when</th></tr></thead>
+  <tbody>
+    <tr><td><code>NoTestRun</code></td><td>Nothing</td><td>Sandboxes only — not allowed in production</td></tr>
+    <tr><td><code>RunSpecifiedTests</code></td><td>Only the classes you list</td><td>Fast targeted deploys; each class in the deployment still needs 75% coverage</td></tr>
+    <tr><td><code>RunLocalTests</code></td><td>All tests except managed packages</td><td><strong>The production default</strong></td></tr>
+    <tr><td><code>RunAllTestsInOrg</code></td><td>Everything including managed packages</td><td>Major releases, upgrades</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="packages">Packages &amp; scratch orgs</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>Unlocked Package</th><th>Managed Package</th><th>Unmanaged</th></tr></thead>
+  <tbody>
+    <tr><td>For</td><td>Internal org modularisation</td><td>ISVs on AppExchange</td><td>One-off templates</td></tr>
+    <tr><td>Namespace</td><td>Optional</td><td>Required</td><td>None</td></tr>
+    <tr><td>Editable after install</td><td>✅ (but changes are overwritten on upgrade)</td><td>❌ Code is hidden</td><td>✅ Becomes native metadata</td></tr>
+    <tr><td>Upgradeable</td><td>✅</td><td>✅</td><td>❌</td></tr>
+    <tr><td>IP protected</td><td>❌</td><td>✅</td><td>❌</td></tr>
+  </tbody>
+</table>
+</div>
+
+<pre><code class="language-json">// config/project-scratch-def.json
+{
+  "orgName": "My Company",
+  "edition": "Developer",
+  "features": ["EnableSetPasswordInApi", "PersonAccounts", "MultiCurrency"],
+  "settings": {
+    "lightningExperienceSettings": { "enableS1DesktopEnabled": true },
+    "mobileSettings": { "enableS1EncryptedStoragePref2": false },
+    "securitySettings": { "passwordPolicies": { "enableSetPasswordInApi": true } }
+  }
+}</code></pre>
+<p><strong>Scratch orgs</strong> are disposable, source-driven orgs created from a definition file. Typical loop:
+   create scratch org → push source → import seed data → develop → run tests → delete. They expire after 1–30 days,
+   which forces your project to be fully reproducible from Git.</p>
+
+<!-- ============================================ -->
+<h2 id="git">Git branching for Salesforce</h2>
+<div class="dgm">
+  <div class="dgm-title">Feature-branch workflow mapped to orgs</div>
+  <svg viewBox="0 0 790 250" role="img" aria-label="Git branching strategy mapped to Salesforce orgs">
+    <text class="s-t-sm" x="20" y="40">main</text>
+    <path class="s-line-g" d="M70 36 H740"/>
+    <circle class="s-box-g" cx="130" cy="36" r="8"/><circle class="s-box-g" cx="420" cy="36" r="8"/><circle class="s-box-g" cx="660" cy="36" r="8"/>
+    <text class="s-t-sm s-t-g" x="700" y="20">→ Production</text>
+
+    <text class="s-t-sm" x="20" y="110">develop</text>
+    <path class="s-line-b" d="M70 106 H740"/>
+    <circle class="s-box-b" cx="130" cy="106" r="8"/><circle class="s-box-b" cx="300" cy="106" r="8"/>
+    <circle class="s-box-b" cx="420" cy="106" r="8"/><circle class="s-box-b" cx="560" cy="106" r="8"/>
+    <text class="s-t-sm s-t-b" x="700" y="92">→ UAT sandbox</text>
+
+    <text class="s-t-sm" x="20" y="180">feature/*</text>
+    <path class="s-line-v" d="M130 106 C 170 106, 170 176, 210 176 H300 C 340 176, 340 106, 380 106"/>
+    <circle class="s-box-v" cx="250" cy="176" r="8"/>
+    <path class="s-line-v" d="M420 106 C 460 106, 460 176, 500 176 H560 C 600 176, 600 106, 640 106"/>
+    <circle class="s-box-v" cx="530" cy="176" r="8"/>
+    <text class="s-t-sm s-t-v" x="700" y="162">→ Scratch / Dev sandbox</text>
+
+    <text class="s-t-sm anchor-mid" x="395" y="222">Every merge to develop deploys to UAT · every merge to main validates then deploys to production</text>
+  </svg>
+</div>
+
+<pre><code class="language-bash"># Typical developer loop
+git checkout develop &amp;&amp; git pull
+git checkout -b feature/W-1234-discount-approval
+
+sf org create scratch -f config/project-scratch-def.json -a w1234 -d 7
+sf project deploy start -o w1234
+sf data import tree --plan data/seed-plan.json -o w1234
+# ... develop ...
+sf apex run test -o w1234 --test-level RunLocalTests --code-coverage
+
+git add . &amp;&amp; git commit -m "feat: cap discount by account tier (W-1234)"
+git push -u origin feature/W-1234-discount-approval
+# open a pull request → review → merge to develop</code></pre>
+
+<div class="callout warn">
+  <span class="c-ico">🔀</span>
+  <div class="c-body"><span class="c-title">The Salesforce-specific Git problems</span>
+    ① <strong>Profiles and permission sets</strong> merge terribly — keep them minimal and prefer permission sets.
+    ② <strong>Flows are XML</strong> — practically unmergeable, so only one person edits a flow at a time.
+    ③ <strong>Layouts</strong> conflict constantly. ④ Never commit <code>.sfdx/</code>, auth files or
+    <code>package-lock</code> churn — use a proper <code>.gitignore</code>.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="cicd">A working CI/CD pipeline</h2>
+<pre data-file=".github/workflows/deploy.yml"><code class="language-bash">name: Salesforce CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Install Salesforce CLI
+        run: npm install -g @salesforce/cli
+
+      - name: Authenticate (JWT — no passwords in CI)
+        run: |
+          echo "${{ secrets.SF_JWT_KEY }}" > server.key
+          sf org login jwt \
+            --client-id ${{ secrets.SF_CONSUMER_KEY }} \
+            --jwt-key-file server.key \
+            --username ${{ secrets.SF_USERNAME }} \
+            --instance-url https://test.salesforce.com \
+            --alias target
+
+      - name: Static analysis
+        run: |
+          npm install -g @salesforce/sfdx-scanner
+          sf scanner run --target force-app --format table --severity-threshold 2
+
+      - name: Lint LWC and run Jest
+        run: |
+          npm ci
+          npm run lint
+          npm run test:unit -- --coverage
+
+      # Deploy only what changed, using a delta package
+      - name: Validate deployment
+        run: |
+          sf project deploy validate \
+            --source-dir force-app \
+            --target-org target \
+            --test-level RunLocalTests \
+            --wait 90 \
+            --json | tee validate.json
+
+      - name: Deploy (only on push to a protected branch)
+        if: github.event_name == 'push'
+        run: |
+          JOB_ID=$(jq -r '.result.id' validate.json)
+          sf project deploy quick --job-id $JOB_ID --target-org target --wait 60</code></pre>
+
+<div class="grid g3">
+  <div class="card accent-green"><h4>Validate on PR</h4><p>Every pull request runs a <em>check-only</em> deployment plus all local tests. Broken code never reaches a shared branch.</p></div>
+  <div class="card accent-violet"><h4>Quick Deploy</h4><p>A successful validation stays valid for 10 days. <code>deploy quick</code> then takes minutes instead of re-running every test.</p></div>
+  <div class="card accent-amber"><h4>Delta deployments</h4><p>Tools like <code>sfdx-git-delta</code> generate a package.xml of only the changed components — far faster on large orgs.</p></div>
+</div>
+
+<h3>Quality gates worth adding</h3>
+<ul>
+  <li><strong>sfdx-scanner</strong> (PMD + ESLint) — fails the build on SOQL-in-loop, missing sharing declarations, hard-coded Ids.</li>
+  <li><strong>Jest</strong> for LWC, <strong>Apex tests</strong> with a coverage threshold above the 75% minimum.</li>
+  <li><strong>Prettier</strong> with the Apex plugin for consistent formatting.</li>
+  <li><strong>Branch protection</strong>: require a review and a green build before merge.</li>
+  <li><strong>Conventional commits</strong> so you can auto-generate release notes.</li>
+</ul>
+
+<!-- ============================================ -->
+<h2 id="tools">The tooling landscape</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Tool</th><th>What it's for</th></tr></thead>
+  <tbody>
+    <tr><td><strong>VS Code + Salesforce Extension Pack</strong></td><td>The standard IDE — deploy/retrieve, Apex debugger, LWC support, org browser</td></tr>
+    <tr><td><strong>Salesforce CLI</strong></td><td>Everything scriptable</td></tr>
+    <tr><td><strong>Code Builder</strong></td><td>Browser-based VS Code, no local install</td></tr>
+    <tr><td><strong>Developer Console</strong></td><td>Quick edits, anonymous Apex, debug logs, query editor</td></tr>
+    <tr><td><strong>Workbench</strong></td><td>Web tool for SOQL, REST Explorer, metadata deploy/retrieve</td></tr>
+    <tr><td><strong>Data Loader</strong></td><td>Bulk data in/out</td></tr>
+    <tr><td><strong>sfdx-git-delta</strong></td><td>Generates a package.xml from a Git diff</td></tr>
+    <tr><td><strong>Gearset / Copado / AutoRABIT / Flosum</strong></td><td>Commercial DevOps platforms — visual diffs, rollback, compliance</td></tr>
+    <tr><td><strong>Salesforce DevOps Center</strong></td><td>Free, click-based pipeline with Git behind the scenes</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="deployment-issues">Deployment failures — the usual suspects</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Error</th><th>Cause &amp; fix</th></tr></thead>
+  <tbody>
+    <tr><td>Test coverage below 75%</td><td>Org-wide coverage after the deploy is too low. Add real tests — not <code>SeeAllData</code> shortcuts</td></tr>
+    <tr><td><code>Dependent class is invalid</code></td><td>A referenced class isn't in the deployment. Add dependencies</td></tr>
+    <tr><td><code>Cannot deploy inactive flow</code></td><td>Activate it in the source org, or set the flow's status appropriately</td></tr>
+    <tr><td>Missing field in a layout/profile</td><td>Include the field and the object in the same deployment</td></tr>
+    <tr><td><code>Cannot modify managed object</code></td><td>You're trying to change a managed package component</td></tr>
+    <tr><td>Picklist value in use</td><td>Deactivate rather than delete, and update dependent records first</td></tr>
+    <tr><td>Scheduled job holds the class</td><td>Abort the scheduled job, deploy, then reschedule</td></tr>
+    <tr><td>Deployment times out</td><td>Split the deployment, or use validate + quick deploy</td></tr>
+    <tr><td>Test failures only in production</td><td>Data-dependent tests. Create your own data; never assume org data exists</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout tip">
+  <span class="c-ico">🚀</span>
+  <div class="c-body"><span class="c-title">Production release checklist</span>
+    ① Validate in a Full sandbox first. ② Run <code>deploy validate</code> against production the day before.
+    ③ Have a rollback plan (previous package version, or a reverse change set).
+    ④ Deploy in a low-traffic window. ⑤ Post-deploy: run the manual steps (activate flows, assign permission sets,
+    populate custom settings, reschedule jobs). ⑥ Smoke-test the critical path. ⑦ Watch error logs for an hour.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Org development model vs package development model.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Org model</strong>: the org is the source of truth, changes move by change set or
+Metadata API, sandbox → sandbox → production. Familiar to admins, minimal setup, but no real version control, no diff
+and no rollback.</p>
+<p><strong>Package (source-driven) model</strong>: <strong>Git is the source of truth</strong>, developers work in
+scratch orgs, and CI/CD deploys from the repo. Reviewable, versioned, automated and reproducible — at the cost of a
+steeper learning curve.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> Why do change sets frustrate teams?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>They can't be edited after upload — you rebuild from scratch. There's no version control, diff or
+rollback. They only work between <strong>connected orgs</strong>, so you can't deploy to a scratch org or a fresh org.
+They <strong>don't delete</strong> components, so removals must be done manually in every environment. And forgetting
+<strong>View/Add Dependencies</strong> is the single biggest cause of failed deployments.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> A production deployment takes 3 hours of tests but you have a 15-minute window. Solution?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Validate then Quick Deploy.</strong> Run
+<code>sf project deploy validate --test-level RunLocalTests</code> against production the day before — it runs
+everything but commits nothing. A successful validation stays usable for <strong>10 days</strong>, so during the window
+you run <code>sf project deploy quick --job-id &lt;id&gt;</code>, which skips re-running the tests and completes in
+minutes. <code>NoTestRun</code> is not permitted in production.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Which metadata types cause the worst Git conflicts, and how do you manage them?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Profiles</strong> (huge generated XML touching every object and field),
+<strong>page layouts</strong>, and <strong>flows</strong> (effectively unmergeable XML).</p>
+<p><strong>Mitigations:</strong> keep profiles minimal and grant everything through permission sets; agree that only one
+person edits a given flow at a time and treat it as a locked file; use delta deployments
+(<code>sfdx-git-delta</code>) so you only deploy what changed; and never wildcard Profiles in
+<code>package.xml</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> How do you delete metadata as part of a deployment?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A <strong>destructiveChanges.xml</strong> manifest listing the components to remove, paired with an
+empty <code>package.xml</code>, deployed via
+<code>--pre-destructive-changes</code> or <code>--post-destructive-changes</code>.</p>
+<p>Why it matters: deleting manually in Setup leaves each org in a different state and isn't recorded anywhere. A
+destructive manifest keeps the removal in source control and in the pipeline, so every environment converges. Change
+sets can't do this at all.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> What's a scratch org and why would you use one over a developer sandbox?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A <strong>disposable, source-driven org</strong> created from a JSON definition file (edition,
+features, settings), living 1–30 days.</p>
+<p>The real benefit is discipline: because it's thrown away and recreated, everything needed to build your app —
+metadata, permission sets, seed data — <strong>must be in Git</strong>. There's no "it works in my sandbox because
+someone configured something there three years ago". Each developer gets an isolated org per feature branch, so work
+never collides.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> Design a CI/CD pipeline for a Salesforce team.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Branching:</strong> <code>feature/*</code> → <code>develop</code> (deploys to UAT) →
+<code>main</code> (deploys to production).</p>
+<p><strong>On pull request:</strong> authenticate with <strong>JWT</strong> (never passwords in CI), run
+<code>sfdx-scanner</code> (PMD/ESLint), <code>npm run lint</code> and Jest for LWC, then
+<code>deploy validate --test-level RunLocalTests</code>. Branch protection requires a green build and a review.</p>
+<p><strong>On merge:</strong> <code>deploy quick</code> using the validated job id. Add delta packages for speed, JUnit
+reporting for visibility, and a documented post-deploy checklist (activate flows, assign permission sets, populate
+custom settings, reschedule jobs).</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> Your deployment fails: "Dependent class is invalid and needs recompilation". What now?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Something the deployed code references isn't present or is itself broken — usually a class, field or
+object you forgot to include. Read the full error: it names the dependent component and the underlying compile error,
+which is often a missing field rather than a missing class.</p>
+<p>Common cousins: a field referenced by a layout or profile that isn't in the same deployment; a picklist value still
+in use; an <strong>inactive flow</strong>; or a <strong>scheduled job holding the class</strong>, which requires
+<code>System.abortJob</code> before deploying and rescheduling afterwards.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> Tests pass in UAT and fail in production. Why?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Usually one of: <strong>data dependency</strong> (<code>SeeAllData</code> or an assumption a record
+exists); <strong>different automation</strong> — a validation rule, required field or active trigger present only in
+production so the test's data won't insert; <strong>governor limits</strong>, because production stacks more automation
+on the same object; or <strong>hard-coded Ids</strong> for record types, profiles or Pricebooks that differ between
+orgs.</p>
+<p>The fix is the same in every case: self-contained test data from a factory, no hard-coded Ids, and always validate
+against a Full sandbox before production.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. You need a 3-hour production deployment to finish in a 15-minute window. How?</div>
+  <button class="opt">Use NoTestRun</button>
+  <button class="opt" data-correct="1">Run <code>deploy validate</code> beforehand, then <code>deploy quick</code> with the job Id</button>
+  <button class="opt">Split it into ten change sets</button>
+  <div class="explain">A successful validation is reusable for 10 days; Quick Deploy skips re-running the tests. NoTestRun isn't permitted in production.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. Which metadata type causes the worst Git merge conflicts?</div>
+  <button class="opt">Apex classes</button>
+  <button class="opt" data-correct="1">Profiles, layouts and flows — large generated XML</button>
+  <button class="opt">Custom labels</button>
+  <div class="explain">Prefer permission sets over profiles, and have only one person edit a given flow at a time.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. What's the safest way to remove a class from production?</div>
+  <button class="opt">Delete it in Setup</button>
+  <button class="opt" data-correct="1">Deploy with a destructiveChanges.xml manifest so the removal is versioned and repeatable</button>
+  <button class="opt">Comment out the body</button>
+  <div class="explain">Destructive changes keep deletions in source control and in the pipeline, so every org converges to the same state.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · DevOps</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Events, CDC &amp; Salesforce Connect | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Integration</span> › <span>Events &amp; Connect</span></div>
+  <h1>Platform Events, CDC &amp; Salesforce Connect</h1>
+  <p class="lede">Event-driven integration — publishing and subscribing instead of polling — plus how to read external
+     data live without ever copying it into Salesforce.</p>
+</header>
+
+<!-- ============================================ -->
+<h2 id="why-events">Request-reply vs event-driven</h2>
+<div class="dgm">
+  <div class="dgm-title">Tight coupling vs loose coupling</div>
+  <svg viewBox="0 0 790 300" role="img" aria-label="Point to point integration compared with event bus">
+    <text class="s-t s-t-r" x="20" y="20">Point-to-point — every new consumer means new code</text>
+    <rect class="s-box-b" x="30" y="40" width="110" height="46" rx="8"/><text class="s-t-sm anchor-mid" x="85" y="63">Salesforce</text>
+    <rect class="s-box" x="230" y="14" width="110" height="36" rx="8"/><text class="s-t-sm anchor-mid" x="285" y="32">ERP</text>
+    <rect class="s-box" x="230" y="58" width="110" height="36" rx="8"/><text class="s-t-sm anchor-mid" x="285" y="76">Billing</text>
+    <rect class="s-box" x="230" y="102" width="110" height="36" rx="8"/><text class="s-t-sm anchor-mid" x="285" y="120">Warehouse</text>
+    <path class="s-line-r" d="M140 58 L230 32 M140 63 L230 76 M140 70 L230 120" marker-end="url(#ev1)"/>
+    <text class="s-t-sm s-t-r" x="30" y="112">3 systems = 3 integrations to build, test and maintain</text>
+
+    <text class="s-t s-t-g" x="420" y="20">Event-driven — publish once, anyone subscribes</text>
+    <rect class="s-box-b" x="430" y="40" width="110" height="46" rx="8"/><text class="s-t-sm anchor-mid" x="485" y="63">Salesforce</text>
+    <path class="s-line-g" d="M540 63 H590" marker-end="url(#ev1)"/>
+    <rect class="s-box-v" x="590" y="30" width="60" height="66" rx="8"/>
+    <text class="s-t-sm anchor-mid" x="620" y="55">Event</text><text class="s-t-sm anchor-mid" x="620" y="73">Bus</text>
+    <rect class="s-box" x="680" y="14" width="90" height="30" rx="7"/><text class="s-t-sm anchor-mid" x="725" y="29">ERP</text>
+    <rect class="s-box" x="680" y="50" width="90" height="30" rx="7"/><text class="s-t-sm anchor-mid" x="725" y="65">Billing</text>
+    <rect class="s-box" x="680" y="86" width="90" height="30" rx="7"/><text class="s-t-sm anchor-mid" x="725" y="101">Warehouse</text>
+    <path class="s-line-g" d="M650 55 L680 29 M650 63 L680 65 M650 72 L680 101" marker-end="url(#ev1)"/>
+    <text class="s-t-sm s-t-g" x="420" y="140">The publisher doesn't know or care who is listening</text>
+
+    <rect class="s-box-a" x="90" y="176" width="610" height="106" rx="10"/>
+    <text class="s-t s-t-a anchor-mid" x="395" y="200">The three event mechanisms</text>
+    <text class="s-t-sm anchor-mid" x="395" y="226">Platform Events — YOU define the payload · publish from anywhere · custom business events</text>
+    <text class="s-t-sm anchor-mid" x="395" y="248">Change Data Capture — SALESFORCE defines it · fires on any record change · data replication</text>
+    <text class="s-t-sm anchor-mid" x="395" y="270">PushTopic / Generic — legacy Streaming API · SOQL-based or arbitrary payloads</text>
+    <defs><marker id="ev1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<!-- ============================================ -->
+<h2 id="platform-events">Platform Events</h2>
+<p>A Platform Event is a <strong>custom-defined message</strong> — like a custom object, but the "records" are
+   immutable messages on an event bus rather than rows in a table.</p>
+
+<h3>Defining one</h3>
+<ul class="steps">
+  <li><b>Setup → Platform Events → New Platform Event.</b> API name gets the suffix <code>__e</code>, e.g. <code>Order_Shipped__e</code>.</li>
+  <li><b>Choose the publish behaviour</b>:
+      <em>Publish After Commit</em> (only if the transaction succeeds — the safe default) or
+      <em>Publish Immediately</em> (fires even if the transaction later rolls back — use for logging).</li>
+  <li><b>Add custom fields</b> — Text, Number, Date/Time, Checkbox, Picklist. No lookups (store the Id as Text).</li>
+  <li><b>Deploy</b>. The event is now publishable and subscribable everywhere.</li>
+</ul>
+
+<div class="dgm">
+  <div class="dgm-title">Publishers and subscribers</div>
+  <svg viewBox="0 0 790 320" role="img" aria-label="Platform event publishers and subscribers around the event bus">
+    <rect class="s-box-v" x="290" y="120" width="210" height="80" rx="12"/>
+    <text class="s-t s-t-v anchor-mid" x="395" y="146">EVENT BUS</text>
+    <text class="s-t-sm anchor-mid" x="395" y="168">Order_Shipped__e</text>
+    <text class="s-t-sm anchor-mid" x="395" y="188">retained 72 hours</text>
+
+    <text class="s-t s-t-b" x="20" y="24">PUBLISHERS</text>
+    <rect class="s-box-b" x="20" y="38" width="180" height="30" rx="7"/><text class="s-t-sm anchor-mid" x="110" y="53">Apex EventBus.publish()</text>
+    <rect class="s-box-b" x="20" y="76" width="180" height="30" rx="7"/><text class="s-t-sm anchor-mid" x="110" y="91">Flow / Process</text>
+    <rect class="s-box-b" x="20" y="114" width="180" height="30" rx="7"/><text class="s-t-sm anchor-mid" x="110" y="129">REST / SOAP API</text>
+    <rect class="s-box-b" x="20" y="152" width="180" height="30" rx="7"/><text class="s-t-sm anchor-mid" x="110" y="167">Pub/Sub API (gRPC)</text>
+    <rect class="s-box-b" x="20" y="190" width="180" height="30" rx="7"/><text class="s-t-sm anchor-mid" x="110" y="205">External app</text>
+    <path class="s-line-b" d="M200 53 L290 140 M200 91 L290 148 M200 129 L290 156 M200 167 L290 164 M200 205 L290 172" marker-end="url(#pe1)"/>
+
+    <text class="s-t s-t-g" x="590" y="24">SUBSCRIBERS</text>
+    <rect class="s-box-g" x="590" y="38" width="180" height="30" rx="7"/><text class="s-t-sm anchor-mid" x="680" y="53">Apex trigger (after insert)</text>
+    <rect class="s-box-g" x="590" y="76" width="180" height="30" rx="7"/><text class="s-t-sm anchor-mid" x="680" y="91">Platform-event Flow</text>
+    <rect class="s-box-g" x="590" y="114" width="180" height="30" rx="7"/><text class="s-t-sm anchor-mid" x="680" y="129">LWC via empApi</text>
+    <rect class="s-box-g" x="590" y="152" width="180" height="30" rx="7"/><text class="s-t-sm anchor-mid" x="680" y="167">CometD / Pub-Sub client</text>
+    <rect class="s-box-g" x="590" y="190" width="180" height="30" rx="7"/><text class="s-t-sm anchor-mid" x="680" y="205">Process Builder (legacy)</text>
+    <path class="s-line-g" d="M500 140 L590 53 M500 148 L590 91 M500 156 L590 129 M500 164 L590 167 M500 172 L590 205" marker-end="url(#pe1)"/>
+
+    <text class="s-t-sm anchor-mid" x="395" y="256">Every subscriber gets its own copy — publishers never know who listened</text>
+    <text class="s-t-sm anchor-mid" x="395" y="280">Replay Id lets a subscriber resume from where it left off, up to 72 hours back</text>
+    <defs><marker id="pe1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<h3>Publishing</h3>
+<pre><code class="language-apex">// ---------- From Apex ----------
+List&lt;Order_Shipped__e&gt; events = new List&lt;Order_Shipped__e&gt;();
+for (Order o : shippedOrders) {
+    events.add(new Order_Shipped__e(
+        Order_Number__c = o.OrderNumber,
+        Account_Id__c   = o.AccountId,
+        Ship_Date__c    = System.now(),
+        Carrier__c      = o.Carrier__c,
+        Tracking__c     = o.Tracking_Number__c
+    ));
+}
+
+List&lt;Database.SaveResult&gt; results = EventBus.publish(events);
+
+for (Integer i = 0; i &lt; results.size(); i++) {
+    Database.SaveResult sr = results[i];
+    if (!sr.isSuccess()) {
+        for (Database.Error err : sr.getErrors()) {
+            System.debug('Publish failed: ' + err.getStatusCode() + ' ' + err.getMessage());
+        }
+    }
+}</code></pre>
+<div class="callout warn">
+  <span class="c-ico">🧾</span>
+  <div class="c-body"><span class="c-title">Two things about publishing</span>
+    ① <code>EventBus.publish()</code> counts as a <strong>DML statement</strong> against your 150 limit.
+    ② With <em>Publish After Commit</em>, <code>SaveResult.isSuccess()</code> only tells you the event was
+    <em>queued</em>; the actual publish happens at commit. The returned "Id" is a temporary placeholder, not a record Id.</div>
+</div>
+
+<pre><code class="language-apex">// ---------- Subscribing with an Apex trigger ----------
+trigger OrderShippedTrigger on Order_Shipped__e (after insert) {
+
+    List&lt;Task&gt; tasks = new List&lt;Task&gt;();
+    List&lt;Order&gt; toUpdate = new List&lt;Order&gt;();
+
+    for (Order_Shipped__e evt : Trigger.new) {
+        tasks.add(new Task(
+            Subject = 'Order shipped: ' + evt.Order_Number__c,
+            WhatId  = evt.Account_Id__c,
+            ActivityDate = Date.today()));
+    }
+    insert tasks;
+
+    // If something goes wrong you can ask the bus to retry this batch
+    // EventBus.TriggerContext.currentContext().setResumeCheckpoint(lastReplayId);
+}</code></pre>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Platform Event trigger rules</th></tr></thead>
+  <tbody>
+    <tr><td>Only <code>after insert</code> exists — events are immutable and never stored as records</td></tr>
+    <tr><td>Runs asynchronously as the <strong>Automated Process</strong> user (set the "Platform Event user" in Setup to change this)</td></tr>
+    <tr><td>Batch size up to <strong>2,000</strong> events per trigger execution — much bigger than the usual 200</td></tr>
+    <tr><td>No <code>Trigger.old</code>, no <code>Trigger.oldMap</code>; <code>ReplayId</code> and <code>EventUuid</code> are available</td></tr>
+    <tr><td>An unhandled exception retries the batch, up to <strong>10 times</strong>, then discards it</td></tr>
+    <tr><td>Standard governor limits apply per execution — bulkify as usual</td></tr>
+  </tbody>
+</table>
+</div>
+
+<pre><code class="language-js">// ---------- Subscribing in an LWC with empApi ----------
+import { LightningElement } from 'lwc';
+import { subscribe, unsubscribe, onError, setDebugFlag } from 'lightning/empApi';
+
+export default class OrderMonitor extends LightningElement {
+    subscription = {};
+    channel = '/event/Order_Shipped__e';
+
+    connectedCallback() {
+        // -1 = only new events · -2 = replay everything retained (last 72 h)
+        subscribe(this.channel, -1, (response) =&gt; {
+            const payload = response.data.payload;
+            this.orders = [...this.orders, {
+                id      : response.data.event.replayId,
+                number  : payload.Order_Number__c,
+                carrier : payload.Carrier__c
+            }];
+        }).then(sub =&gt; { this.subscription = sub; });
+
+        onError(error =&gt; console.error('EMP error', JSON.stringify(error)));
+    }
+
+    disconnectedCallback() {
+        unsubscribe(this.subscription, () =&gt; {});
+    }
+}</code></pre>
+
+<h3>Retention, replay and delivery guarantees</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Concept</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Retention</strong></td><td><strong>72 hours</strong> (High Volume events). Miss the window and the event is gone forever</td></tr>
+    <tr><td><strong>ReplayId</strong></td><td>An increasing (but not contiguous) id per channel. Store the last one you processed to resume after downtime</td></tr>
+    <tr><td><code>-1</code></td><td>Subscribe to new events only (from now on)</td></tr>
+    <tr><td><code>-2</code></td><td>Replay everything still retained, then continue live</td></tr>
+    <tr><td><strong>Delivery guarantee</strong></td><td><em>At least once</em> — so your subscriber must be <strong>idempotent</strong>. Use <code>EventUuid</code> to detect duplicates</td></tr>
+    <tr><td><strong>Ordering</strong></td><td>Guaranteed within a channel by ReplayId, but not across channels</td></tr>
+    <tr><td><strong>Allocations</strong></td><td>Daily publish and delivery limits by edition (e.g. 100k published/day in Enterprise, plus per-client delivery caps)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout case">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">Use cases</span>
+    ① <strong>Order fulfilment</strong> — Salesforce publishes <code>Order_Placed__e</code>; the ERP, the warehouse and
+    the billing system each subscribe independently. Adding a fourth consumer requires no change in Salesforce.<br>
+    ② <strong>Decoupling heavy work</strong> — a trigger publishes an event instead of doing the work; the subscriber
+    trigger runs in its own transaction with fresh limits.<br>
+    ③ <strong>Real-time UI</strong> — an LWC dashboard updates the moment another user's action publishes an event.<br>
+    ④ <strong>Guaranteed logging</strong> — publish immediately so the log survives even if the transaction rolls back.</div>
+</div>
+
+<h3>Platform Event flavours</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>High Volume (standard)</th><th>Standard Volume (legacy)</th></tr></thead>
+  <tbody>
+    <tr><td>Retention</td><td>72 hours</td><td>24 hours</td></tr>
+    <tr><td>Scale</td><td>Designed for high throughput</td><td>Lower</td></tr>
+    <tr><td>Status</td><td>The default for new events</td><td>Deprecated</td></tr>
+  </tbody>
+</table>
+</div>
+<p>There are also <strong>Platform Event–triggered Flows</strong> (a flow type that subscribes directly), and
+   <strong>event relays</strong> that forward events to Amazon EventBridge without any custom subscriber code.</p>
+
+<!-- ============================================ -->
+<h2 id="change-data-capture">Change Data Capture (CDC)</h2>
+<p>CDC publishes a <strong>change event</strong> automatically whenever a record is created, updated, deleted or
+   undeleted — with no code and no configuration beyond ticking the object.</p>
+
+<div class="dgm">
+  <div class="dgm-title">Platform Events vs Change Data Capture</div>
+  <svg viewBox="0 0 790 260" role="img" aria-label="Comparison of platform events and change data capture">
+    <rect class="s-box-v" x="20" y="20" width="360" height="210" rx="12"/>
+    <text class="s-t s-t-v anchor-mid" x="200" y="46">Platform Events</text>
+    <text class="s-t-sm" x="40" y="76">Payload: whatever YOU define</text>
+    <text class="s-t-sm" x="40" y="100">Trigger: you decide when to publish</text>
+    <text class="s-t-sm" x="40" y="124">Semantics: a business event</text>
+    <text class="s-t-mono" x="40" y="148">Order_Shipped__e</text>
+    <text class="s-t-sm" x="40" y="176">"Something meaningful happened"</text>
+    <text class="s-t-sm s-t-g" x="40" y="206">Best for: business process integration</text>
+
+    <rect class="s-box-t" x="410" y="20" width="360" height="210" rx="12"/>
+    <text class="s-t s-t-t anchor-mid" x="590" y="46">Change Data Capture</text>
+    <text class="s-t-sm" x="430" y="76">Payload: the record's changed fields</text>
+    <text class="s-t-sm" x="430" y="100">Trigger: automatic on every DML</text>
+    <text class="s-t-sm" x="430" y="124">Semantics: a data change</text>
+    <text class="s-t-mono" x="430" y="148">AccountChangeEvent</text>
+    <text class="s-t-sm" x="430" y="176">"This row changed"</text>
+    <text class="s-t-sm s-t-g" x="430" y="206">Best for: replicating data to a data lake</text>
+  </svg>
+</div>
+
+<ul class="steps">
+  <li><b>Setup → Change Data Capture</b> — move objects into "Selected Entities". Base allocation is <strong>5 standard/custom objects</strong> free; more requires an add-on licence.</li>
+  <li><b>Channel</b>: <code>/data/AccountChangeEvent</code> for standard objects, <code>/data/Invoice__ChangeEvent</code> for custom.</li>
+  <li><b>Custom channels</b> let you group several objects onto one stream, which keeps related changes ordered.</li>
+  <li><b>Subscribe</b> with an Apex trigger, a CometD/Pub-Sub client, or empApi in an LWC.</li>
+</ul>
+
+<pre><code class="language-json">// A CDC event payload
+{
+  "ChangeEventHeader": {
+    "entityName"      : "Account",
+    "recordIds"       : ["0015j00000ABCDE"],
+    "changeType"      : "UPDATE",           // CREATE | UPDATE | DELETE | UNDELETE | GAP_*
+    "changeOrigin"    : "com/salesforce/api/rest/62.0",
+    "transactionKey"  : "000f6a1c-...",
+    "sequenceNumber"  : 1,
+    "commitTimestamp" : 1754969600000,
+    "commitUser"      : "0055j000000XXXX",
+    "commitNumber"    : 10584327,
+    "changedFields"   : ["Industry", "AnnualRevenue", "LastModifiedDate"]
+  },
+  "Industry": "Banking",
+  "AnnualRevenue": 5000000
+}</code></pre>
+
+<pre><code class="language-apex">trigger AccountChangeTrigger on AccountChangeEvent (after insert) {
+
+    Set&lt;Id&gt; changedIds = new Set&lt;Id&gt;();
+
+    for (AccountChangeEvent evt : Trigger.new) {
+        EventBus.ChangeEventHeader h = evt.ChangeEventHeader;
+
+        // Ignore our own writes to avoid loops
+        if (h.getCommitUser() == INTEGRATION_USER_ID) continue;
+
+        if (h.getChangeType() == 'UPDATE'
+            &amp;&amp; h.getChangedFields() != null
+            &amp;&amp; new Set&lt;String&gt;(h.getChangedFields()).contains('Industry')) {
+            changedIds.addAll(h.getRecordIds());
+        }
+    }
+    if (!changedIds.isEmpty()) {
+        System.enqueueJob(new SyncToDataLakeQueueable(changedIds));
+    }
+}</code></pre>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>CDC detail</th><th>Note</th></tr></thead>
+  <tbody>
+    <tr><td>Retention</td><td>72 hours, same as Platform Events</td></tr>
+    <tr><td>Only changed fields</td><td>The payload includes changed fields plus the header — not the whole record</td></tr>
+    <tr><td>Bulk changes</td><td>One event can carry <strong>multiple recordIds</strong> when a bulk operation changed many rows identically</td></tr>
+    <tr><td>GAP events</td><td><code>GAP_CREATE</code>, <code>GAP_UPDATE</code>… mean Salesforce couldn't generate a full event (e.g. a very large transaction). Re-query the record</td></tr>
+    <tr><td>Security</td><td>Subscribers need "View All Data" or the specific CDC permission — CDC is not filtered by sharing</td></tr>
+    <tr><td>Doesn't fire for</td><td>Some system/derived updates such as certain roll-up recalculations and archived data</td></tr>
+    <tr><td>Loop danger</td><td>If your subscriber writes back to the same object, filter by <code>commitUser</code> or a flag field</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout case">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">Use case</span>
+    A data warehouse must mirror Salesforce in near real time. Nightly batch extracts are too slow and full extracts
+    are wasteful. Enable CDC on Account, Contact and Opportunity, and a Kafka/Pub-Sub consumer streams only the deltas
+    into Snowflake within seconds.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="streaming-api">Streaming API family</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Type</th><th>Channel</th><th>Payload</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr><td><strong>PushTopic</strong></td><td><code>/topic/MyTopic</code></td><td>Records matching a SOQL query you define</td><td>Legacy — limited SOQL support</td></tr>
+    <tr><td><strong>Generic Event</strong></td><td><code>/u/MyChannel</code></td><td>Any arbitrary text you push via REST</td><td>Legacy</td></tr>
+    <tr><td><strong>Platform Event</strong></td><td><code>/event/My_Event__e</code></td><td>Your defined schema</td><td>✅ Current</td></tr>
+    <tr><td><strong>Change Data Capture</strong></td><td><code>/data/AccountChangeEvent</code></td><td>Record deltas</td><td>✅ Current</td></tr>
+    <tr><td><strong>Pub/Sub API</strong></td><td>gRPC + Avro</td><td>Publish and subscribe, binary and efficient</td><td>✅ The modern client</td></tr>
+  </tbody>
+</table>
+</div>
+
+<pre><code class="language-apex">// Creating a PushTopic (legacy, but still asked about)
+PushTopic pt = new PushTopic();
+pt.Name = 'BigDeals';
+pt.Query = 'SELECT Id, Name, Amount, StageName FROM Opportunity WHERE Amount &gt; 100000';
+pt.ApiVersion = 62.0;
+pt.NotifyForOperationCreate = true;
+pt.NotifyForOperationUpdate = true;
+pt.NotifyForOperationUndelete = false;
+pt.NotifyForOperationDelete = false;
+pt.NotifyForFields = 'Referenced';   // All | Referenced | Select | Where
+insert pt;</code></pre>
+
+<div class="callout note">
+  <span class="c-ico">🔌</span>
+  <div class="c-body"><span class="c-title">CometD vs Pub/Sub API</span>
+    The classic Streaming API uses <strong>CometD</strong> (long polling over HTTP with Bayeux). The newer
+    <strong>Pub/Sub API</strong> uses <strong>gRPC with Avro</strong> — a single API for publishing and subscribing to
+    Platform Events and CDC, with better throughput, flow control and language support. Use Pub/Sub API for any new
+    external subscriber.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="salesforce-connect">Salesforce Connect &amp; external objects</h2>
+<p>Instead of copying external data into Salesforce, <strong>Salesforce Connect reads it live on every request</strong>.
+   The data stays in the source system; Salesforce just renders it.</p>
+
+<div class="dgm">
+  <div class="dgm-title">Data virtualisation — no copy, no sync</div>
+  <svg viewBox="0 0 790 300" role="img" aria-label="Salesforce Connect external object querying an external system live">
+    <rect class="s-box-b" x="20" y="30" width="220" height="180" rx="12"/>
+    <text class="s-t s-t-b anchor-mid" x="130" y="56">Salesforce</text>
+    <rect class="s-box" x="45" y="76" width="170" height="34" rx="7"/>
+    <text class="s-t-sm anchor-mid" x="130" y="93">Account (real record)</text>
+    <rect class="s-box-t" x="45" y="122" width="170" height="52" rx="7"/>
+    <text class="s-t-sm anchor-mid" x="130" y="142">Invoice__x</text>
+    <text class="s-t-sm anchor-mid" x="130" y="160">(external object)</text>
+    <text class="s-t-sm anchor-mid" x="130" y="196">Related list looks native</text>
+
+    <path class="s-line-t" d="M240 148 H340" marker-end="url(#sc1)"/>
+    <text class="s-t-sm s-t-t anchor-mid" x="290" y="136">live query</text>
+    <text class="s-t-sm anchor-mid" x="290" y="172">on page load</text>
+
+    <rect class="s-box-v" x="340" y="112" width="150" height="72" rx="10"/>
+    <text class="s-t s-t-v anchor-mid" x="415" y="136">Adapter</text>
+    <text class="s-t-sm anchor-mid" x="415" y="158">OData 2/4 · Cross-Org</text>
+    <text class="s-t-sm anchor-mid" x="415" y="176">Apex Custom · GraphQL</text>
+
+    <path class="s-line-v" d="M490 148 H590" marker-end="url(#sc1)"/>
+    <rect class="s-box-a" x="590" y="100" width="180" height="96" rx="10"/>
+    <text class="s-t s-t-a anchor-mid" x="680" y="126">External system</text>
+    <text class="s-t-sm anchor-mid" x="680" y="150">SAP · Oracle · another org</text>
+    <text class="s-t-sm anchor-mid" x="680" y="172">Data NEVER copied</text>
+
+    <text class="s-t-sm s-t-r anchor-mid" x="395" y="248">Trade-off: no storage cost and always current — but every page view depends on that system being up</text>
+    <text class="s-t-sm anchor-mid" x="395" y="274">External objects use the __x suffix and an External Id / Display URL field instead of a real Id</text>
+    <defs><marker id="sc1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<h3>The adapters</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Adapter</th><th>Connects to</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><strong>OData 2.0 / 4.0</strong></td><td>Any OData-compliant service (SAP Gateway, Microsoft, custom)</td><td>The standard choice. Supports server-driven paging and, in OData 4, writable objects</td></tr>
+    <tr><td><strong>Cross-Org</strong></td><td>Another Salesforce org</td><td>Read another org's data in this one, via its REST API</td></tr>
+    <tr><td><strong>Apex Custom Adapter</strong></td><td>Anything</td><td>Extend <code>DataSource.Connection</code> and <code>DataSource.Provider</code> — write your own connector for a REST API</td></tr>
+    <tr><td><strong>GraphQL adapter</strong></td><td>GraphQL services</td><td>Newer option</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>External objects — how they differ from custom objects</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>Custom object <code>__c</code></th><th>External object <code>__x</code></th></tr></thead>
+  <tbody>
+    <tr><td>Where the data lives</td><td>Salesforce</td><td>The external system</td></tr>
+    <tr><td>Storage consumed</td><td>Yes</td><td><strong>None</strong></td></tr>
+    <tr><td>Record Id</td><td>Standard 18-char Id</td><td><code>External ID</code> + <code>Display URL</code> fields</td></tr>
+    <tr><td>Reports</td><td>Full</td><td>Limited (external objects can be the primary object in some cases)</td></tr>
+    <tr><td>Triggers / workflow / flows on it</td><td>✅</td><td>❌ Not supported</td></tr>
+    <tr><td>SOQL</td><td>Full</td><td>Supported, but pushed to the external system; joins are limited</td></tr>
+    <tr><td>Relationships</td><td>Lookup, master-detail</td><td><strong>External Lookup</strong> and <strong>Indirect Lookup</strong></td></tr>
+    <tr><td>Availability</td><td>Always</td><td>Depends on the external system being online</td></tr>
+  </tbody>
+</table>
+</div>
+
+<pre><code class="language-apex">// Querying an external object looks completely normal
+List&lt;Invoice__x&gt; invoices = [
+    SELECT ExternalId, Amount__c, Due_Date__c, DisplayUrl
+    FROM Invoice__x
+    WHERE Account__r.Name = 'Acme India'
+    ORDER BY Due_Date__c DESC
+    LIMIT 50
+];
+
+// Skeleton of a custom Apex adapter
+global class ErpDataSourceConnection extends DataSource.Connection {
+
+    override global List&lt;DataSource.Table&gt; sync() {
+        List&lt;DataSource.Column&gt; columns = new List&lt;DataSource.Column&gt;();
+        columns.add(DataSource.Column.text('ExternalId', 255));
+        columns.add(DataSource.Column.url('DisplayUrl'));
+        columns.add(DataSource.Column.number('Amount', 16, 2));
+        return new List&lt;DataSource.Table&gt;{ DataSource.Table.get('Invoice', 'ExternalId', columns) };
+    }
+
+    override global DataSource.TableResult query(DataSource.QueryContext ctx) {
+        // Translate the SOQL context into a REST call, map the response back
+        return DataSource.TableResult.get(ctx, fetchRowsFromErp(ctx));
+    }
+}</code></pre>
+
+<h3>Relationship types for external data</h3>
+<ul>
+  <li><strong>External Lookup</strong> — a standard/custom/external object points to a <em>parent external object</em>, matching on the parent's External Id.</li>
+  <li><strong>Indirect Lookup</strong> — an <em>external object</em> points to a <em>parent Salesforce object</em>, matching on a custom External Id field on the parent.</li>
+  <li><strong>Lookup</strong> — an external object can also use a standard lookup to a Salesforce record when the external data holds the actual 18-char Id.</li>
+</ul>
+
+<div class="callout case">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">Use case</span>
+    Twelve million historical invoices live in SAP. Copying them into Salesforce would cost a fortune in storage and be
+    stale within a day. With Salesforce Connect, an <code>Invoice__x</code> external object appears as a related list on
+    the Account, agents click through to live invoice data, and nothing is ever copied.</div>
+</div>
+<div class="callout warn">
+  <span class="c-ico">⚖️</span>
+  <div class="c-body"><span class="c-title">When NOT to use Salesforce Connect</span>
+    If you need triggers, flows, full reporting, offline mobile access or fast list views over the data — copy it in
+    instead (Bulk API or CDC-based replication). Connect trades functionality and reliability for zero storage and
+    zero staleness. Also note the per-hour callout allocations on external object queries.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="choosing">Choosing between them</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Requirement</th><th>Use</th></tr></thead>
+  <tbody>
+    <tr><td>"Tell other systems something business-meaningful happened"</td><td><strong>Platform Events</strong></td></tr>
+    <tr><td>"Replicate all record changes to a data lake"</td><td><strong>Change Data Capture</strong></td></tr>
+    <tr><td>"Show live external data without storing it"</td><td><strong>Salesforce Connect</strong></td></tr>
+    <tr><td>"Update the UI in real time when data changes"</td><td><strong>empApi</strong> + Platform Event or CDC</td></tr>
+    <tr><td>"Guaranteed one-way notification with no code"</td><td><a href="integration-core.html#outbound-message"><strong>Outbound Message</strong></a></td></tr>
+    <tr><td>"Get an answer back immediately"</td><td>Synchronous <a href="integration-core.html#rest-callout">REST callout</a> — events are fire-and-forget</td></tr>
+    <tr><td>"Load 5 million records nightly"</td><td><a href="integration-core.html#standard-rest-api">Bulk API 2.0</a></td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Platform Events vs Change Data Capture — the core distinction.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Platform Events</strong>: <em>you</em> define the payload and decide when to publish. It's
+a <strong>business event</strong> — "Order Shipped" — and it can be published from Apex, Flow, the API or an external
+system.</p>
+<p><strong>CDC</strong>: <em>Salesforce</em> defines it and publishes automatically on every create/update/delete/undelete,
+carrying the changed fields plus a header. It's a <strong>data event</strong> — "this row changed" — ideal for
+replicating to a data lake. Both retain 72 hours and deliver at least once.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> What does "at least once delivery" mean for how you write a subscriber?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>It means the same event <strong>can be delivered twice</strong> — after a retry, a reconnect or a
+replay. That is documented behaviour, not a bug.</p>
+<p>So your subscriber must be <strong>idempotent</strong>: de-duplicate on <code>EventUuid</code>, or design the action
+so repeating it is harmless (upsert rather than insert; set a status rather than increment a counter). Ordering is
+guaranteed within a channel by <code>ReplayId</code>, but not across channels.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Publish After Commit vs Publish Immediately — when would you choose each?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Publish After Commit</strong> (the safe default): the event only fires if the transaction
+succeeds. Use it whenever the event asserts something happened — you don't want downstream systems reacting to an order
+that got rolled back.</p>
+<p><strong>Publish Immediately</strong>: fires even if the transaction later rolls back. Use it for
+<strong>logging and diagnostics</strong>, where you specifically want the record of the attempt to survive the failure.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> What's special about a Platform Event trigger?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Only <code>after insert</code> exists — events are immutable messages, never stored records, so there
+is no <code>Trigger.old</code>. It runs <strong>asynchronously as the Automated Process user</strong> (configurable in
+Setup). The batch size is up to <strong>2,000</strong> events, far larger than the usual 200. An unhandled exception
+causes the batch to be <strong>retried up to 10 times</strong> and then discarded, and you can control resumption with
+<code>EventBus.TriggerContext.currentContext().setResumeCheckpoint()</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> Your subscriber was down for four days. What happens?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Events are retained for <strong>72 hours</strong> — anything older is <strong>gone permanently</strong>.
+On reconnect, replaying from your stored <code>ReplayId</code> recovers only what's still in the window; if that
+ReplayId has aged out you'll get an error and must fall back to <code>-1</code> (new events only).</p>
+<p>This is why event-driven integration needs a <strong>reconciliation path</strong>: a scheduled job comparing
+<code>SystemModstamp</code> since the last successful sync, so a long outage can be repaired without the event stream.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> How do you stop a CDC subscriber from creating an infinite loop?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>If the subscriber writes back to the same object, that write generates another change event.
+Break the cycle by inspecting the header: skip events where
+<code>ChangeEventHeader.getCommitUser()</code> equals your integration user, or check
+<code>getChangedFields()</code> and only act when a field you care about actually changed. A flag field
+(<code>Sync_In_Progress__c</code>) works too but adds storage and its own edge cases. Also watch for
+<strong>GAP events</strong> (<code>GAP_UPDATE</code> etc.), which mean Salesforce couldn't produce a full event —
+re-query the record rather than trusting the payload.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> Compare the Streaming API family. Which would you pick today?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>PushTopic</strong> (<code>/topic/</code>) and <strong>Generic Events</strong>
+(<code>/u/</code>) are legacy — PushTopic is limited by what its SOQL can express.
+<strong>Platform Events</strong> (<code>/event/</code>) and <strong>CDC</strong> (<code>/data/</code>) are current.</p>
+<p>For a new <em>external</em> subscriber, use the <strong>Pub/Sub API</strong> — gRPC with Avro, one API for both
+publishing and subscribing, better throughput, flow control and language support than CometD long-polling. Inside the
+browser, <code>lightning/empApi</code> remains the answer.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> When is Salesforce Connect the wrong choice?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>When you need <strong>triggers, flows, full reporting, offline mobile access, or fast list
+views</strong> over the data — external objects support none of those. Also when the source system is slow or
+unreliable, because every page view depends on it, and when query volume would breach the per-hour callout allocations.</p>
+<p>In those cases replicate the data instead: Bulk API for the initial load, CDC or a delta job to keep it current.
+Connect trades functionality and availability for zero storage and zero staleness.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> External Lookup vs Indirect Lookup.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>External Lookup</strong>: the child (standard, custom or external) points to a
+<em>parent external object</em>, matching on the external object's External Id field.</p>
+<p><strong>Indirect Lookup</strong>: an <em>external object</em> points to a <em>parent Salesforce object</em>, matching
+on a custom field on the parent that is marked External Id and Unique. Use it when the external data holds your legacy
+key rather than an 18-character Salesforce Id — e.g. SAP invoices carrying <code>CUSTNO</code>, matched to
+<code>Account.Legacy_Id__c</code>.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. Your platform event subscriber processed the same event twice. Is that a bug in Salesforce?</div>
+  <button class="opt">Yes, raise a support case</button>
+  <button class="opt" data-correct="1">No — delivery is "at least once", so subscribers must be idempotent (de-duplicate on EventUuid)</button>
+  <button class="opt">Only if the event was published immediately</button>
+  <div class="explain">At-least-once delivery is the documented contract. Design the subscriber so re-processing is harmless.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. You must mirror every Account change into Snowflake within seconds, with no Apex to maintain.</div>
+  <button class="opt">A nightly Batch Apex export</button>
+  <button class="opt" data-correct="1">Enable Change Data Capture on Account and consume it with a Pub/Sub API client</button>
+  <button class="opt">Salesforce Connect</button>
+  <div class="explain">CDC exists exactly for delta replication and requires no code in Salesforce. Connect goes the other direction — reading external data <em>into</em> Salesforce.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. Which is true of external objects?</div>
+  <button class="opt">They consume data storage like custom objects</button>
+  <button class="opt" data-correct="1">They support no triggers, and use External Lookup / Indirect Lookup relationships</button>
+  <button class="opt">They can have master-detail relationships</button>
+  <div class="explain">External objects hold no data in Salesforce, so triggers, workflow and standard master-detail don't apply.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Events, CDC &amp; Connect</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>
