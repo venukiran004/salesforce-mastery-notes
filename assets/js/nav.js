@@ -75,6 +75,8 @@ const SITE = [
         k: "lightning app builder record page app page home page dynamic forms dynamic actions dynamic related lists component visibility slds styling hooks base components accessibility wcag aria keyboard contrast mobile app mobile publisher briefcase builder compact layout quick action page performance ept lightning usage app" },
       { f: "pages/einstein-ai.html", t: "Einstein, AI & Data Cloud", i: "🤖",
         k: "einstein ai prompt builder agentforce copilot trust layer grounding generative predictive prediction builder lead scoring opportunity scoring case classification next best action bots data cloud unified profile identity resolution calculated insights zero copy dmo dlo llm rag" },
+      { f: "pages/agentforce.html", t: "Agentforce A to Z", i: "🦾", pill: "new",
+        k: "agentforce agent agentic ai atlas reasoning engine topic classification description scope instructions action invocable method flow prompt template standard action grounding data library knowledge rag agent user least privilege guardrails escalation testing center regression prompt injection containment deflection service agent sdr employee agent slack agent api channels observability transcripts" },
     ]
   },
   {

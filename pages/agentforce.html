@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agentforce A to Z | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>AI</span> › <span>Agentforce</span></div>
+  <h1>Agentforce — A to Z</h1>
+  <p class="lede">Salesforce's agentic AI platform: what an agent actually is, how the reasoning engine picks what
+     to do, how you build topics and actions, and how to test, secure, deploy and observe one in production.</p>
+</header>
+
+<div class="callout warn">
+  <span class="c-ico">🔄</span>
+  <div class="c-body"><span class="c-title">Read the concepts, verify the specifics</span>
+    Agentforce is the fastest-moving area of the platform — names, packaging, limits and licensing change with every
+    release. This module teaches the <strong>architecture and the build method</strong>, which have been stable:
+    topics, actions, instructions, grounding, the Trust Layer, testing and escalation. Always confirm current feature
+    availability, limits and pricing against official Salesforce documentation before committing to a design.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="what-is">What Agentforce actually is</h2>
+<p>An <strong>agent</strong> is software that is given a goal, decides for itself which steps to take, executes them
+   using tools you provide, and observes the results before deciding what to do next. That last part — the loop — is
+   what separates it from a chatbot or a prompt.</p>
+
+<div class="dgm">
+  <div class="dgm-title">Three generations — and why the difference matters</div>
+  <svg viewBox="0 0 790 300" role="img" aria-label="Chatbot versus generative AI versus agentic AI comparison">
+    <rect class="s-box" x="20" y="20" width="240" height="170" rx="11"/>
+    <text class="s-t anchor-mid" x="140" y="46">Scripted chatbot</text>
+    <text class="s-t-sm anchor-mid" x="140" y="72">Author writes every dialog</text>
+    <text class="s-t-sm anchor-mid" x="140" y="92">Intent → fixed branch</text>
+    <text class="s-t-sm anchor-mid" x="140" y="118">Predictable</text>
+    <text class="s-t-sm s-t-r anchor-mid" x="140" y="144">Breaks the moment the user</text>
+    <text class="s-t-sm s-t-r anchor-mid" x="140" y="162">phrases it unexpectedly</text>
+
+    <rect class="s-box-v" x="275" y="20" width="240" height="170" rx="11"/>
+    <text class="s-t s-t-v anchor-mid" x="395" y="46">Generative (Prompt Builder)</text>
+    <text class="s-t-sm anchor-mid" x="395" y="72">You call it; it writes text</text>
+    <text class="s-t-sm anchor-mid" x="395" y="92">Grounded in your data</text>
+    <text class="s-t-sm anchor-mid" x="395" y="118">One request, one response</text>
+    <text class="s-t-sm s-t-r anchor-mid" x="395" y="144">It cannot decide to do</text>
+    <text class="s-t-sm s-t-r anchor-mid" x="395" y="162">anything on its own</text>
+
+    <rect class="s-box-t" x="530" y="20" width="240" height="170" rx="11"/>
+    <text class="s-t s-t-t anchor-mid" x="650" y="46">Agentic (Agentforce)</text>
+    <text class="s-t-sm anchor-mid" x="650" y="72">Given a goal, not a script</text>
+    <text class="s-t-sm anchor-mid" x="650" y="92">Chooses which actions to run</text>
+    <text class="s-t-sm anchor-mid" x="650" y="112">Executes, observes, re-plans</text>
+    <text class="s-t-sm s-t-g anchor-mid" x="650" y="140">Handles the request end to end</text>
+    <text class="s-t-sm s-t-a anchor-mid" x="650" y="164">…and can therefore do damage</text>
+
+    <rect class="s-box-a" x="120" y="222" width="550" height="60" rx="10"/>
+    <text class="s-t s-t-a anchor-mid" x="395" y="246">The engineering consequence</text>
+    <text class="s-t-sm anchor-mid" x="395" y="268">You stop designing conversations and start designing capabilities, permissions and guardrails.</text>
+  </svg>
+</div>
+
+<!-- ============================================ -->
+<h2 id="architecture">Architecture</h2>
+
+<div class="dgm">
+  <div class="dgm-title">How one user message becomes an action and a reply</div>
+  <svg viewBox="0 0 790 420" role="img" aria-label="Agentforce request flow from channel through reasoning engine to actions and grounding">
+    <rect class="s-box-b" x="20" y="30" width="130" height="56" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="85" y="50">Channel</text>
+    <text class="s-t-sm anchor-mid" x="85" y="70">chat · Slack · web</text>
+    <path class="s-line-b" d="M150 58 H210" marker-end="url(#af1)"/>
+
+    <rect class="s-box-r" x="210" y="18" width="150" height="80" rx="9"/>
+    <text class="s-t s-t-r anchor-mid" x="285" y="42">Trust Layer (in)</text>
+    <text class="s-t-sm anchor-mid" x="285" y="64">mask PII</text>
+    <text class="s-t-sm anchor-mid" x="285" y="82">prompt defence</text>
+    <path class="s-line-r" d="M360 58 H420" marker-end="url(#af1)"/>
+
+    <rect class="s-box-v" x="420" y="18" width="180" height="80" rx="9"/>
+    <text class="s-t s-t-v anchor-mid" x="510" y="42">Reasoning Engine</text>
+    <text class="s-t-sm anchor-mid" x="510" y="64">classify topic → plan →</text>
+    <text class="s-t-sm anchor-mid" x="510" y="82">select action → observe</text>
+
+    <path class="s-line-v" d="M510 98 V136" marker-end="url(#af1)"/>
+    <rect class="s-box-t" x="400" y="136" width="220" height="50" rx="9"/>
+    <text class="s-t s-t-t anchor-mid" x="510" y="156">TOPIC</text>
+    <text class="s-t-sm anchor-mid" x="510" y="174">scope + instructions for one job</text>
+
+    <path class="s-line-t" d="M510 186 V222" marker-end="url(#af1)"/>
+    <rect class="s-box-g" x="330" y="222" width="360" height="76" rx="9"/>
+    <text class="s-t s-t-g anchor-mid" x="510" y="244">ACTIONS — the only things it can actually do</text>
+    <text class="s-t-sm anchor-mid" x="400" y="268">Flow</text>
+    <text class="s-t-sm anchor-mid" x="470" y="268">Apex</text>
+    <text class="s-t-sm anchor-mid" x="550" y="268">Prompt</text>
+    <text class="s-t-sm anchor-mid" x="630" y="268">API</text>
+    <text class="s-t-sm anchor-mid" x="510" y="288">each runs as the agent user, with that user's permissions</text>
+
+    <rect class="s-box-a" x="20" y="136" width="230" height="162" rx="9"/>
+    <text class="s-t s-t-a anchor-mid" x="135" y="158">GROUNDING</text>
+    <text class="s-t-sm anchor-mid" x="135" y="182">Record &amp; conversation context</text>
+    <text class="s-t-sm anchor-mid" x="135" y="204">Knowledge articles (RAG)</text>
+    <text class="s-t-sm anchor-mid" x="135" y="226">Data Cloud unified profile</text>
+    <text class="s-t-sm anchor-mid" x="135" y="248">Data Library / indexed files</text>
+    <text class="s-t-sm s-t-r anchor-mid" x="135" y="278">filtered by the agent user's</text>
+    <text class="s-t-sm s-t-r anchor-mid" x="135" y="294">sharing and FLS</text>
+    <path class="s-line-a s-dash" d="M250 200 H400" marker-end="url(#af1)"/>
+
+    <path class="s-line-g" d="M690 260 H730 V58 H610" marker-end="url(#af1)"/>
+    <text class="s-t-sm s-t-g anchor-mid" x="745" y="170">observe</text>
+    <text class="s-t-sm s-t-g anchor-mid" x="745" y="188">&amp; loop</text>
+
+    <path class="s-line-b" d="M420 58 H370 M285 98 V118 H85 V86" marker-end="url(#af1)"/>
+    <text class="s-t-sm anchor-mid" x="180" y="112">response ← demask, toxicity check, log</text>
+
+    <rect class="s-box" x="120" y="330" width="550" height="66" rx="10"/>
+    <text class="s-t anchor-mid" x="395" y="354">The one sentence to remember</text>
+    <text class="s-t-sm anchor-mid" x="395" y="378">The model decides <tspan class="s-t-b">which</tspan> action to run; <tspan class="s-t-g">you</tspan> decide what actions exist and what they're allowed to touch.</text>
+    <defs><marker id="af1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Component</th><th>What it is</th><th>Who owns it</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Agent</strong></td><td>The configured assistant: a role description, a company/context description, and a set of topics</td><td>Admin / designer</td></tr>
+    <tr><td><strong>Reasoning engine</strong></td><td>Salesforce's planner. Classifies the request to a topic, then chooses actions and re-plans after each result</td><td>Salesforce</td></tr>
+    <tr><td><strong>Topic</strong></td><td>One job the agent can do, defined in natural language: a classification description, a scope, and instructions</td><td>Admin / designer</td></tr>
+    <tr><td><strong>Action</strong></td><td>A concrete capability — Flow, Apex invocable, prompt template, API call, or a standard action</td><td><strong>Developer</strong></td></tr>
+    <tr><td><strong>Instructions</strong></td><td>Natural-language rules inside a topic: when to use which action, what to always/never do</td><td>Admin / designer</td></tr>
+    <tr><td><strong>Grounding</strong></td><td>The data injected so answers are about <em>your</em> business — records, Knowledge, Data Cloud, indexed files</td><td>Shared</td></tr>
+    <tr><td><strong>Trust Layer</strong></td><td>Masking, secure retrieval, toxicity checks, zero retention, audit</td><td>Salesforce</td></tr>
+    <tr><td><strong>Agent user</strong></td><td>The Salesforce user the agent runs as — its permissions <em>are</em> the agent's blast radius</td><td><strong>Admin / security</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout note">
+  <span class="c-ico">🧠</span>
+  <div class="c-body"><span class="c-title">Topic classification is the part people underestimate</span>
+    Before anything runs, the engine must decide <em>which topic</em> the user's message belongs to. That decision is
+    made from your topic's <strong>classification description</strong> — so two topics with vague, overlapping
+    descriptions is the single most common cause of an agent "doing the wrong thing". Write descriptions that are
+    specific and mutually exclusive.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="agent-types">The agent flavours</h2>
+<div class="grid g2">
+  <div class="card accent-teal"><h4>Service agent</h4>
+    <p>Customer-facing on web chat, messaging or a help centre. Answers from Knowledge, checks order status, raises and
+       updates cases, and escalates to a human when it should.</p>
+    <p><strong>Success metric:</strong> deflection rate and CSAT, not conversation count.</p></div>
+  <div class="card accent-blue"><h4>Sales agents</h4>
+    <p>SDR-style agents that engage and qualify inbound leads and book meetings, plus coaching agents that role-play
+       pitches and summarise calls.</p>
+    <p><strong>Watch:</strong> anything customer-facing and autonomous needs tight guardrails and clear disclosure.</p></div>
+  <div class="card accent-violet"><h4>Employee / internal agents</h4>
+    <p>HR, IT and ops assistants inside Slack or the Salesforce UI — policy questions, provisioning requests, record
+       lookups. Lower risk because the audience is internal.</p>
+    <p><strong>Usually the right first project.</strong></p></div>
+  <div class="card accent-amber"><h4>Custom agents</h4>
+    <p>Built from scratch in Agent Builder for a process specific to your business, with your own topics and actions.</p>
+    <p>Everything in this module applies most directly here.</p></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="topics">Topics — designing the agent's job list</h2>
+<p>A topic is a bounded job. Getting topic design right matters more than prompt wording.</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Field</th><th>Purpose</th><th>How to write it well</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Label / name</strong></td><td>Human identification</td><td>A verb phrase: "Check Order Status"</td></tr>
+    <tr><td><strong>Classification description</strong></td><td><strong>Used by the engine to route the request here</strong></td><td>Describe the <em>user intents</em> that belong here, and explicitly what does <em>not</em>. This is the highest-leverage field on the whole agent</td></tr>
+    <tr><td><strong>Scope</strong></td><td>The boundary of what this topic handles</td><td>One sentence stating what's in and out</td></tr>
+    <tr><td><strong>Instructions</strong></td><td>Rules the engine follows once inside the topic</td><td>Short, imperative, one rule per line; name the action to use for each situation</td></tr>
+    <tr><td><strong>Actions</strong></td><td>The tools available within this topic</td><td>Only the ones this job needs — fewer actions means better selection accuracy</td></tr>
+  </tbody>
+</table>
+</div>
+
+<pre><code class="language-bash"># A topic that behaves — note the specificity and the negative cases
+
+Name: Check Order Status
+
+Classification description:
+  Use this topic when the customer asks where their order is, whether it has
+  shipped, when it will arrive, or for a tracking number. Also use it for
+  "has my order been dispatched" and delivery-date questions.
+  Do NOT use this topic for returns, refunds, cancellations, or changing a
+  delivery address — those belong to Manage Order Changes.
+
+Scope:
+  Read-only lookups of existing orders belonging to the authenticated customer.
+
+Instructions:
+  - Always confirm the order number before looking anything up.
+  - If the customer does not know the order number, use the Find Recent Orders
+    action with their contact record; never ask them to guess.
+  - Use Get Order Status to retrieve the current status and tracking link.
+  - If the order shows as delayed beyond the promised date, apologise once,
+    state the new estimate, and offer to escalate to a human agent.
+  - Never speculate about a delivery date that the system has not returned.
+  - If no order is found, say so plainly and offer to escalate. Do not guess.</code></pre>
+
+<div class="callout tip">
+  <span class="c-ico">✂️</span>
+  <div class="c-body"><span class="c-title">Fewer, sharper topics beat many vague ones</span>
+    Every additional topic makes classification harder. Start with the three or four jobs that cover most of the volume,
+    get them reliable, then add. If two topics keep getting confused, either merge them or rewrite both classification
+    descriptions to state explicitly what they exclude.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="actions">Actions — the developer's job</h2>
+<p>Actions are the <strong>only</strong> way an agent affects the world. The model chooses <em>which</em> to call and
+   supplies the inputs; everything else is your code.</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Action type</th><th>Use for</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Flow</strong></td><td>Most business logic — admin-maintainable, no code review needed</td><td>Autolaunched flow with input/output variables. The usual first choice</td></tr>
+    <tr><td><strong>Apex</strong></td><td>Complex logic, aggregates, callouts with retry, anything Flow can't express</td><td><code>@InvocableMethod</code>. Must be bulk-safe and well described</td></tr>
+    <tr><td><strong>Prompt template</strong></td><td>Generating text — a summary, a drafted reply, an explanation</td><td>Grounded via merge fields; see <a href="einstein-ai.html#generative">Prompt Builder</a></td></tr>
+    <tr><td><strong>External Services / API</strong></td><td>Calling a system outside Salesforce</td><td>Registered from an OpenAPI spec; needs a Named Credential</td></tr>
+    <tr><td><strong>Standard actions</strong></td><td>Common operations Salesforce ships — record lookups, Knowledge search, case creation, escalation</td><td>Use these before building your own</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Writing an action the model can actually use</h3>
+<pre data-file="GetOrderStatus.cls"><code class="language-apex">public with sharing class GetOrderStatus {
+
+    /**
+     * The label and description are READ BY THE MODEL to decide when to call
+     * this action. They are prompt engineering, not documentation — be precise.
+     */
+    @InvocableMethod(
+        label='Get Order Status'
+        description='Returns the current status, carrier and tracking URL for a single order, '
+                  + 'given its order number. Use when a customer asks where their order is or '
+                  + 'whether it has shipped. Returns notFound=true if the order number does not '
+                  + 'exist or does not belong to the requesting contact.'
+        category='Order Management')
+    public static List&lt;Result&gt; run(List&lt;Request&gt; requests) {
+
+        // Bulk-safe: the platform may pass several at once
+        Set&lt;String&gt; numbers = new Set&lt;String&gt;();
+        for (Request r : requests) numbers.add(r.orderNumber);
+
+        Map&lt;String, Order&gt; byNumber = new Map&lt;String, Order&gt;();
+        for (Order o : [SELECT OrderNumber, Status, Carrier__c, Tracking_URL__c,
+                               EffectiveDate, Account.Name
+                        FROM Order
+                        WHERE OrderNumber IN :numbers
+                        WITH USER_MODE]) {          // respects the agent user's access
+            byNumber.put(o.OrderNumber, o);
+        }
+
+        List&lt;Result&gt; out = new List&lt;Result&gt;();
+        for (Request r : requests) {                 // same size, same order — required
+            Result res = new Result();
+            Order o = byNumber.get(r.orderNumber);
+            if (o == null) {
+                res.notFound = true;
+                res.summary  = 'No order found with that number.';
+            } else {
+                res.notFound    = false;
+                res.status      = o.Status;
+                res.carrier     = o.Carrier__c;
+                res.trackingUrl = o.Tracking_URL__c;
+                res.summary     = 'Order ' + o.OrderNumber + ' is ' + o.Status + '.';
+            }
+            out.add(res);
+        }
+        return out;
+    }
+
+    public class Request {
+        @InvocableVariable(required=true
+            label='Order Number'
+            description='The customer-facing order number, e.g. ORD-10024.')
+        public String orderNumber;
+    }
+
+    public class Result {
+        @InvocableVariable(label='Not Found'
+            description='True when no matching order exists. The agent should say so and offer to escalate.')
+        public Boolean notFound;
+        @InvocableVariable(label='Status') public String status;
+        @InvocableVariable(label='Carrier') public String carrier;
+        @InvocableVariable(label='Tracking URL') public String trackingUrl;
+        @InvocableVariable(label='Summary'
+            description='A one-sentence summary the agent can relay directly to the customer.')
+        public String summary;
+    }
+}</code></pre>
+
+<div class="grid g2">
+  <div class="card accent-green"><h4>✅ What makes an action agent-ready</h4>
+    <ul><li><strong>Description written for the model</strong> — say when to use it and what it returns, including failure cases</li>
+        <li>Every input and output has a clear <code>@InvocableVariable</code> description</li>
+        <li><strong>Narrow scope</strong> — one action, one job. Don't build a "do everything" action with a mode flag</li>
+        <li>Returns a <strong>structured failure</strong> (<code>notFound</code>) rather than throwing, so the agent can respond gracefully</li>
+        <li>Includes a human-readable <code>summary</code> the agent can relay</li>
+        <li><code>WITH USER_MODE</code> / <code>with sharing</code> so the agent user's access applies</li>
+        <li>Bulk-safe, and returns a list the same size and order as the input</li></ul></div>
+  <div class="card accent-rose"><h4>❌ What breaks agents</h4>
+    <ul><li>Description like "Handles orders" — the model can't tell when to use it</li>
+        <li>Throwing an exception on a normal miss; the agent surfaces a raw error</li>
+        <li>Actions with 15 optional parameters — the model fills them wrongly</li>
+        <li>Side effects the description doesn't mention (an action named "get" that also writes)</li>
+        <li>Long free-text outputs that blow the context window</li>
+        <li>Running <code>without sharing</code> so the agent can read anything</li>
+        <li>Non-idempotent write actions with no confirmation step</li></ul></div>
+</div>
+
+<div class="callout danger">
+  <span class="c-ico">⚠️</span>
+  <div class="c-body"><span class="c-title">The description IS the interface</span>
+    With a normal API, a developer reads docs and writes the call. Here <strong>a language model reads your label and
+    description and decides</strong>. A vague description isn't a documentation problem — it's a functional bug that
+    makes the agent call the wrong tool. Review action descriptions as carefully as you review the code.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="grounding">Grounding — where the agent's knowledge comes from</h2>
+<p>The model knows nothing about your business. Everything relevant must be supplied at runtime.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Source</th><th>Gives the agent</th><th>Watch out for</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Conversation context</strong></td><td>What's been said so far, plus who the user is</td><td>Context windows are finite — long chats lose early detail</td></tr>
+    <tr><td><strong>Record context</strong></td><td>The record the agent was launched from and its related data</td><td>Only what the agent user can see</td></tr>
+    <tr><td><strong>Knowledge articles (RAG)</strong></td><td>Policy and how-to answers retrieved by relevance</td><td>Garbage articles produce confident wrong answers. Curate first</td></tr>
+    <tr><td><strong>Data Library / indexed files</strong></td><td>PDFs, docs and web content chunked and indexed for retrieval</td><td>Chunking quality drives answer quality</td></tr>
+    <tr><td><strong>Data Cloud</strong></td><td>Unified profile — web behaviour, purchases, engagement across systems</td><td>See <a href="einstein-ai.html#data-cloud">Data Cloud</a></td></tr>
+    <tr><td><strong>Action results</strong></td><td>Live data fetched mid-conversation</td><td>The most reliable grounding — real, current, scoped</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout note">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">Retrieval beats recall</span>
+    If an answer must be exact — a price, a policy clause, an order status — <strong>fetch it with an action</strong>
+    rather than hoping retrieval surfaces the right article. Reserve RAG for open-ended "how do I…" questions where an
+    approximate, cited answer is genuinely fine.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="building">Building one, step by step</h2>
+<ul class="steps">
+  <li><b>Pick a narrow, high-volume, low-risk job.</b> "Answer order-status questions" beats "handle all support". You need a measurable baseline.</li>
+  <li><b>Turn on the prerequisites</b> — Einstein/Agentforce settings, the Data Cloud or Knowledge grounding you'll use, and channel setup.</li>
+  <li><b>Create the agent user</b> and a dedicated permission set with the <em>minimum</em> object, field and record access the job needs.</li>
+  <li><b>Build the actions first</b>, as Flows or invocable Apex, and unit-test them independently of the agent. An agent is only as good as its tools.</li>
+  <li><b>Create the agent</b> in Agent Builder: role, company context, and the tone/behaviour you expect.</li>
+  <li><b>Add topics</b>, one per job, with sharp classification descriptions and explicit instructions naming the actions.</li>
+  <li><b>Attach grounding</b> — Knowledge, Data Library, Data Cloud, record context.</li>
+  <li><b>Test in the conversation preview</b>, watching the reasoning trace to see which topic and action it picked and why.</li>
+  <li><b>Build a test set</b> in Testing Center — real utterances, including rude, ambiguous and out-of-scope ones.</li>
+  <li><b>Define escalation</b> before go-live: when it hands to a human, and how context transfers.</li>
+  <li><b>Pilot on one channel with a small audience</b>, review transcripts daily, and fix classification and descriptions.</li>
+  <li><b>Deploy and monitor</b> — track containment, escalation, CSAT and action failure rates.</li>
+</ul>
+
+<!-- ============================================ -->
+<h2 id="testing">Testing an agent</h2>
+<div class="callout warn">
+  <span class="c-ico">🎲</span>
+  <div class="c-body"><span class="c-title">Non-deterministic systems need a different test strategy</span>
+    The same question can produce different wording each time. You cannot assert on exact strings. You assert on
+    <strong>behaviour</strong>: did it pick the right topic, call the right action with the right inputs, and stay
+    inside policy?</div>
+</div>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Layer</th><th>How you test it</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Actions</strong></td><td>Ordinary Apex tests and Flow debug — deterministic, so test them properly here rather than through the agent</td></tr>
+    <tr><td><strong>Topic classification</strong></td><td>A test set of real utterances mapped to the expected topic. This is where most failures live</td></tr>
+    <tr><td><strong>Action selection</strong></td><td>Assert the expected action was invoked with the expected inputs</td></tr>
+    <tr><td><strong>Response quality</strong></td><td>Human review, plus automated checks for policy phrases and forbidden content</td></tr>
+    <tr><td><strong>Adversarial</strong></td><td>Prompt injection ("ignore your instructions"), out-of-scope requests, abuse, attempts to get it to promise refunds</td></tr>
+    <tr><td><strong>Regression</strong></td><td>Re-run the whole test set after <em>any</em> change to topics, descriptions or actions — small wording edits shift classification</td></tr>
+  </tbody>
+</table>
+</div>
+<p><strong>Testing Center</strong> lets you run a batch of test utterances against the agent and review the results in
+   bulk, which is far more reliable than ad-hoc chatting in the preview pane.</p>
+
+<!-- ============================================ -->
+<h2 id="security">Security &amp; guardrails</h2>
+
+<div class="dgm">
+  <div class="dgm-title">The blast radius is the agent user's permissions</div>
+  <svg viewBox="0 0 780 250" role="img" aria-label="Agent permissions determine what the agent can access">
+    <rect class="s-box-v" x="30" y="30" width="180" height="60" rx="9"/>
+    <text class="s-t s-t-v anchor-mid" x="120" y="52">Agent</text>
+    <text class="s-t-sm anchor-mid" x="120" y="74">runs as a real User</text>
+    <path class="s-line-v" d="M210 60 H270" marker-end="url(#af2)"/>
+
+    <rect class="s-box-b" x="270" y="30" width="200" height="60" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="370" y="52">Profile + Permission Sets</text>
+    <text class="s-t-sm anchor-mid" x="370" y="74">OWD · sharing · FLS</text>
+    <path class="s-line-b" d="M470 60 H530" marker-end="url(#af2)"/>
+
+    <rect class="s-box-g" x="530" y="30" width="220" height="60" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="640" y="52">Everything it can read,</text>
+    <text class="s-t-sm anchor-mid" x="640" y="74">write, or leak</text>
+
+    <rect class="s-box-r" x="120" y="130" width="540" height="46" rx="9"/>
+    <text class="s-t s-t-r anchor-mid" x="390" y="153">Give it Modify All Data and you have built an unsupervised admin.</text>
+
+    <rect class="s-box-a" x="120" y="190" width="540" height="46" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="390" y="207">Grounding is filtered by the same permissions — so least privilege also</text>
+    <text class="s-t-sm anchor-mid" x="390" y="225">controls what can appear in a generated answer.</text>
+    <defs><marker id="af2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<div class="grid g2">
+  <div class="card accent-rose"><h4>Platform controls</h4>
+    <ul><li><strong>Dedicated agent user</strong>, least privilege, never an admin</li>
+        <li><strong>Trust Layer</strong>: PII masking, secure retrieval, toxicity detection, zero retention, audit</li>
+        <li>Grounding respects sharing and FLS automatically</li>
+        <li>Action-level control — an action only exists if you add it to a topic</li>
+        <li>Full <strong>audit trail</strong> of prompts, responses and actions taken</li></ul></div>
+  <div class="card accent-amber"><h4>Design controls you must add</h4>
+    <ul><li><strong>Read before write.</strong> Start with read-only actions; add writes deliberately</li>
+        <li><strong>Confirmation</strong> before anything irreversible or financial</li>
+        <li><strong>Caps in the action, not the prompt</strong> — never rely on "don't refund over £50" as an instruction; enforce it in Apex</li>
+        <li>Explicit <strong>escalation</strong> path and triggers</li>
+        <li><strong>Disclosure</strong> that the user is talking to an AI</li>
+        <li>Rate limiting and abuse handling on public channels</li></ul></div>
+</div>
+
+<div class="callout danger">
+  <span class="c-ico">🛑</span>
+  <div class="c-body"><span class="c-title">Never enforce a business rule in natural language alone</span>
+    "Do not issue refunds above £50" in a topic instruction is a <em>suggestion</em> to a probabilistic system, and
+    prompt injection can talk it out of it. Put the cap in the <strong>action's code</strong>, where it is deterministic
+    and testable. Treat instructions as guidance for behaviour, never as a security boundary.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="channels">Channels &amp; deployment</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Surface</th><th>Typical use</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Embedded web chat / Messaging</strong></td><td>Customer service on your site or in-app</td></tr>
+    <tr><td><strong>Experience Cloud site</strong></td><td>Self-service help centre — pairs with <a href="experience-cloud.html">case deflection</a></td></tr>
+    <tr><td><strong>Slack</strong></td><td>Internal HR/IT/ops agents where employees already work</td></tr>
+    <tr><td><strong>Salesforce UI</strong></td><td>An assistant panel for internal users on record pages</td></tr>
+    <tr><td><strong>WhatsApp / SMS / social</strong></td><td>Consumer messaging channels via Messaging</td></tr>
+    <tr><td><strong>Voice</strong></td><td>Phone channels with speech in/out</td></tr>
+    <tr><td><strong>Agent API</strong></td><td>Embed the agent in your own application</td></tr>
+  </tbody>
+</table>
+</div>
+<p><strong>Deployment:</strong> agents, topics and their action references are metadata, so they move through sandboxes
+   with your normal <a href="devops.html">pipeline</a>. Two things to plan for: the referenced Flows, Apex and prompt
+   templates must deploy <em>with</em> the agent, and the agent user plus its permission set must exist in the target
+   org. Re-run your test set after every promotion — behaviour can shift with different data.</p>
+
+<!-- ============================================ -->
+<h2 id="observability">Observability &amp; improvement</h2>
+<div class="grid g3">
+  <div class="card accent-blue"><h4>Watch</h4><ul><li>Containment / deflection rate</li><li>Escalation rate and reasons</li><li>Topic classification accuracy</li><li>Action failure rate</li><li>Latency per turn</li><li>CSAT after agent conversations</li></ul></div>
+  <div class="card accent-violet"><h4>Read</h4><ul><li>Transcripts — daily at first</li><li>The reasoning trace: chosen topic, chosen action, inputs</li><li>Sessions ending without resolution</li><li>Repeated user rephrasing (a classification failure signal)</li></ul></div>
+  <div class="card accent-green"><h4>Improve</h4><ul><li>Sharpen classification descriptions</li><li>Split or merge confused topics</li><li>Fix or add actions</li><li>Improve the Knowledge articles behind bad answers</li><li>Re-run the regression set</li></ul></div>
+</div>
+<div class="callout tip">
+  <span class="c-ico">📉</span>
+  <div class="c-body"><span class="c-title">The metric that matters</span>
+    Not "how many conversations did the agent handle" — that rewards a chatty agent. Track
+    <strong>successful containment</strong> (resolved without a human, and the customer didn't come back within 7 days)
+    against CSAT. An agent with high containment and falling CSAT is deflecting people, not helping them.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="failure-modes">Common failure modes</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Symptom</th><th>Usual cause</th><th>Fix</th></tr></thead>
+  <tbody>
+    <tr><td>Picks the wrong topic</td><td>Overlapping or vague classification descriptions</td><td>Rewrite both to state explicitly what they exclude; merge if genuinely the same job</td></tr>
+    <tr><td>Doesn't call an action it should</td><td>Action description doesn't match how users phrase the request</td><td>Rewrite the description in user language; name the action in the topic instructions</td></tr>
+    <tr><td>Calls an action with wrong inputs</td><td>Vague <code>@InvocableVariable</code> descriptions, or too many optional params</td><td>Describe each input precisely; split the action</td></tr>
+    <tr><td>Invents facts</td><td>Weak grounding, and no instruction on what to do when data is missing</td><td>Fetch with an action; instruct "if not found, say so — do not guess"</td></tr>
+    <tr><td>Surfaces a raw stack trace</td><td>Action throws instead of returning a structured failure</td><td>Return <code>notFound</code>/<code>error</code> fields with a friendly summary</td></tr>
+    <tr><td>Talked out of a rule</td><td>Rule was an instruction, not code</td><td>Enforce in the action; treat instructions as non-binding</td></tr>
+    <tr><td>Slow responses</td><td>Too many sequential actions, or slow callouts</td><td>Combine lookups into one action; cache; set timeouts</td></tr>
+    <tr><td>Great in preview, poor in production</td><td>Tested on clean utterances only</td><td>Build the test set from real transcripts, including messy input</td></tr>
+    <tr><td>Regression after a "tiny" wording change</td><td>Classification is sensitive to description text</td><td>Treat descriptions as code — version them and re-run tests</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="when-not">When not to build an agent</h2>
+<div class="callout case">
+  <span class="c-ico">🧭</span>
+  <div class="c-body"><span class="c-title">The senior answer</span>
+    If the process is <strong>deterministic and well understood</strong>, a Flow or a screen is cheaper, faster,
+    testable and auditable. Agents earn their cost where input is <strong>unstructured natural language</strong> and the
+    path varies — that's the capability nothing else on the platform has. "We could use an agent" is not the same as
+    "an agent is the right tool".</div>
+</div>
+<div class="vs">
+  <div class="card accent-green"><h4>Good fit</h4>
+    <ul><li>High volume of varied, free-text questions</li><li>Answers exist in Knowledge or records</li><li>A human reviews anything consequential</li>
+        <li>A measurable baseline exists (handle time, deflection)</li><li>Failure is recoverable</li></ul></div>
+  <div class="vs-mid">vs</div>
+  <div class="card accent-rose"><h4>Poor fit</h4>
+    <ul><li>A fixed, known process → build a Flow</li><li>Regulated advice with no human in the loop</li><li>The underlying data is poor</li>
+        <li>Irreversible financial actions with no confirmation</li><li>Nobody owns monitoring it after launch</li></ul></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> What makes an agent different from a chatbot or a prompt?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A <strong>chatbot</strong> follows dialog trees an author wrote — it breaks on unexpected phrasing.
+<strong>Generative AI</strong> produces text when you call it, but decides nothing. An <strong>agent</strong> is given a
+goal, then <em>chooses</em> which actions to run, executes them, observes the results and re-plans until the request is
+handled.</p>
+<p>The engineering consequence is the point worth making: you stop designing conversations and start designing
+<strong>capabilities, permissions and guardrails</strong>, because the system decides the path, not you.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> Explain topics, actions and instructions.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A <strong>topic</strong> is one job the agent can do, with a classification description the
+reasoning engine uses to route requests to it. <strong>Actions</strong> are the concrete things it can execute — Flows,
+Apex invocables, prompt templates, API calls — and are the <em>only</em> way it affects anything.
+<strong>Instructions</strong> are natural-language rules inside a topic saying when to use which action and what never
+to do.</p>
+<p>Summary: the model decides <em>which</em> action; you decide what actions exist and what they can touch.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> The agent keeps answering the wrong kind of question. Where do you look first?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Topic classification descriptions.</strong> That text is what the engine uses to route the
+request, and overlapping or vague descriptions are the most common root cause by a wide margin.</p>
+<p>Fix by rewriting each description to state the intents it covers <em>and explicitly what it excludes</em>, using the
+words real users use. Check the reasoning trace to confirm which topic was chosen. If two topics keep colliding, either
+merge them or make the boundary explicit in both. Then re-run the regression set — classification is sensitive to
+wording.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> What's the developer's actual job on an Agentforce project?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Building and securing the <strong>actions</strong>, and the grounding they return. Concretely:
+bulk-safe <code>@InvocableMethod</code> Apex and Flows with <strong>descriptions written for the model</strong>,
+precise <code>@InvocableVariable</code> descriptions, structured failure returns rather than exceptions,
+<code>WITH USER_MODE</code> enforcement, and business rules implemented in code rather than left to instructions.</p>
+<p>Plus the engineering around it: unit tests for actions, the regression test set, and observability so you can see
+what the agent actually did.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> How do you stop an agent doing something harmful?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Layered. <strong>Permissions first</strong> — a dedicated agent user with least privilege, because
+its profile and sharing define the entire blast radius; grounding is filtered by the same access.
+<strong>Capability</strong> — an action only exists if you added it, so start read-only and add writes deliberately.
+<strong>Code-level limits</strong> — enforce caps and rules inside the action, never in an instruction, because a
+prompt-injected user can argue with natural language but not with Apex. <strong>Process</strong> — confirmation before
+irreversible steps, a defined escalation path, disclosure that it's an AI, full audit logging, and adversarial
+testing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> How do you test something non-deterministic?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>You don't assert exact strings. Test in layers: <strong>actions</strong> with ordinary deterministic
+Apex/Flow tests; <strong>classification</strong> with a set of real utterances mapped to expected topics;
+<strong>action selection</strong> by asserting the right action ran with the right inputs; <strong>response
+quality</strong> by human review plus checks for forbidden content; and <strong>adversarial</strong> cases —
+prompt injection, abuse, out-of-scope requests.</p>
+<p>Then treat it as regression: re-run the whole set after <em>any</em> change to descriptions or actions, because small
+wording edits move classification.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> Why is an action's description so important?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Because <strong>a language model reads it to decide whether to call the action</strong>. With a
+normal API a developer reads docs; here the description <em>is</em> the interface. "Handles orders" gives the model
+nothing to discriminate on, so it calls the wrong tool or none.</p>
+<p>A good description states what the action does, when to use it, what it returns, and what happens on failure — in the
+language users actually use. Review descriptions as carefully as code, and version them, because changing one changes
+behaviour.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> A stakeholder wants an agent for a fixed 5-step approval process. Advise them.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Push back. A <strong>deterministic, well-understood process</strong> should be a Flow or an
+approval process — cheaper, faster, fully testable, auditable and free of hallucination risk. Agents cost consumption
+credits and need ongoing monitoring.</p>
+<p>Agents earn their keep where the <strong>input is unstructured natural language and the path varies</strong>. If
+there's a natural-language front door to that process — "how do I get this approved?" — an agent could route and
+explain, then hand off to the deterministic Flow to actually execute. That hybrid is usually the right answer.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> How do you measure whether the agent is working?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Not conversation volume — that rewards chattiness. Track <strong>successful containment</strong>:
+resolved without a human <em>and</em> the customer didn't return within a week. Pair it with <strong>CSAT</strong>, because
+containment alone can mean you're deflecting people rather than helping.</p>
+<p>Also monitor escalation rate and reasons, topic classification accuracy, action failure rate and latency per turn.
+Establish the baseline <em>before</em> launch, or you can't prove impact.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> Walk me through your first Agentforce project plan.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><ol>
+  <li>Pick one <strong>narrow, high-volume, low-risk</strong> job with a measurable baseline — internal IT/HR Q&amp;A or order status, not "all of support".</li>
+  <li>Audit the <strong>grounding data</strong> first. Poor Knowledge articles guarantee poor answers regardless of configuration.</li>
+  <li>Create the <strong>agent user and least-privilege permission set</strong>.</li>
+  <li>Build and unit-test the <strong>actions</strong> before touching the agent.</li>
+  <li>Create the agent, then <strong>2–3 sharp topics</strong> with explicit classification descriptions.</li>
+  <li>Build a <strong>test set from real transcripts</strong>, including messy and adversarial input.</li>
+  <li>Define <strong>escalation</strong> and disclosure before go-live.</li>
+  <li><strong>Pilot small</strong>, read transcripts daily, iterate on descriptions.</li>
+  <li>Scale to more topics only once containment and CSAT hold.</li>
+</ol></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. An agent must never refund more than £50. Where do you enforce it?</div>
+  <button class="opt">In the topic instructions</button>
+  <button class="opt" data-correct="1">In the action's Apex/Flow code — instructions aren't a security boundary</button>
+  <button class="opt">In the agent's role description</button>
+  <div class="explain">Natural-language instructions are guidance to a probabilistic system and can be argued away by prompt injection. Deterministic rules belong in code.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. What determines everything an agent can read or change?</div>
+  <button class="opt">The topics you configure</button>
+  <button class="opt" data-correct="1">The permissions of the user the agent runs as</button>
+  <button class="opt">The Trust Layer</button>
+  <div class="explain">Actions and grounding both execute in the agent user's context, so its profile, permission sets and sharing define the entire blast radius.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. Which field most directly decides whether a request reaches the right topic?</div>
+  <button class="opt">The topic's label</button>
+  <button class="opt" data-correct="1">The topic's classification description</button>
+  <button class="opt">The agent's company description</button>
+  <div class="explain">The reasoning engine routes on the classification description — vague or overlapping descriptions are the number one cause of an agent doing the wrong thing.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Agentforce</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>
