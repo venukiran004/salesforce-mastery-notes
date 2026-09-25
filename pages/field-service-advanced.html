@@ -1,0 +1,1462 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Field Service — Advanced | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Clouds</span> › <span>Field Service — Advanced</span></div>
+  <h1>Field Service — Advanced Concepts</h1>
+  <p class="lede">End to end through the hard half: how the engine really grades a slot, shifts and capacity,
+     optimisation and bundling, complex work, the inventory and maintenance chains, the offline mobile architecture,
+     the FSL Apex API — and everything that bites you in production.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">Read the basics first</span>
+    This page assumes the object model and the rules-versus-objectives distinction from
+    <a href="field-service.html">Field Service</a>. Start there if "Work Order vs Service Appointment" isn't yet
+    automatic — everything here is the layer above it.</div>
+</div>
+
+<div class="callout warn">
+  <span class="c-ico">🔄</span>
+  <div class="c-body"><span class="c-title">Names move, mechanics don't</span>
+    Field Service ships a <strong>managed package</strong> on top of core platform objects, and the package's setting
+    names, Apex signatures and feature gates change between versions. The <em>mechanics</em> on this page — availability
+    resolution, candidate grading, optimisation behaviour, offline sync — have been stable for years. Confirm exact field
+    names, method signatures and limits against the Field Service Managed Package Developer Guide for
+    <em>your installed version</em> before you build.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="stack">How the product is actually assembled</h2>
+<p>Field Service is not one thing. It is four things stacked, and a surprising amount of confusing behaviour comes from
+   not knowing which layer you are looking at.</p>
+
+<div class="dgm">
+  <div class="dgm-title">The four layers — and who owns what</div>
+  <svg viewBox="0 0 800 340" role="img" aria-label="Field Service architecture layers: core objects, managed package, optimisation engine, mobile app">
+    <rect class="s-box-b" x="30" y="20" width="740" height="62" rx="10"/>
+    <text class="s-t s-t-b anchor-mid" x="400" y="44">① Core platform objects · no namespace</text>
+    <text class="s-t-sm anchor-mid" x="400" y="66">WorkOrder · ServiceAppointment · ServiceResource · ServiceTerritory · OperatingHours · Shift · Asset · ProductItem · TimeSheet</text>
+
+    <rect class="s-box-v" x="30" y="96" width="740" height="62" rx="10"/>
+    <text class="s-t s-t-v anchor-mid" x="400" y="120">② Field Service Managed Package · FSL namespace</text>
+    <text class="s-t-sm anchor-mid" x="400" y="142">Dispatcher Console · Scheduling Policies · Work Rules · Objectives · Recipes · Settings · Apex API</text>
+
+    <rect class="s-box-a" x="30" y="172" width="360" height="62" rx="10"/>
+    <text class="s-t s-t-a anchor-mid" x="210" y="196">③ Scheduling &amp; optimisation engine</text>
+    <text class="s-t-sm anchor-mid" x="210" y="218">Salesforce-hosted · asynchronous</text>
+
+    <rect class="s-box-r" x="410" y="172" width="360" height="62" rx="10"/>
+    <text class="s-t s-t-r anchor-mid" x="590" y="196">④ Field Service mobile app</text>
+    <text class="s-t-sm anchor-mid" x="590" y="218">Own offline store · own sync engine</text>
+
+    <rect class="s-box-g" x="30" y="252" width="740" height="66" rx="10"/>
+    <text class="s-t s-t-g anchor-mid" x="400" y="276">Your configuration spans all four — and most of it is DATA, not metadata</text>
+    <text class="s-t-sm anchor-mid" x="400" y="298">Policies · rules · objectives · territories · operating hours · shifts · skills → records, not deployable components</text>
+    <path class="s-line-v s-dash" d="M400 82 V96 M210 158 V172 M590 158 V172"/>
+  </svg>
+  <div class="dgm-cap">Layer ② is a package you install and <em>version</em>. Layer ③ runs outside your transaction.
+     Layer ④ has its own data lifecycle. None of them behave like ordinary Apex.</div>
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Layer</th><th>What it gives you</th><th>What it costs you</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Core objects</strong></td><td>Standard objects, standard sharing, normal triggers and flows, Metadata API deployment of fields and layouts</td><td>Nothing unusual</td></tr>
+    <tr><td><strong>Managed package (FSL)</strong></td><td>Dispatcher Console, the policy/rule/objective model, background recipes, the Apex scheduling API</td><td>Its own triggers run alongside yours; configuration is stored as <strong>records</strong>; upgrades need regression testing</td></tr>
+    <tr><td><strong>Optimisation engine</strong></td><td>Bulk re-sequencing, travel minimisation, bundling</td><td>Asynchronous and off-platform — you cannot call it and read the result in the same transaction</td></tr>
+    <tr><td><strong>Mobile app</strong></td><td>True offline working, on-device flows, service reports, barcode and signature capture</td><td>A second data model to design, prime and debug</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Licences and permission sets — who can do what</h3>
+<p>Access is a combination of a <strong>licence</strong> (or permission set licence) and the package's permission sets.
+   Getting this wrong is one of the most common reasons a go-live slips.</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Persona</th><th>Typically needs</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Dispatcher</strong></td><td>Dispatcher permissions + Dispatcher Console access</td><td>Needs broad visibility across territories — this drives your whole sharing design</td></tr>
+    <tr><td><strong>Technician (employee)</strong></td><td>Technician/Resource permissions + a mobile licence</td><td>Must be an active <strong>Service Resource</strong> linked to the User <em>and</em> a territory member</td></tr>
+    <tr><td><strong>Scheduling &amp; optimisation</strong></td><td>The optimisation entitlement plus a nominated <em>running user</em></td><td>That user's record access limits what optimisation can see and move</td></tr>
+    <tr><td><strong>Contractor</strong></td><td>A contractor licence, or Experience Cloud access with Sharing Sets</td><td>Usually modelled as capacity-based resources — see <a href="#resources">Resources</a></td></tr>
+    <tr><td><strong>Agent / CSR</strong></td><td>Service Cloud plus appointment-booking components</td><td>Books via candidates or arrival-window slots, never the Gantt</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout tip">
+  <span class="c-ico">🧑‍🔧</span>
+  <div class="c-body"><span class="c-title">The optimisation running user is a real design decision</span>
+    Optimisation executes as a nominated user. If that user cannot see a territory's appointments or resources, the
+    engine silently optimises a smaller world than you think — and the output looks merely "disappointing" rather than
+    broken. Give it deliberately broad, documented access, and treat it as a licensed, monitored account.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="availability">Availability — the resolution stack</h2>
+<p>Every scheduling question reduces to <em>"is this resource available in this window?"</em> That answer is derived from
+   five independent sources on every single calculation. Debugging scheduling means walking this stack in order.</p>
+
+<div class="dgm">
+  <div class="dgm-title">What makes a resource available at 14:00 on Thursday</div>
+  <svg viewBox="0 0 790 370" role="img" aria-label="Availability resolution from operating hours, shifts, territory membership, absences and capacity">
+    <rect class="s-box-b" x="25" y="20" width="210" height="56" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="130" y="42">Operating Hours</text>
+    <text class="s-t-sm anchor-mid" x="130" y="60">+ Time Slots per day</text>
+
+    <rect class="s-box-v" x="25" y="88" width="210" height="56" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="130" y="110">Shifts</text>
+    <text class="s-t-sm anchor-mid" x="130" y="128">dated override per resource</text>
+
+    <rect class="s-box-t" x="25" y="156" width="210" height="56" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="130" y="178">Service Territory Member</text>
+    <text class="s-t-sm anchor-mid" x="130" y="196">primary / secondary / relocation</text>
+
+    <rect class="s-box-r" x="25" y="224" width="210" height="56" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="130" y="246">Resource Absences</text>
+    <text class="s-t-sm anchor-mid" x="130" y="264">holiday · training · sickness</text>
+
+    <rect class="s-box-a" x="25" y="292" width="210" height="56" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="130" y="314">Capacity</text>
+    <text class="s-t-sm anchor-mid" x="130" y="332">hours or work items per period</text>
+
+    <path class="s-line-b" d="M235 48 H310 V175" marker-end="url(#fsa1)"/>
+    <path class="s-line-v" d="M235 116 H310"/>
+    <path class="s-line-t" d="M235 184 H310"/>
+    <path class="s-line-r" d="M235 252 H310 V190"/>
+    <path class="s-line-a" d="M235 320 H310 V195"/>
+
+    <rect class="s-box-g" x="320" y="145" width="190" height="66" rx="9"/>
+    <text class="s-t s-t-g anchor-mid" x="415" y="171">Effective availability</text>
+    <text class="s-t-sm anchor-mid" x="415" y="191">the real free gaps</text>
+
+    <path class="s-line-g" d="M510 178 H580" marker-end="url(#fsa1)"/>
+    <rect class="s-box" x="580" y="118" width="185" height="60" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="672" y="142">Existing appointments</text>
+    <text class="s-t-sm anchor-mid" x="672" y="160">+ travel between them</text>
+    <path class="s-line" d="M672 178 V212" marker-end="url(#fsa1)"/>
+    <rect class="s-box-v" x="575" y="212" width="195" height="60" rx="9"/>
+    <text class="s-t s-t-v anchor-mid" x="672" y="236">The gap matrix</text>
+    <text class="s-t-sm anchor-mid" x="672" y="256">what objectives score</text>
+    <defs><marker id="fsa1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+  <div class="dgm-cap">Availability is not a field. It is computed every time, from all five inputs, per resource per day.</div>
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Input</th><th>What it defines</th><th>Where it bites</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Operating Hours + Time Slots</strong></td><td>The recurring working pattern and which slot types apply</td><td>Operating hours carry a <strong>time zone</strong>. A resource in another zone is available at different absolute times than the Gantt suggests</td></tr>
+    <tr><td><strong>Shifts</strong></td><td>Explicit dated working periods, usually generated from shift patterns or templates</td><td>Where shifts exist they generally take precedence over the hours pattern. Mixing both models in one population is a reliable source of confusion — pick one</td></tr>
+    <tr><td><strong>Service Territory Member</strong></td><td>Membership of a territory, with <em>effective dates</em> and a relationship type</td><td>Expired membership is the number-one cause of "this engineer vanished from the Gantt"</td></tr>
+    <tr><td><strong>Resource Absence</strong></td><td>Blocked periods, optionally all-day, typed</td><td>Often created by HR integrations — which means a day's plan can evaporate without anyone in Salesforce doing anything</td></tr>
+    <tr><td><strong>Capacity</strong></td><td>For capacity-based resources: hours or work items per period</td><td>Consumed by scheduled work, so cancellations <em>must</em> release it or contractors silently go "full"</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Territory design</h3>
+<p>Territories are the unit of scheduling, of optimisation runs, of the Gantt and usually of sharing. Their shape sets
+   your performance ceiling.</p>
+<div class="grid g2">
+  <div class="card accent-green"><h4>✅ Territories that work</h4>
+    <ul><li>Sized so <strong>one dispatcher can hold a day in their head</strong> — tens of resources, not hundreds</li>
+        <li>A hierarchy: country → region → operating area, with resources in the leaves</li>
+        <li>Drawn around <strong>travel reality</strong> — drive time, rivers, motorways — not sales geography</li>
+        <li>Secondary membership used deliberately for edge-of-patch cover</li>
+        <li>Relocation membership for genuine temporary moves, with dates</li></ul></div>
+  <div class="card accent-rose"><h4>❌ Territories that hurt</h4>
+    <ul><li>One national territory "so anyone can do anything" — the Gantt and optimisation both suffer</li>
+        <li>Heavily overlapping patches, so engineers cross each other all day</li>
+        <li>Territories mirroring the role hierarchy for sharing convenience</li>
+        <li>Membership maintained by hand with no effective-date discipline</li>
+        <li>Hundreds of micro-territories, so nothing can ever cover anything else</li></ul></div>
+</div>
+
+<div class="callout exam">
+  <span class="c-ico">🕐</span>
+  <div class="c-body"><span class="c-title">Time zones: the bug you will definitely have</span>
+    Operating hours, the territory, the resource's user record, the customer's account and the dispatcher's browser can
+    all sit in different time zones. Times are stored in UTC and rendered in the viewer's zone. When someone reports
+    "it booked 08:00 but the customer was told 09:00", write down all five zones <em>before</em> you touch a rule.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="resources">The resource model beyond one engineer</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Resource shape</th><th>How you model it</th><th>When to use it</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Employee technician</strong></td><td>Service Resource of type Technician, linked to a User, territory member, with skills and hours/shifts</td><td>The default</td></tr>
+    <tr><td><strong>Crew</strong></td><td>A Service Crew with Service Crew Members; a Service Resource of type <em>Crew</em> is what actually gets scheduled</td><td>People who always work together — two-person lifts, cabling teams. Simplest to schedule</td></tr>
+    <tr><td><strong>Capacity-based resource</strong></td><td>Resource with Service Resource Capacity records (hours or work items per period) plus the capacity work rule</td><td>Contractors and partners who tell you <em>how much</em> they can take, not <em>when</em> they work</td></tr>
+    <tr><td><strong>Contractor (named)</strong></td><td>Resource of type Contractor, often working through Experience Cloud</td><td>Subcontractors you schedule much like employees</td></tr>
+    <tr><td><strong>Asset as a resource</strong></td><td>Resource of type Asset — a crane, a rig, a specialist vehicle — with its own hours and territory</td><td>When the machine is the constraint, not the person</td></tr>
+    <tr><td><strong>Two different specialists at once</strong></td><td><em>Not</em> a crew — use <a href="#complex-work">complex work dependencies</a></td><td>When the pairing varies job to job</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Skills, levels and expiry</h3>
+<p>Skill Requirements on the work (usually inherited from the Work Type) are matched against Service Resource Skills.
+   Three details do most of the damage:</p>
+<ul class="steps">
+  <li><b>Skill level is numeric and the test is "at least"</b> — a job requiring level 5 excludes every level-4 person outright. Levels invented without a written rubric become arbitrary exclusions nobody can explain six months later.</li>
+  <li><b>Skills have effective start and end dates</b> — a certification that lapsed last night removes that resource from today's candidate lists. Feed expiry from your training system and alert <em>before</em> it happens.</li>
+  <li><b>Requirements are ANDed, and can sit at several levels</b> — work order, line item or appointment. Three stacked requirements on one appointment is very often the reason nobody qualifies.</li>
+</ul>
+
+<h3>Resource preferences</h3>
+<p>Resource Preference records (on an Account or Work Order) express <strong>Preferred</strong>,
+   <strong>Excluded</strong> or <strong>Required</strong> resources. Their power depends entirely on which rule or
+   objective you enable:</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Preference</th><th>Enforced by</th><th>Effect</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Required</strong></td><td>A work rule (hard)</td><td>Only those resources are candidates — powerful and dangerous. One holiday and the job becomes unschedulable</td></tr>
+    <tr><td><strong>Excluded</strong></td><td>A work rule (hard)</td><td>Removes resources outright. The right tool for "never send this engineer to that customer again"</td></tr>
+    <tr><td><strong>Preferred</strong></td><td>A service objective (soft)</td><td>Ranks them higher but still allows anyone — almost always what the business actually means</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="engine">Inside the scheduling engine</h2>
+<p>"Get Candidates" is not a search, it is a pipeline. Knowing the order tells you exactly where to look when the answer
+   is wrong.</p>
+
+<div class="dgm">
+  <div class="dgm-title">From an unscheduled appointment to a booked slot</div>
+  <svg viewBox="0 0 800 300" role="img" aria-label="Scheduling pipeline: candidate set, hard rules, gap matrix, objective scoring, grading, booking, dispatch">
+    <rect class="s-box-b" x="20" y="24" width="155" height="56" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="97" y="46">Service Appointment</text>
+    <text class="s-t-sm anchor-mid" x="97" y="64">window · duration · skills</text>
+    <path class="s-line-b" d="M175 52 H220" marker-end="url(#fsa2)"/>
+
+    <rect class="s-box" x="220" y="24" width="150" height="56" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="295" y="46">Candidate set</text>
+    <text class="s-t-sm anchor-mid" x="295" y="64">resources in territory</text>
+    <path class="s-line" d="M370 52 H420" marker-end="url(#fsa2)"/>
+
+    <rect class="s-box-r" x="420" y="24" width="175" height="56" rx="9"/>
+    <text class="s-t s-t-r anchor-mid" x="507" y="46">Work Rules</text>
+    <text class="s-t-sm anchor-mid" x="507" y="64">hard filter — pass or vanish</text>
+    <path class="s-line-r" d="M595 52 H650" marker-end="url(#fsa2)"/>
+
+    <rect class="s-box-v" x="650" y="24" width="130" height="56" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="715" y="46">Gap matrix</text>
+    <text class="s-t-sm anchor-mid" x="715" y="64">every legal slot</text>
+    <path class="s-line-v" d="M715 80 V120 H510" marker-end="url(#fsa2)"/>
+
+    <rect class="s-box-a" x="335" y="120" width="175" height="60" rx="9"/>
+    <text class="s-t s-t-a anchor-mid" x="422" y="144">Service Objectives</text>
+    <text class="s-t-sm anchor-mid" x="422" y="164">weighted score per slot</text>
+    <path class="s-line-a" d="M335 150 H245" marker-end="url(#fsa2)"/>
+
+    <rect class="s-box-t" x="70" y="120" width="175" height="60" rx="9"/>
+    <text class="s-t s-t-t anchor-mid" x="157" y="144">Graded slots 0–100</text>
+    <text class="s-t-sm anchor-mid" x="157" y="164">sorted, best first</text>
+    <path class="s-line-t" d="M157 180 V220" marker-end="url(#fsa2)"/>
+
+    <rect class="s-box-g" x="60" y="220" width="195" height="56" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="157" y="242">Book / Schedule</text>
+    <text class="s-t-sm anchor-mid" x="157" y="260">Assigned Resource + times</text>
+    <path class="s-line-g" d="M255 248 H330" marker-end="url(#fsa2)"/>
+    <rect class="s-box" x="330" y="220" width="170" height="56" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="415" y="242">Dispatch</text>
+    <text class="s-t-sm anchor-mid" x="415" y="260">visible to the technician</text>
+    <path class="s-line s-dash" d="M500 248 H600"/>
+    <rect class="s-box-r" x="600" y="220" width="180" height="56" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="690" y="242">Optimisation may</text>
+    <text class="s-t-sm anchor-mid" x="690" y="260">re-sequence it later</text>
+    <defs><marker id="fsa2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+  <div class="dgm-cap">Rules decide <em>who is allowed</em>; objectives decide <em>which allowed slot wins</em>. Nobody
+     appears → it's the rules. The wrong person appears → it's the objectives.</div>
+</div>
+
+<div class="callout tip">
+  <span class="c-ico">💯</span>
+  <div class="c-body"><span class="c-title">What the grade actually means</span>
+    A slot's grade is a <strong>weighted sum of that policy's objectives, normalised to 0–100</strong>. It is not a
+    probability, not a quality score, and <strong>not comparable across policies</strong> — 62% under an emergency policy
+    and 62% under a routine policy mean different things. Compare grades only within one policy, and treat a cluster of
+    near-identical grades as a sign your objectives aren't discriminating at all.</div>
+</div>
+
+<h3>The appointment time fields, precisely</h3>
+<p>A large share of "the engine ignored my window" tickets are really a misunderstanding of which field means what.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Field</th><th>Meaning</th><th>Set by</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Earliest Start Permitted</strong></td><td>Do not start before this — the hard left edge</td><td>You, the Work Type, or automation</td></tr>
+    <tr><td><strong>Due Date</strong></td><td>Must be finished by this — the hard right edge, where the SLA lives</td><td>You or entitlement automation</td></tr>
+    <tr><td><strong>Arrival Window Start / End</strong></td><td>The promise made to the customer ("between 9 and 12")</td><td>Booking process / Work Type</td></tr>
+    <tr><td><strong>Scheduled Start / End</strong></td><td>The engine's plan — what the Gantt draws</td><td>Scheduling and optimisation</td></tr>
+    <tr><td><strong>Estimated Duration</strong></td><td>How long the work takes, in the duration type's units</td><td>Work Type, ideally refined from history</td></tr>
+    <tr><td><strong>Actual Start / End</strong></td><td>What really happened</td><td>The technician, from the mobile app</td></tr>
+  </tbody>
+</table>
+</div>
+<p>The schedulable space is <em>Earliest Start Permitted → Due Date</em>, narrowed further by the arrival window if you
+   enforce it. Squeeze those together and you will get "no candidates" no matter how many engineers are sitting idle.</p>
+
+<div class="callout danger">
+  <span class="c-ico">📌</span>
+  <div class="c-body"><span class="c-title">Pinning quietly kills optimisation</span>
+    A pinned appointment tells optimisation never to move it. Dispatchers discover the button, pin everything they care
+    about, and within a month the engine has almost nothing left to rearrange — while everyone complains that
+    optimisation "stopped working". Report on pinned counts weekly and train dispatchers that pinning is for genuine
+    customer commitments only.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="work-rules">Work rules, in full</h2>
+<p>Every rule is a <em>record</em> of a given type, attached to one or more policies. These types cover almost every real
+   implementation; exact names vary a little by package version.</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Rule type</th><th>What it enforces</th><th>Practical notes</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Match Skills</strong></td><td>Resource holds every required skill, at or above the required level, unexpired</td><td>The most common cause of empty candidate lists</td></tr>
+    <tr><td><strong>Match Territory</strong></td><td>Resource is a member of the appointment's territory on that date</td><td>Configure whether secondary and relocation memberships count</td></tr>
+    <tr><td><strong>Working Territories</strong></td><td>Which territory the resource is working <em>that day</em></td><td>Needed when people move between patches day to day</td></tr>
+    <tr><td><strong>Resource Availability</strong></td><td>Hours/shifts, absences and existing bookings — the real free gaps</td><td>Also governs whether overtime and extended slots are permitted</td></tr>
+    <tr><td><strong>Appointment Visiting Hours</strong></td><td>The <em>customer's</em> allowed hours, not the engineer's</td><td>Omit it and you will cheerfully book a supermarket at 03:00</td></tr>
+    <tr><td><strong>Match Fields / Extended Match</strong></td><td>A field on the appointment or work order must match a field on the resource</td><td>The escape hatch: van type, security clearance, language, brand accreditation. Cheaper and clearer than inventing fake skills</td></tr>
+    <tr><td><strong>Count Rule</strong></td><td>Maximum number of matching appointments per resource per period</td><td>"No more than two boiler installs per engineer per day"</td></tr>
+    <tr><td><strong>Required / Excluded Resources</strong></td><td>Treats Resource Preferences as hard constraints</td><td>See the warning under <a href="#resources">Resources</a></td></tr>
+    <tr><td><strong>Resource Capacity</strong></td><td>Keeps capacity-based resources inside their allowance</td><td>Mandatory if you model contractors by capacity</td></tr>
+    <tr><td><strong>Multiday</strong></td><td>Allows work longer than a single day to be scheduled across days</td><td>Required for multiday appointments — see <a href="#complex-work">Complex work</a></td></tr>
+    <tr><td><strong>Time / dependency rules</strong></td><td>Honours appointment dependencies — start after finish, same resource, same start</td><td>Dependencies exist as data but are only <strong>enforced</strong> when the rule is in the policy</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout warn">
+  <span class="c-ico">🚧</span>
+  <div class="c-body"><span class="c-title">Every hard rule is a promise that work can still be scheduled</span>
+    Rules compose with AND. Six individually reasonable rules can intersect to zero candidates on a wet Tuesday in
+    February, and nobody will know which one did it. Add rules one at a time, keep a bare <strong>diagnostic
+    policy</strong> containing only availability and territory, and compare against it the moment scheduling fails.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="objectives">Objectives and how to tune them</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Objective</th><th>Optimises for</th><th>Side effect when over-weighted</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Minimise Travel</strong></td><td>Least drive time or distance between jobs</td><td>Customers wait longer; the nearest engineer gets everything</td></tr>
+    <tr><td><strong>ASAP</strong></td><td>The earliest possible slot</td><td>Travel explodes and the day fragments</td></tr>
+    <tr><td><strong>Appointment Priority</strong></td><td>High-priority work placed first</td><td>Routine work is deferred forever and ages into complaints</td></tr>
+    <tr><td><strong>Preferred Resource</strong></td><td>The account's preferred engineer</td><td>Key people become bottlenecks and burn out</td></tr>
+    <tr><td><strong>Minimise Overtime</strong></td><td>Staying inside contracted hours</td><td>Late-day emergencies go unfilled</td></tr>
+    <tr><td><strong>Skill Level</strong></td><td>Matching skill to difficulty — often the <em>lowest</em> qualified person</td><td>Either experts do trivial jobs, or juniors get sent to hard ones</td></tr>
+    <tr><td><strong>Resource Priority</strong></td><td>Preferring employees over contractors, or the reverse</td><td>Contractor capacity you are already paying for sits idle</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>A tuning method that actually works</h3>
+<ul class="steps">
+  <li><b>Write the business rule in one sentence first</b> — "protect the SLA, then cut travel, and only use contractors when employees are full". If you cannot write it, you cannot weight it.</li>
+  <li><b>Start with two objectives, not seven.</b> Priority and travel get you most of the way.</li>
+  <li><b>Change one weight at a time</b> and re-run the same day's data. Multi-variable tuning is unfalsifiable.</li>
+  <li><b>Measure, don't feel</b> — total travel minutes, SLA hit rate, jobs per engineer per day, overtime hours, unscheduled count. Capture the baseline <em>before</em> you touch anything.</li>
+  <li><b>One policy per intent</b> — routine, emergency, contractor fill, weekend — rather than one policy of compromise weights.</li>
+  <li><b>Re-tune seasonally.</b> Winter demand, holiday cover and new territories all invalidate last year's weights.</li>
+</ul>
+
+<!-- ============================================ -->
+<h2 id="policies">Policy strategy</h2>
+<p>A Scheduling Policy is a named bundle of rules and weighted objectives. <em>Which</em> policy applies depends on how
+   the appointment is being scheduled — and that catches people out:</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Entry point</th><th>Policy used</th></tr></thead>
+  <tbody>
+    <tr><td>Dispatcher clicks Get Candidates or Schedule</td><td>The policy selected in the console (defaults configurable)</td></tr>
+    <tr><td>An agent books an arrival window</td><td>Whatever policy the booking component or Apex passes in</td></tr>
+    <tr><td>Background recipe / auto-schedule</td><td>The policy named on that recipe</td></tr>
+    <tr><td>An optimisation run</td><td>The policy on the optimisation request — <strong>frequently a different one</strong></td></tr>
+    <tr><td>Your Apex</td><td>Whatever policy Id you pass — hard-coding it is a classic post-refresh bug</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout note">
+  <span class="c-ico">🪪</span>
+  <div class="c-body"><span class="c-title">Never hard-code a policy Id</span>
+    Policies are records, so their Ids differ in every org and in every refreshed sandbox. Resolve the policy
+    <em>by name</em> at runtime, and keep the name in Custom Metadata rather than in code. This single habit prevents a
+    whole category of post-deployment incidents.</div>
+</div>
+
+<div class="flowchain">
+  <span class="chip b">Routine</span><span class="arrow">→</span>
+  <span class="chip v">Emergency</span><span class="arrow">→</span>
+  <span class="chip t">Contractor fill</span><span class="arrow">→</span>
+  <span class="chip a">Optimisation</span><span class="arrow">→</span>
+  <span class="chip">Diagnostic (rules stripped)</span>
+</div>
+<p>Those five are a good starting library for almost any implementation — including the diagnostic one, which exists
+   purely so you can bisect failures in minutes instead of days.</p>
+
+<!-- ============================================ -->
+<h2 id="booking">Appointment booking and arrival windows</h2>
+<p>Dispatcher scheduling and customer-facing booking are different problems. Booking has to return <strong>windows a
+   human can choose from</strong>, quickly, without committing capacity prematurely.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Concept</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Arrival window</strong></td><td>The customer-facing promise, derived from operating hours designated for booking — typically 2- or 4-hour bands</td></tr>
+    <tr><td><strong>Graded slots</strong></td><td>Candidate windows returned with grades, so the UI can rank "best" options or hide poor ones</td></tr>
+    <tr><td><strong>Exact appointments</strong></td><td>Booking a precise start time instead of a band — more precise, far more brittle in the real world</td></tr>
+    <tr><td><strong>Slot suppression</strong></td><td>Hiding low-grade or overtime slots from customers so they cannot pick something you'll regret</td></tr>
+    <tr><td><strong>Hold versus book</strong></td><td>Returning slots reserves nothing. Two agents can offer the same slot seconds apart — handle the collision explicitly</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout warn">
+  <span class="c-ico">⏱️</span>
+  <div class="c-body"><span class="c-title">Booking is synchronous and users are impatient</span>
+    Slot calculation cost grows with candidate resources × horizon length × number of rules. A booking screen that takes
+    twelve seconds gets abandoned, and agents go back to the phone. Offer the next ten working days rather than ninety,
+    keep the booking policy leaner than the dispatch policy, and cache nothing you cannot invalidate.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="optimization">Optimisation, end to end</h2>
+<p>Scheduling places <em>one</em> appointment well. Optimisation rearranges <em>many</em> to make the whole day cheaper.
+   Different engines, different failure modes.</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Run type</th><th>Scope</th><th>Use it for</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Global optimisation</strong></td><td>A territory (or set of them) across a date horizon, in the background</td><td>The nightly re-plan — the main event</td></tr>
+    <tr><td><strong>In-day optimisation</strong></td><td>Today's remaining, undispatched work</td><td>Recovering from a morning that went wrong</td></tr>
+    <tr><td><strong>Resource schedule optimisation</strong></td><td>One resource's day</td><td>Tidying a single messy route</td></tr>
+    <tr><td><strong>Reshuffle</strong></td><td>Moves other appointments aside to make room for one urgent job</td><td>Emergencies, from the console</td></tr>
+    <tr><td><strong>Fill-in schedule</strong></td><td>Fills a specific gap for one resource</td><td>A cancellation left a hole at 11:00</td></tr>
+    <tr><td><strong>Group nearby appointments</strong></td><td>Finds unscheduled work close to an existing visit</td><td>Getting extra value from a trip already being made</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Each run is tracked as an <strong>optimisation request</strong> record with a status and result. That record — not the
+   Gantt — is where you diagnose a run that "did nothing".</p>
+
+<h3>Enhanced Scheduling and Optimisation</h3>
+<p>Modern orgs run the <strong>enhanced</strong> engine, a Salesforce-hosted service that replaced the older in-org
+   optimiser. Practical consequences:</p>
+<div class="grid g2">
+  <div class="card accent-teal"><h4>What you gain</h4>
+    <ul><li>Substantially faster runs over larger territories and longer horizons</li>
+        <li>A prerequisite for <a href="#bundling">appointment bundling</a></li>
+        <li>Better travel modelling and multi-territory handling</li>
+        <li>Far less org CPU burned on optimisation</li></ul></div>
+  <div class="card accent-amber"><h4>What changes</h4>
+    <ul><li>Some legacy behaviours and settings differ — <strong>re-test every policy after migrating</strong></li>
+        <li>Feature availability is version- and licence-gated; verify before designing</li>
+        <li>It is still asynchronous — nothing about that improves</li>
+        <li>Custom Apex leaning on legacy internals may need rework</li></ul></div>
+</div>
+
+<div class="callout tip">
+  <span class="c-ico">🗺️</span>
+  <div class="c-body"><span class="c-title">Why travel is still high after optimisation</span>
+    In this order: ① objective <strong>weights</strong> — is travel actually beating ASAP and preferred resource?
+    ② <strong>pinned and dispatched</strong> appointments the engine may not move. ③ <strong>territory shape</strong> and
+    overlap. ④ <strong>arrival windows too narrow</strong> for any efficient route to exist. ⑤ wrong <strong>home base
+    or start/end location</strong> on resources, making the first and last legs fictional. ⑥ a <strong>horizon or
+    resource pool</strong> too small to find a better plan. ⑦ travel settings — street routing versus straight line, and
+    whether the estimates resemble reality at all.</div>
+</div>
+
+<div class="callout danger">
+  <span class="c-ico">🧪</span>
+  <div class="c-body"><span class="c-title">Calibrate travel before you trust any number</span>
+    If the engine believes a cross-city journey takes twelve minutes, every plan it produces is fiction and engineers
+    will quietly stop following the schedule — which is much worse than a visibly bad plan. Compare a week of
+    engine-estimated travel against actual start times from the mobile app and adjust until they broadly agree. Do this
+    <em>before</em> tuning objectives, or you are tuning against a broken model.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="bundling">Appointment bundling</h2>
+<p>Bundling merges several short appointments at the same place into one <strong>bundle</strong> appointment, scheduled
+   and dispatched as a single visit. Meter reads, inspections and multi-unit sites are the classic cases.</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Piece</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Bundle policy</strong></td><td>The overall named strategy, switched on per territory or work type</td></tr>
+    <tr><td><strong>Bundle config</strong></td><td>The limits: maximum bundle duration, maximum members, how member durations aggregate</td></tr>
+    <tr><td><strong>Restriction policy</strong></td><td>Which appointments may bundle together — same account, same location, same work type, same day</td></tr>
+    <tr><td><strong>Sort policy</strong></td><td>The order members are worked inside the bundle</td></tr>
+    <tr><td><strong>Propagation policy</strong></td><td>Which changes flow from the bundle down to its members, including status</td></tr>
+    <tr><td><strong>Bundle members</strong></td><td>The original appointments, now children of the bundle</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="vs">
+  <div class="card accent-green"><h4>Bundle when</h4>
+    <ul><li>Many short jobs cluster at one address or site</li>
+        <li>Travel dominates the cost of the work</li>
+        <li>The jobs genuinely can be done in one visit by one person</li>
+        <li>You want one arrival promise, not fifteen</li></ul></div>
+  <div class="vs-mid">vs</div>
+  <div class="card accent-rose"><h4>Don't bundle when</h4>
+    <ul><li>Members need different skills or different resources</li>
+        <li>Each job carries its own SLA or its own customer promise</li>
+        <li>Reporting and billing must stay strictly per job and you haven't tested it</li>
+        <li>You haven't decided what happens when <em>one</em> member fails</li></ul></div>
+</div>
+
+<div class="callout warn">
+  <span class="c-ico">🎛️</span>
+  <div class="c-body"><span class="c-title">The part everyone forgets: unbundling</span>
+    Bundles are formed by a background job and can be unbundled automatically or by hand. Design that path
+    deliberately: what happens to member statuses, actual times, products consumed and service reports when a bundle is
+    broken <em>after</em> the technician has completed three of five members? Test it before go-live, because it will
+    happen in week one.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="complex-work">Complex work, dependencies and multiday</h2>
+<p>Real jobs are rarely one person for two hours. Field Service expresses the awkward shapes through
+   <strong>dependencies</strong> between Service Appointments on the same Work Order.</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Dependency</th><th>Meaning</th><th>Typical use</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Start After Finish</strong></td><td>B may start any time after A finishes</td><td>Survey, then install; concrete pour, then cure, then commission</td></tr>
+    <tr><td><strong>Immediately Follow</strong></td><td>B starts as soon as A ends, no gap</td><td>A hand-over that cannot wait — scaffolding up, work, scaffolding down</td></tr>
+    <tr><td><strong>Same Start</strong></td><td>A and B begin together</td><td>Two different specialists needed simultaneously</td></tr>
+    <tr><td><strong>Same Resource</strong></td><td>Whoever does A must do B</td><td>Return visits where context matters — and the customer expects the same face</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout note">
+  <span class="c-ico">🔗</span>
+  <div class="c-body"><span class="c-title">Dependencies are data; enforcement is policy</span>
+    Creating the dependency records does nothing on its own. The dependency/time rule must be in the scheduling policy
+    <em>and</em> in the optimisation policy, or the engine will happily schedule the install before the survey and
+    optimisation will merrily undo any manual fix. Check both policies — they are frequently different records.</div>
+</div>
+
+<h3>Crew or dependency?</h3>
+<div class="vs">
+  <div class="card accent-teal"><h4>Use a Crew</h4>
+    <ul><li>The same people always work together</li>
+        <li>You want one schedulable unit on the Gantt</li>
+        <li>One arrival, one set of actual times, one report</li>
+        <li>Membership changes occasionally, not per job</li></ul></div>
+  <div class="vs-mid">vs</div>
+  <div class="card accent-violet"><h4>Use dependencies</h4>
+    <ul><li>The pairing differs job to job</li>
+        <li>You need <em>different</em> skills simultaneously</li>
+        <li>Each person's time must be tracked separately</li>
+        <li>Phases happen on different days</li></ul></div>
+</div>
+<p>Crews are dramatically easier to schedule and optimise. Reach for dependencies only when the flexibility is genuinely
+   required — every dependency is another constraint the engine must satisfy, and a chain of them can become
+   unschedulable in ways that are painful to diagnose.</p>
+
+<h3>Multiday appointments</h3>
+<p>Work longer than one working day — a three-day installation — is handled as a <strong>multiday</strong> appointment
+   rather than several appointments, provided the multiday rule is enabled. What to know:</p>
+<ul class="steps">
+  <li><b>The engine spreads the duration across consecutive working days</b>, respecting hours, shifts and absences on each one.</li>
+  <li><b>Optimisation treats them as heavy, awkward blocks.</b> They are frequently the reason a territory's plan looks poor — a single five-day job pins down a resource for the whole horizon.</li>
+  <li><b>Progress tracking is coarser</b> — one appointment spanning days means one set of actual times, so if the business wants day-by-day sign-off you need separate dependent appointments instead.</li>
+  <li><b>Decide the interruption policy up front</b>: can a multiday job be paused for an emergency, and who is allowed to do that?</li>
+</ul>
+
+<!-- ============================================ -->
+<h2 id="recipes">Background automation: recipes, auto-dispatch and drip feed</h2>
+<p>A mature implementation schedules and dispatches most work without a human touching it. That machinery is configured
+   in Field Service Settings rather than in Flow, and it runs asynchronously.</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Mechanism</th><th>What it does</th><th>Design notes</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Scheduling recipes</strong></td><td>Event-driven automations: auto-schedule newly created appointments, reshuffle for emergencies, fill a gap when something is cancelled, group nearby work, bundle</td><td>Each names its own policy and conditions. Enable one at a time and measure — several recipes reacting to each other produces churn nobody can explain</td></tr>
+    <tr><td><strong>Auto-dispatch</strong></td><td>A background job that dispatches scheduled appointments per territory, within a horizon</td><td>Choose the horizon carefully: dispatch too early and the plan is frozen before the day settles; too late and technicians start blind</td></tr>
+    <tr><td><strong>Drip feed</strong></td><td>Releases only the next <em>n</em> appointments to the technician's device</td><td>Excellent for controlling the "cherry-picking" problem and for volatile days. Unpopular with technicians who like to plan their own day — a change-management decision, not a technical one</td></tr>
+    <tr><td><strong>Optimisation schedule</strong></td><td>Nightly and/or in-day runs per territory</td><td>Stagger territories so runs don't collide, and leave headroom before the working day starts</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout danger">
+  <span class="c-ico">🌀</span>
+  <div class="c-body"><span class="c-title">Automation loops are the classic production incident</span>
+    A trigger updates an appointment → a recipe reschedules it → the reschedule fires the trigger again. Because the
+    engine is asynchronous, this loop is invisible in a single debug log and can run for hours before anyone notices.
+    Guard every automation with an explicit condition ("only when status is None and no resource assigned"), never react
+    to the fields the engine itself writes (scheduled start/end, assigned resource) unless you mean to, and add a
+    circuit-breaker counter you can alert on.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="status">Status transitions and status categories</h2>
+<p>Almost every implementation adds custom appointment statuses — "Travelling", "On Hold — Parts", "Awaiting Access".
+   This is fine, and there is exactly one rule you must not break.</p>
+
+<div class="callout warn">
+  <span class="c-ico">🏷️</span>
+  <div class="c-body"><span class="c-title">Every custom status must map to a status category</span>
+    The engine, the Gantt, the mobile app and the reporting all key off the <strong>status category</strong> (None,
+    Scheduled, Dispatched, In Progress, Completed, Cannot Complete, Cancelled) — not off your label. A custom status with
+    the wrong category means appointments that optimisation won't move, work that never appears on a device, or jobs the
+    engine still believes are open. When something behaves inexplicably around status, check the category first.</div>
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Category</th><th>What the platform infers</th></tr></thead>
+  <tbody>
+    <tr><td><strong>None</strong></td><td>Not yet scheduled — fair game for auto-scheduling and optimisation</td></tr>
+    <tr><td><strong>Scheduled</strong></td><td>Planned but not released; optimisation may still move it</td></tr>
+    <tr><td><strong>Dispatched</strong></td><td>Released to the technician; generally protected from being moved</td></tr>
+    <tr><td><strong>In Progress</strong></td><td>Work has started — actual start captured; do not reschedule</td></tr>
+    <tr><td><strong>Completed</strong></td><td>Finished; frees capacity, triggers downstream billing and reporting</td></tr>
+    <tr><td><strong>Cannot Complete</strong></td><td>Attended but not finished — usually generates a follow-up appointment</td></tr>
+    <tr><td><strong>Cancelled</strong></td><td>Will not happen; capacity must be released and the gap ideally refilled</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Use <strong>status transition</strong> settings to restrict which status can move to which, by profile or permission.
+   This is how you stop a technician marking a job Completed without capturing parts, or a dispatcher reversing a
+   completed visit. Combine with required fields and validation rules that are <em>offline-safe</em> — see
+   <a href="#mobile">Mobile</a>.</p>
+
+<!-- ============================================ -->
+<h2 id="inventory">Parts and inventory, end to end</h2>
+<p>The part of Field Service that most projects underestimate. A job that needs a part nobody has is not a scheduling
+   problem, it is an inventory problem — and it is where the second visit comes from.</p>
+
+<div class="dgm">
+  <div class="dgm-title">The physical chain: warehouse to van to job to return</div>
+  <svg viewBox="0 0 800 300" role="img" aria-label="Inventory flow from location and product item through product request, transfer, shipment, products consumed and return order">
+    <rect class="s-box-b" x="20" y="24" width="150" height="58" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="95" y="46">Location</text>
+    <text class="s-t-sm anchor-mid" x="95" y="66">warehouse · van · site</text>
+    <path class="s-line-b" d="M170 53 H225" marker-end="url(#fsa3)"/>
+
+    <rect class="s-box-v" x="225" y="24" width="165" height="58" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="307" y="46">Product Item</text>
+    <text class="s-t-sm anchor-mid" x="307" y="66">stock AT a location</text>
+    <path class="s-line-v" d="M390 53 H445" marker-end="url(#fsa3)"/>
+
+    <rect class="s-box" x="445" y="24" width="165" height="58" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="527" y="46">Product Item Transaction</text>
+    <text class="s-t-sm anchor-mid" x="527" y="66">every movement, audited</text>
+
+    <rect class="s-box-t" x="20" y="112" width="150" height="58" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="95" y="134">Product Required</text>
+    <text class="s-t-sm anchor-mid" x="95" y="154">what the job needs</text>
+    <path class="s-line-t" d="M170 141 H225" marker-end="url(#fsa3)"/>
+
+    <rect class="s-box-t" x="225" y="112" width="165" height="58" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="307" y="134">Product Request</text>
+    <text class="s-t-sm anchor-mid" x="307" y="154">+ Request Line Items</text>
+    <path class="s-line-t" d="M390 141 H445" marker-end="url(#fsa3)"/>
+
+    <rect class="s-box-a" x="445" y="112" width="165" height="58" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="527" y="134">Product Transfer</text>
+    <text class="s-t-sm anchor-mid" x="527" y="154">+ Shipment (in transit)</text>
+    <path class="s-line-a" d="M610 141 H665" marker-end="url(#fsa3)"/>
+    <rect class="s-box-a" x="665" y="112" width="115" height="58" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="722" y="134">Van stock</text>
+    <text class="s-t-sm anchor-mid" x="722" y="154">updated</text>
+
+    <path class="s-line-g" d="M307 170 V210" marker-end="url(#fsa3)"/>
+    <rect class="s-box-g" x="215" y="210" width="185" height="58" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="307" y="232">Products Consumed</text>
+    <text class="s-t-sm anchor-mid" x="307" y="252">on the work order — billable</text>
+    <path class="s-line-g" d="M400 239 H465" marker-end="url(#fsa3)"/>
+    <rect class="s-box-r" x="465" y="210" width="185" height="58" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="557" y="232">Return Order</text>
+    <text class="s-t-sm anchor-mid" x="557" y="252">unused · faulty · warranty</text>
+    <defs><marker id="fsa3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+  <div class="dgm-cap">Stock is always "quantity of a product <em>at a location</em>". A van is just a location that moves.</div>
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Object</th><th>Represents</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Location</strong></td><td>Warehouse, van, customer site or plant room. Flagged as an inventory location, optionally mobile</td></tr>
+    <tr><td><strong>Product Item</strong></td><td>Quantity of a product held at one location — <em>this</em> is "stock"</td></tr>
+    <tr><td><strong>Product Item Transaction</strong></td><td>The audit trail of every increase and decrease</td></tr>
+    <tr><td><strong>Product Required</strong></td><td>Parts a work order, line item or work type needs — the demand signal</td></tr>
+    <tr><td><strong>Product Request / Line Item</strong></td><td>A request to source parts, e.g. "send two pumps to van 12"</td></tr>
+    <tr><td><strong>Product Transfer</strong></td><td>Movement of stock between locations, with quantities sent and received</td></tr>
+    <tr><td><strong>Shipment</strong></td><td>Goods in transit, with tracking</td></tr>
+    <tr><td><strong>Products Consumed</strong></td><td>Parts actually used on the job — decrements van stock and feeds billing</td></tr>
+    <tr><td><strong>Return Order / Line Item</strong></td><td>Sending stock back: unused, faulty, or for warranty/repair</td></tr>
+    <tr><td><strong>Serialised items</strong></td><td>Tracked individually as <strong>Assets</strong>, not as quantities</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout tip">
+  <span class="c-ico">🔧</span>
+  <div class="c-body"><span class="c-title">Parts availability is not a work rule</span>
+    There is no out-of-the-box hard rule that says "only schedule this job to an engineer who is carrying the part". The
+    practical patterns: <strong>①</strong> don't release the appointment until parts are confirmed (a status/flag the
+    scheduling recipe filters on); <strong>②</strong> stamp a field on the appointment from your own parts check and use a
+    <em>Match Fields</em> rule against the resource; <strong>③</strong> schedule anyway and accept a second visit, which
+    is what most organisations actually do while claiming otherwise. Decide explicitly rather than by accident — first-time
+    fix rate is usually the single biggest number the business cares about.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="assets">Assets, warranties and maintenance</h2>
+<p>Field Service's long-term value is in what you know about the equipment, not the visits. This is the layer that turns
+   break-fix into planned work.</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Concept</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Asset hierarchy</strong></td><td>Parent/child assets — a chiller inside a plant room inside a building. Faults and history roll up meaningfully</td></tr>
+    <tr><td><strong>Asset Relationship</strong></td><td>Non-hierarchical links between assets (replaced-by, connected-to)</td></tr>
+    <tr><td><strong>Warranty Term / Asset Warranty</strong></td><td>What is covered, for how long, and what percentage of parts, labour and travel the customer pays</td></tr>
+    <tr><td><strong>Maintenance Plan</strong></td><td>The recurring agreement that generates work orders ahead of time</td></tr>
+    <tr><td><strong>Maintenance Asset</strong></td><td>Which assets the plan covers — one plan can cover hundreds</td></tr>
+    <tr><td><strong>Maintenance Work Rule</strong></td><td>The generation pattern for a covered asset — calendar-based, or driven by usage criteria</td></tr>
+    <tr><td><strong>Generation settings</strong></td><td>How far ahead work orders are created, how many at a time, and whether you get one work order per asset or one per plan</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Three flavours of preventive maintenance</h3>
+<div class="grid g3">
+  <div class="card accent-blue"><h4>Calendar-based</h4>
+    <p>Every six months, first Tuesday, annually on the anniversary. Simple, predictable, easy to sell.</p>
+    <p class="s-t-sm">Risk: visits happen whether or not the equipment needs them.</p></div>
+  <div class="card accent-violet"><h4>Usage / criteria-based</h4>
+    <p>Every 500 operating hours, every 10,000 cycles — driven by readings held on the Asset.</p>
+    <p class="s-t-sm">Requires a reliable feed of those readings. No feed, no plan.</p></div>
+  <div class="card accent-teal"><h4>Condition-based</h4>
+    <p>Telemetry or Data Cloud signals indicate degradation, and a work order is raised in response.</p>
+    <p class="s-t-sm">Highest value, hardest to do — needs real integration and a trusted threshold.</p></div>
+</div>
+
+<div class="callout warn">
+  <span class="c-ico">📅</span>
+  <div class="c-body"><span class="c-title">Maintenance generation is a batch, and it fails quietly</span>
+    Work orders appear because a background job ran. When "the PPM visits didn't get created", check in this order: the
+    plan's date range and next-suggested date, the generation horizon (it may simply not be time yet), whether the batch
+    is scheduled and completing, whether covered assets are active and still linked, and whether the generated volume hit
+    a limit. Monitor the job's outcome — do not wait for the business to notice a missed month.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="entitlements">Entitlements, SLAs, pricing and time</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Area</th><th>How it works in Field Service</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Entitlements &amp; contracts</strong></td><td>Work Orders can carry an Entitlement or Service Contract, so coverage is checked before an engineer is sent</td></tr>
+    <tr><td><strong>Milestones &amp; SLA</strong></td><td>SLA start/exit tracking on the work order, with time-based milestone actions for warnings and escalations. Business Hours decide what "four hours" means</td></tr>
+    <tr><td><strong>Due date as the contract</strong></td><td>In practice the SLA becomes the appointment's <strong>Due Date</strong> — that is how scheduling learns to care about it</td></tr>
+    <tr><td><strong>Pricing</strong></td><td>Work Order Line Items price from a Price Book; totals (subtotal, discount, tax, grand total) roll up to the work order</td></tr>
+    <tr><td><strong>Billing</strong></td><td>Usually an integration: completed work orders with consumed products and labour become invoices in ERP or Revenue Cloud</td></tr>
+    <tr><td><strong>Time Sheets</strong></td><td>Time Sheet and Time Sheet Entry records capture work, travel and breaks per resource per period — the feed to payroll</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout note">
+  <span class="c-ico">⚖️</span>
+  <div class="c-body"><span class="c-title">Two clocks, and they disagree</span>
+    The <strong>SLA clock</strong> runs on Business Hours from the entitlement. The <strong>scheduling clock</strong> runs
+    on operating hours and shifts in the territory's time zone. If the contract promises four working hours but the
+    territory's operating hours are different, appointments will be scheduled that breach the SLA while every rule passes.
+    Reconcile the two deliberately, and translate the SLA into Earliest Start Permitted and Due Date on the appointment so
+    the engine can actually honour it.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="mobile">The mobile app: offline architecture in depth</h2>
+<p>The mobile app is not a thin client. It holds its own copy of a slice of your org, works fully offline, and
+   reconciles later. Treat it as a distributed system, because it is one.</p>
+
+<div class="dgm">
+  <div class="dgm-title">Priming, working offline, and reconciling</div>
+  <svg viewBox="0 0 800 280" role="img" aria-label="Mobile offline architecture: priming rules, on-device store, offline edits queue, sync and server-side processing">
+    <rect class="s-box-b" x="25" y="26" width="185" height="60" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="117" y="48">Priming rules</text>
+    <text class="s-t-sm anchor-mid" x="117" y="68">objects · related lists · dates</text>
+    <path class="s-line-b" d="M210 56 H275" marker-end="url(#fsa4)"/>
+
+    <rect class="s-box-v" x="275" y="26" width="185" height="60" rx="9"/>
+    <text class="s-t s-t-v anchor-mid" x="367" y="50">On-device store</text>
+    <text class="s-t-sm anchor-mid" x="367" y="70">a slice of your org</text>
+    <path class="s-line-v" d="M367 86 V130" marker-end="url(#fsa4)"/>
+
+    <rect class="s-box-r" x="255" y="130" width="225" height="66" rx="9"/>
+    <text class="s-t s-t-r anchor-mid" x="367" y="154">Offline work — no server</text>
+    <text class="s-t-sm anchor-mid" x="367" y="176">mobile flows · photos · signature · parts</text>
+    <path class="s-line-r" d="M480 163 H560" marker-end="url(#fsa4)"/>
+
+    <rect class="s-box-a" x="560" y="130" width="215" height="66" rx="9"/>
+    <text class="s-t s-t-a anchor-mid" x="667" y="154">Pending upload queue</text>
+    <text class="s-t-sm anchor-mid" x="667" y="176">changed fields only, retried</text>
+    <path class="s-line-a" d="M667 130 V96" marker-end="url(#fsa4)"/>
+
+    <rect class="s-box-t" x="560" y="26" width="215" height="60" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="667" y="48">Sync on reconnect</text>
+    <text class="s-t-sm anchor-mid" x="667" y="68">validation + triggers fire NOW</text>
+
+    <rect class="s-box-g" x="25" y="130" width="185" height="66" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="117" y="154">Server-side processing</text>
+    <text class="s-t-sm anchor-mid" x="117" y="176">must be idempotent</text>
+    <path class="s-line-g s-dash" d="M560 56 H210 V130"/>
+
+    <rect class="s-box" x="255" y="216" width="290" height="46" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="400" y="244">Records may arrive hours late, out of order, in conflict</text>
+    <defs><marker id="fsa4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+  <div class="dgm-cap">Nothing in the middle box can reach a server. Everything in the right-hand box happens later, in
+     bulk, and possibly while the record has already changed in the org.</div>
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Mechanism</th><th>What to know</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Offline priming</strong></td><td>Configuration decides which objects, related lists and date range are downloaded. More priming = longer sync, more storage, staler data. Tighten the date window aggressively</td></tr>
+    <tr><td><strong>Field-level upload</strong></td><td>The app generally uploads <em>changed fields</em>, which limits how often two people genuinely collide. It does not eliminate conflicts on the same field</td></tr>
+    <tr><td><strong>Mobile flows</strong></td><td>Screen flows that run on the device. Element support is restricted offline — no callouts, no server-side Apex, and Get Records only against primed data</td></tr>
+    <tr><td><strong>Quick actions</strong></td><td>The main way to give technicians one-tap operations on the appointment</td></tr>
+    <tr><td><strong>Lightning web components</strong></td><td>Supported in the app, with offline data access through the GraphQL wire adapter and device capabilities such as barcode scanning and location. Verify current targets and offline-supported adapters in the mobile developer guide</td></tr>
+    <tr><td><strong>App extensions</strong></td><td>Launch another app, a URL, a flow or a component from the appointment — how you integrate a meter app or a manufacturer's diagnostic tool</td></tr>
+    <tr><td><strong>Service reports</strong></td><td>Template-driven completion documents with signature capture, generated on the device and synced</td></tr>
+    <tr><td><strong>Push notifications</strong></td><td>Drive awareness of new, changed or cancelled work; essential if you drip-feed</td></tr>
+    <tr><td><strong>Location</strong></td><td>Resource geolocation feeds travel estimation, real-time tracking for customers, and "who is nearest" decisions. Also a works-council and privacy conversation — have it early</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout danger">
+  <span class="c-ico">📴</span>
+  <div class="c-body"><span class="c-title">Your validation rules fire at sync time, not at edit time</span>
+    A technician completes eleven jobs in a basement. On reconnect, a required field or a validation rule they could not
+    satisfy offline rejects the upload — and now there is a sync error, in a queue, that they will not notice until
+    tomorrow. Audit every validation rule, required field and trigger on the appointment and work order for
+    <strong>offline-satisfiability</strong>: can a technician possibly meet this condition with only primed data? If not,
+    move the check server-side into a status change or a scheduled job that raises a task instead of blocking the save.</div>
+</div>
+
+<div class="callout tip">
+  <span class="c-ico">♻️</span>
+  <div class="c-body"><span class="c-title">The idempotency rule</span>
+    Post-sync automation must tolerate: the same record arriving twice, appointments completing out of order, actual end
+    times before actual starts (clock skew and manual entry), and records referencing a work order someone else closed
+    this afternoon. Write every post-sync handler so that running it twice changes nothing the second time, and never
+    assume the current server state resembles what the device saw.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="customer">The customer-facing layer</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Capability</th><th>What it adds</th><th>What it needs from you</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Self-service scheduling</strong></td><td>Customers pick their own arrival window in a portal or site</td><td>A fast, lean booking policy and suppression of slots you'd regret</td></tr>
+    <tr><td><strong>Appointment reminders &amp; confirmation</strong></td><td>Cuts no-access failures, which are pure wasted travel</td><td>Reliable contact data and a messaging channel</td></tr>
+    <tr><td><strong>Real-time tracking</strong></td><td>"Your engineer is 20 minutes away" — the single biggest CSAT lever in field service</td><td>Location from the mobile app, honest travel estimates, and a privacy position</td></tr>
+    <tr><td><strong>Self-service rescheduling</strong></td><td>Customers move their own visit instead of phoning</td><td>Clear rules on how late a change is allowed, and capacity release</td></tr>
+    <tr><td><strong>Visual remote assistance</strong></td><td>A video call with annotation — often resolves the job with no visit at all</td><td>Agent training; the cheapest visit is the one you avoid</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout case">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">Where the money actually is</span>
+    Ranked by return in most field service programmes: <strong>① avoid the visit</strong> (remote resolution, better
+    triage) → <strong>② fix it first time</strong> (right skills, right parts) → <strong>③ cut travel</strong>
+    (territories, bundling, optimisation) → <strong>④ shave minutes on site</strong>. Teams almost always start at ④
+    because it feels technical, and wonder why the business case never lands.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="apex">Apex, automation and the FSL API</h2>
+<p>The managed package exposes an Apex API for candidates, booking, scheduling and optimisation. Three rules govern all
+   of it: resolve policies by name, never call it synchronously from a trigger, and treat every call as expensive.</p>
+
+<div class="callout warn">
+  <span class="c-ico">📖</span>
+  <div class="c-body"><span class="c-title">Signatures vary by package version</span>
+    The samples below are <strong>illustrative of the shape</strong> of the API, not a contract. Method signatures, class
+    names and return types have changed between package releases. Always confirm against the Field Service Managed
+    Package Developer Guide for the version installed in <em>your</em> org before writing real code.</div>
+</div>
+
+<h3>Offering and booking windows</h3>
+<pre><code class="language-apex">/* Resolve config by NAME, return graded windows, then book one.
+   Illustrative — verify signatures for your installed package version. */
+public with sharing class FsBookingService {
+
+    public class FsConfigException extends Exception {}
+
+    // Policy Ids differ in every org and every refreshed sandbox.
+    // Look them up by name; keep the name in Custom Metadata, not in code.
+    private static Id policyIdByName(String policyName) {
+        List&lt;FSL__Scheduling_Policy__c&gt; policies = [
+            SELECT Id FROM FSL__Scheduling_Policy__c
+            WHERE Name = :policyName
+            LIMIT 1
+        ];
+        if (policies.isEmpty()) {
+            throw new FsConfigException('Scheduling policy not found: ' + policyName);
+        }
+        return policies[0].Id;
+    }
+
+    // Arrival windows an agent or customer can choose from, with grades.
+    public static List&lt;FSL.AppointmentBookingSlot&gt; offerWindows(
+        Id appointmentId, String policyName, Id bookingHoursId
+    ) {
+        List&lt;FSL.AppointmentBookingSlot&gt; slots = FSL.AppointmentBookingService.getSlots(
+            appointmentId,
+            policyIdByName(policyName),
+            bookingHoursId,
+            UserInfo.getTimeZone(),
+            false                      // false = arrival windows, true = exact times
+        );
+
+        // Never show a customer a slot you would not want them to pick.
+        List&lt;FSL.AppointmentBookingSlot&gt; offered = new List&lt;FSL.AppointmentBookingSlot&gt;();
+        for (FSL.AppointmentBookingSlot s : slots) {
+            if (s.grade &gt;= 40) offered.add(s);     // suppress poor-grade options
+        }
+        return offered;
+    }
+}</code></pre>
+
+<h3>Scheduling and optimisation from an asynchronous context</h3>
+<pre><code class="language-apex">/* Scheduling calls are heavy and hit the engine. Do them in Queueable,
+   one appointment at a time, and record WHY a failure happened. */
+public class FsAutoScheduleJob implements Queueable {
+
+    private final List&lt;Id&gt; appointmentIds;
+    private final String policyName;
+
+    public FsAutoScheduleJob(List&lt;Id&gt; appointmentIds, String policyName) {
+        this.appointmentIds = appointmentIds;
+        this.policyName     = policyName;
+    }
+
+    public void execute(QueueableContext ctx) {
+        Id policyId = FsBookingService.policyIdByName(policyName);
+        List&lt;ServiceAppointment&gt; toFlag = new List&lt;ServiceAppointment&gt;();
+
+        for (Id saId : appointmentIds) {
+            try {
+                FSL.ScheduleResult result = FSL.ScheduleService.schedule(policyId, saId);
+
+                // A null/empty result is NOT an error — it means no candidate passed
+                // every hard rule. Make that visible instead of silently losing the job.
+                if (result == null) {
+                    toFlag.add(new ServiceAppointment(
+                        Id = saId,
+                        Scheduling_Note__c = 'No candidates under policy ' + policyName
+                    ));
+                }
+            } catch (Exception e) {
+                toFlag.add(new ServiceAppointment(
+                    Id = saId,
+                    Scheduling_Note__c = 'Scheduling error: ' + e.getMessage()
+                ));
+            }
+        }
+        if (!toFlag.isEmpty()) update toFlag;
+    }
+}
+
+/* Requesting an optimisation run — asynchronous by nature.
+   You get an optimisation request record back; the plan changes later. */
+public class FsOptimisationRequester {
+    public static void optimiseTomorrow(List&lt;Id&gt; territoryIds, String policyName) {
+        FSL.OAASRequest req = new FSL.OAASRequest();
+        req.allTasksMode         = true;                        // include scheduled work, not just unscheduled
+        req.start                = Date.today().addDays(1);
+        req.finish               = Date.today().addDays(8);     // keep the horizon short
+        req.locations            = territoryIds;                // one run per territory group
+        req.schedulingPolicyID   = FsBookingService.policyIdByName(policyName);
+        req.filterFieldAPIName   = 'FSL__Optimize__c';          // only appointments opted in
+
+        new FSL.OAAS().optimize(req);
+    }
+}</code></pre>
+
+<div class="callout danger">
+  <span class="c-ico">⛔</span>
+  <div class="c-body"><span class="c-title">Do not call the scheduling API from a trigger</span>
+    It is slow, it is effectively a round trip to the engine, and it cannot be bulkified per record. A trigger that
+    schedules on insert will blow CPU limits the first time someone loads 200 work orders — and then quietly corrupt
+    the plan when a retry re-runs it. Publish a platform event or enqueue a Queueable, and let a recipe or your own job
+    do the work.</div>
+</div>
+
+<h3>Post-sync automation that survives reality</h3>
+<pre><code class="language-apex">/* Mobile data arrives late, out of order, and sometimes twice.
+   Every post-sync handler must be safe to run again. */
+public with sharing class AppointmentCompletionHandler {
+
+    public static void onStatusChange(List&lt;ServiceAppointment&gt; appts, Map&lt;Id, ServiceAppointment&gt; oldMap) {
+
+        Set&lt;Id&gt; toProcess = new Set&lt;Id&gt;();
+
+        for (ServiceAppointment sa : appts) {
+            ServiceAppointment prior = oldMap.get(sa.Id);
+
+            // Key off the STATUS CATEGORY, not the label — custom statuses vary by org.
+            Boolean nowComplete = sa.StatusCategory == 'Completed';
+            Boolean wasComplete = prior != null &amp;&amp; prior.StatusCategory == 'Completed';
+
+            // The idempotency guard: a flag we set ourselves, once.
+            if (nowComplete &amp;&amp; !wasComplete &amp;&amp; !sa.Completion_Processed__c) {
+                toProcess.add(sa.Id);
+            }
+        }
+        if (toProcess.isEmpty()) return;
+
+        // Heavy work (billing hand-off, callouts, roll-ups) goes async and bulk-safe.
+        System.enqueueJob(new CompletionProcessor(toProcess));
+    }
+}</code></pre>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Automation choice</th><th>Use when</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Scheduling recipe (config)</strong></td><td>Standard "schedule it / fill the gap / reshuffle" behaviour. Always try this before code</td></tr>
+    <tr><td><strong>Record-triggered flow</strong></td><td>Field updates, related-record creation, notifications — nothing that calls the engine</td></tr>
+    <tr><td><strong>Platform event + Queueable</strong></td><td>Anything that must call the scheduling API, a callout, or do heavy work after a mobile sync</td></tr>
+    <tr><td><strong>Batch Apex</strong></td><td>Nightly reconciliation: stale appointments, capacity release, orphaned product requests, sync-error sweeps</td></tr>
+    <tr><td><strong>Apex trigger</strong></td><td>Validation and stamping that must be immediate and cheap. Keep it small — the package has its own triggers competing for the same CPU</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="ai">AI in Field Service</h2>
+<p>The genuinely useful applications are narrow and unglamorous, which is exactly why they work.</p>
+<div class="grid g2">
+  <div class="card accent-violet"><h4>Worth doing</h4>
+    <ul><li><strong>Pre-work briefing</strong> — a summary of the asset's history and previous visits, so the engineer arrives informed</li>
+        <li><strong>Post-work summaries</strong> from notes and transcripts, turning three words into a usable record</li>
+        <li><strong>Knowledge surfacing</strong> for the specific fault code and asset model</li>
+        <li><strong>Triage and deflection</strong> before a visit is ever booked</li>
+        <li><strong>Duration prediction</strong> from history — better estimates improve every downstream plan</li></ul></div>
+  <div class="card accent-amber"><h4>Handle with care</h4>
+    <ul><li>Anything writing to the schedule without a human check — the optimiser already owns that decision</li>
+        <li>Safety-critical procedure generation</li>
+        <li>Parts recommendations that create real cost with no confirmation</li>
+        <li>Summaries used as the legal record of what was done on site</li></ul></div>
+</div>
+<p>See <a href="agentforce.html">Agentforce A to Z</a> for how agents, actions and guardrails are built, and
+   <a href="einstein-ai.html">Einstein, AI &amp; Data Cloud</a> for grounding and the Trust Layer. The field service
+   specifics are simply that connectivity is unreliable and mistakes cost a truck roll.</p>
+
+<!-- ============================================ -->
+<h2 id="scheduler-vs-fs">Salesforce Scheduler vs Field Service</h2>
+<p>A very common interview question, and a genuinely common architecture mistake.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>Salesforce Scheduler</th><th>Field Service</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Problem it solves</strong></td><td>Booking appointments <em>with</em> people — branch visits, advisers, consultations</td><td>Sending people <em>to</em> places to do work</td></tr>
+    <tr><td><strong>Core objects</strong></td><td>Service Appointment, Service Resource, Service Territory, Work Type Group</td><td>Work Order, Service Appointment, plus the whole assets/parts/mobile estate</td></tr>
+    <tr><td><strong>Travel</strong></td><td>Largely irrelevant — the customer usually comes to you</td><td>The dominant cost, optimised continuously</td></tr>
+    <tr><td><strong>Engine</strong></td><td>Availability lookup with topic/skill matching</td><td>Rules, weighted objectives, grading and bulk optimisation</td></tr>
+    <tr><td><strong>Mobile</strong></td><td>Standard Salesforce app</td><td>A dedicated offline-first app</td></tr>
+    <tr><td><strong>Inventory / assets</strong></td><td>None</td><td>Full parts, warranty and maintenance chains</td></tr>
+  </tbody>
+</table>
+</div>
+<p>If nobody drives anywhere and there are no parts, Field Service is a large amount of machinery you will pay for and
+   not use. If travel time is the cost driver, Scheduler will never get you there.</p>
+
+<!-- ============================================ -->
+<h2 id="scale">Scale, performance and limits</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Pressure point</th><th>What degrades</th><th>What to do</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Territory size</strong></td><td>Gantt rendering, candidate calculation, optimisation runtime — all superlinear in resources × appointments</td><td>Split into territories a dispatcher can actually manage; use a hierarchy for reporting</td></tr>
+    <tr><td><strong>Optimisation horizon</strong></td><td>Runtime grows fast with the date range</td><td>Optimise days, not quarters. A short rolling horizon, run often, beats a long one run rarely</td></tr>
+    <tr><td><strong>Number of hard rules</strong></td><td>Every rule is evaluated per candidate per slot</td><td>Prefer a few sharp rules; move "nice to have" logic into objectives</td></tr>
+    <tr><td><strong>Booking horizon</strong></td><td>Synchronous slot calculation — the user is waiting</td><td>Offer the next 10–15 working days, not 90</td></tr>
+    <tr><td><strong>Appointment and work order volume</strong></td><td>Reports, list views, sharing recalculation — classic large-data-volume symptoms</td><td>Archive completed work on a schedule; index and filter on selective fields. See <a href="data-management.html">Data Management</a></td></tr>
+    <tr><td><strong>Mobile priming volume</strong></td><td>Initial sync time, device storage, battery</td><td>Narrow the date window and the related lists. Most technicians need days, not months</td></tr>
+    <tr><td><strong>Trigger and package CPU</strong></td><td>The package's own triggers run alongside yours on the same objects</td><td>Keep your appointment/work order triggers thin; push everything heavy async</td></tr>
+    <tr><td><strong>Sharing recalculation</strong></td><td>Territory or ownership changes can trigger large recalculations</td><td>Make bulk territory changes in controlled windows, not at 08:00 on Monday</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="sharing">Security and sharing at scale</h2>
+<p>Field Service has an unusual access shape: dispatchers need to see almost everything, technicians need their own work
+   plus enough context, and contractors must see <em>only</em> their jobs while sitting outside your org.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Population</th><th>Typical approach</th><th>Watch out for</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Dispatchers</strong></td><td>Broad access by territory — sharing rules onto dispatcher groups, or role hierarchy where it genuinely fits</td><td>"Give dispatchers View All" is the lazy answer and fails the first audit</td></tr>
+    <tr><td><strong>Technicians</strong></td><td>Access to their own appointments and parent work orders, plus the account/asset context the mobile app needs</td><td>Under-sharing shows up as <em>blank screens on the device</em>, which looks like a mobile bug for days</td></tr>
+    <tr><td><strong>Crew members</strong></td><td>Must see work assigned to the crew, not just to themselves</td><td>Easy to forget; the crew resource is a different record from the person</td></tr>
+    <tr><td><strong>Contractors</strong></td><td>Experience Cloud with Sharing Sets, or dedicated licences</td><td>Guest and external sharing mistakes here are genuinely serious — see <a href="experience-cloud.html">Experience Cloud</a></td></tr>
+    <tr><td><strong>Optimisation running user</strong></td><td>Deliberately broad, documented, monitored</td><td>Too narrow and optimisation silently under-performs with no error anywhere</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout note">
+  <span class="c-ico">🔍</span>
+  <div class="c-body"><span class="c-title">A mobile screen with missing data is usually a sharing problem</span>
+    Before you debug priming, log in as the technician and open the record in the browser. If a related list is empty
+    there too, it is record access — not the app. This one check saves days.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="deploy">Deployment, testing and environments</h2>
+<div class="callout danger">
+  <span class="c-ico">🧳</span>
+  <div class="c-body"><span class="c-title">Most of your Field Service configuration is data, not metadata</span>
+    Scheduling policies, work rules, service objectives, territories, operating hours, shift patterns, skills, work types
+    and the package settings are <strong>records</strong>. Change sets and source deployments will not carry them. Plan
+    for a repeatable <em>data</em> migration — an export/import script or a seeding job kept in version control — and
+    treat it as part of your release process, not a one-off at go-live.</div>
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Concern</th><th>Approach</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Package installation</strong></td><td>Install the managed package in every environment, at matching versions. Upgrades are a project, not a click — schedule regression time</td></tr>
+    <tr><td><strong>Config migration</strong></td><td>Scripted export/import of policies, rules, objectives, territories, hours and work types. Re-point references by name after load</td></tr>
+    <tr><td><strong>Unit tests</strong></td><td>You can test your own handlers, guards and idempotency thoroughly. You cannot meaningfully unit-test the optimiser — don't pretend to</td></tr>
+    <tr><td><strong>Scenario tests</strong></td><td>A sandbox with realistic geography, resources, skills and a full week of appointments. Run the actual policies and inspect the plan</td></tr>
+    <tr><td><strong>Regression set</strong></td><td>A fixed set of scheduling scenarios with expected outcomes, re-run after every policy change and every package upgrade</td></tr>
+    <tr><td><strong>Mobile testing</strong></td><td>On real devices, in genuine aeroplane mode, with a full day's work queued — then reconnect and inspect the sync errors. Emulators will lie to you</td></tr>
+    <tr><td><strong>Sandbox refresh</strong></td><td>Expect to reseed config data and re-point every stored policy Id. Never hard-code Ids anywhere</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="blueprint">End-to-end implementation blueprint</h2>
+<p>The order that keeps projects out of trouble. Each step depends on the one before it, and skipping ahead is how
+   implementations end up re-doing territories in month six.</p>
+<ul class="steps">
+  <li><b>1 · Define the operating model on paper</b> — territories, shifts, skills, who may do what, and the three numbers the business will judge you on (first-time fix, SLA, travel).</li>
+  <li><b>2 · Get the work taxonomy right</b> — Work Types with honest durations and skill requirements. Every downstream plan inherits these numbers, so bad durations poison everything.</li>
+  <li><b>3 · Build the availability foundation</b> — operating hours, territories with dated membership, shifts or hours (pick one), absences fed from HR.</li>
+  <li><b>4 · Load the resource picture</b> — resources, skills with levels and expiry, crews, capacity for contractors.</li>
+  <li><b>5 · Calibrate travel</b> — before any tuning. Make the engine's estimates resemble reality.</li>
+  <li><b>6 · Build the policy library</b> — routine, emergency, contractor, optimisation and diagnostic. Two objectives each to start.</li>
+  <li><b>7 · Prove it manually</b> — dispatchers scheduling by hand in the console, with candidate lists they trust. If they don't trust the grades, nothing automated will be accepted.</li>
+  <li><b>8 · Automate scheduling</b> — one recipe at a time, measuring against the baseline after each.</li>
+  <li><b>9 · Turn on optimisation</b> — nightly, one territory as a pilot, comparing travel and SLA against the manual baseline before rolling wider.</li>
+  <li><b>10 · Ship mobile carefully</b> — tight priming, offline-safe validation, mobile flows for procedures, service report templates, and a real offline test with real devices.</li>
+  <li><b>11 · Close the physical loop</b> — van stock, product requests, consumption, returns. This is where first-time fix actually improves.</li>
+  <li><b>12 · Add maintenance and the customer layer</b> — maintenance plans to shift work from reactive to planned; reminders and tracking to cut no-access failures.</li>
+  <li><b>13 · Instrument everything</b> — a dashboard of unscheduled count, travel minutes, SLA hits, first-time fix, overtime, pinned appointments and sync errors. Review it weekly and tune from evidence.</li>
+</ul>
+
+<!-- ============================================ -->
+<h2 id="troubleshooting">Troubleshooting playbook</h2>
+<p>Symptom first, because that is how tickets arrive.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Symptom</th><th>Look here, in this order</th></tr></thead>
+  <tbody>
+    <tr><td><strong>No candidates found</strong></td><td>Skills (level, expiry) → territory membership dates → operating hours/shifts and time zone → absences and existing bookings → capacity → Match Fields rules → the Earliest Start / Due Date window. Compare against the diagnostic policy to bisect</td></tr>
+    <tr><td><strong>Candidates appear but grades are all identical</strong></td><td>Objectives aren't discriminating — weights too close, or an objective that doesn't vary across these slots</td></tr>
+    <tr><td><strong>The wrong engineer is chosen</strong></td><td>Objective weights, not rules. Check preferred-resource and skill-level objectives especially</td></tr>
+    <tr><td><strong>Optimisation "does nothing"</strong></td><td>The optimisation request record's status and result → pinned and dispatched counts → the policy on the request (not the console policy) → horizon and territory scope → the running user's record access</td></tr>
+    <tr><td><strong>Travel is still high</strong></td><td>Weights → pinning → territory overlap → narrow arrival windows → resource home base → travel calibration</td></tr>
+    <tr><td><strong>Booked outside the customer's hours</strong></td><td>Visiting-hours rule missing from the policy → operating hours on the account → time zones</td></tr>
+    <tr><td><strong>An engineer vanished from the Gantt</strong></td><td>Territory membership effective dates → resource active flag → shifts not generated for that period → an all-day absence</td></tr>
+    <tr><td><strong>Technician can't see the job on mobile</strong></td><td>Status category (is it actually Dispatched?) → record sharing (test in the browser as them) → priming rules and date window → drip-feed limit reached</td></tr>
+    <tr><td><strong>Offline work "disappeared"</strong></td><td>The device's pending-upload and sync-error queue → validation rules and required fields that cannot be satisfied offline → a trigger throwing on sync → conflicting server-side edits</td></tr>
+    <tr><td><strong>Bundles not forming</strong></td><td>Enhanced optimisation enabled? → restriction policy (same location/work type/day?) → config limits on duration and member count → is the bundling job actually running?</td></tr>
+    <tr><td><strong>Dependencies violated</strong></td><td>Is the dependency rule in <em>both</em> the scheduling and optimisation policies? → one of the pair pinned or dispatched → an impossible chain given the window</td></tr>
+    <tr><td><strong>Multiday job unschedulable</strong></td><td>Multiday rule missing from the policy → duration exceeds the available consecutive days → absences inside the span → horizon too short</td></tr>
+    <tr><td><strong>Maintenance work orders missing</strong></td><td>Plan date range and next-suggested date → generation horizon (not due yet) → batch scheduled and completing? → covered assets active and linked</td></tr>
+    <tr><td><strong>SLA breaching while every rule passes</strong></td><td>Business Hours (SLA clock) versus operating hours (scheduling clock) → is the SLA translated into Due Date at all?</td></tr>
+    <tr><td><strong>Appointments churning / rescheduling repeatedly</strong></td><td>A recipe reacting to fields your automation writes → two recipes fighting → a trigger responding to engine-written fields. Look for an automation loop</td></tr>
+    <tr><td><strong>Contractor capacity looks full but isn't</strong></td><td>Cancelled or completed work not releasing capacity → capacity period boundaries → capacity rule missing so nothing is tracked consistently</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="antipatterns">Anti-patterns</h2>
+<div class="grid g2">
+  <div class="card accent-rose"><h4>Configuration</h4>
+    <ul><li>One giant territory, or hundreds of micro-territories</li>
+        <li>Ten hard rules stacked "to be safe", then nothing schedules</li>
+        <li>Custom statuses with no status category mapping</li>
+        <li>Skills invented for things that are really field matches</li>
+        <li>Required-resource preferences used where preferred was meant</li>
+        <li>Tuning objectives before calibrating travel</li></ul></div>
+  <div class="card accent-amber"><h4>Build &amp; operations</h4>
+    <ul><li>Calling the scheduling API synchronously from a trigger</li>
+        <li>Hard-coded policy Ids</li>
+        <li>Validation rules that cannot be satisfied offline</li>
+        <li>Post-sync automation that isn't idempotent</li>
+        <li>Priming three months of data to every device</li>
+        <li>Treating package config as deployable metadata</li>
+        <li>Pinning everything, then blaming optimisation</li>
+        <li>Building a custom Gantt instead of using the console</li></ul></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> How does the engine decide which slot to offer?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It's a pipeline. The candidate set starts as resources in the appointment's territory. <strong>Work
+rules</strong> filter it as hard constraints — fail one and the resource disappears. What survives becomes a
+<strong>gap matrix</strong> of every legal slot, built from availability (hours/shifts, absences, existing bookings) and
+travel. <strong>Service objectives</strong> then score each slot, weighted, producing a <strong>grade of 0–100</strong>,
+and slots are returned best-first.</p>
+<p>The diagnostic consequence: if <em>nobody</em> appears it is always the rules; if the <em>wrong person</em> appears it
+is always the objectives.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> A grade of 78% — what does that actually mean?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>It's a weighted sum of that policy's objectives, normalised to 0–100. It is <strong>not</strong> a
+probability, a confidence or a quality measure, and it is <strong>not comparable across policies</strong> — 78% under an
+emergency policy is a different statement from 78% under a routine one.</p>
+<p>Two practical points: grades clustering tightly means your objectives aren't discriminating between slots, and you
+should never write business logic against an absolute grade threshold without documenting which policy it assumes.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Walk me through everything that determines whether a resource is available on Thursday afternoon.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Five inputs, combined at calculation time: <strong>operating hours and time slots</strong> (with a
+time zone), <strong>shifts</strong> where used — which generally override the hours pattern, <strong>service territory
+membership</strong> and its effective dates, <strong>resource absences</strong>, and <strong>capacity</strong> for
+capacity-based resources. Then subtract existing appointments and the travel between them to get the real gaps.</p>
+<p>Availability is never a field you can check — it's derived, per resource per day. That's why "he's definitely working
+Thursday" and the Gantt can disagree, and why expired territory membership is the most common cause of a resource
+apparently vanishing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Optimisation runs nightly and changes almost nothing. Diagnose it.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>First the run itself: check the <strong>optimisation request record</strong> for status and result —
+it may be failing or finishing with nothing in scope. Then what it's allowed to touch: how many appointments are
+<strong>pinned</strong>, and how many are already <strong>dispatched</strong> or in progress? Dispatchers pinning
+everything is the single most common cause.</p>
+<p>Then scope and configuration: is the request using the policy you think (optimisation policies are frequently different
+from console policies), is the horizon and territory set wide enough, and does the <strong>running user</strong> actually
+have access to those appointments and resources? A narrow running user optimises a smaller world with no error anywhere.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> Crew or complex work dependencies?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Crew</strong> when the same people always work together: one Service Resource of type Crew
+gets scheduled, one arrival, one set of actual times. Far easier to schedule and optimise.</p>
+<p><strong>Dependencies</strong> when the pairing varies, when you need genuinely different skills simultaneously, when
+each person's time must be tracked separately, or when phases fall on different days. Types include start-after-finish,
+immediately-follow, same-start and same-resource.</p>
+<p>The trap: dependency records do nothing unless the dependency rule is in <em>both</em> the scheduling policy and the
+optimisation policy — otherwise the engine schedules the install before the survey, or optimisation undoes your fix
+overnight.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> What changes in your design because the mobile app works offline?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Three things. <strong>On-device logic can't reach a server</strong> — no callouts, no server-side
+Apex, no validation against unprimed data — so procedures go in mobile flows and simple field updates.</p>
+<p><strong>Validation fires at sync time, not edit time.</strong> Every validation rule, required field and trigger on the
+appointment and work order must be satisfiable offline, or a technician's whole day lands in a sync-error queue they won't
+notice until tomorrow. Checks that can't be satisfied offline move server-side and raise a task instead of blocking the
+save.</p>
+<p><strong>Post-sync automation must be idempotent and order-tolerant</strong> — the same record may arrive twice,
+completions may arrive out of sequence, and the work order may have been touched in the org since. Guard with your own
+processed flag, key off status <em>category</em> rather than label, and make re-running a no-op.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> Why is "most of Field Service config is data, not metadata" such a big deal?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Scheduling policies, work rules, objectives, territories, operating hours, shift patterns, skills
+and package settings are all <strong>records</strong>. Change sets and source deployments don't carry them, so promotion
+between environments needs a repeatable <em>data</em> migration kept in version control — not a person reconfiguring by
+hand at 2am.</p>
+<p>The corollary that bites hardest: record Ids differ per org and per refreshed sandbox, so <strong>never hard-code a
+policy Id</strong>. Resolve by name at runtime, with the name in Custom Metadata. Almost every "it worked in UAT" Field
+Service incident traces back to one of these two facts.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> Appointment bundling — when, and what breaks?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Bundle when many short jobs cluster at one location and travel dominates the cost — meter reads,
+inspections, multi-unit sites. Configuration is a bundle policy plus a config (max duration, max members, duration
+aggregation), a restriction policy (what may bundle with what), sort and propagation policies. It requires the enhanced
+optimisation engine.</p>
+<p>What breaks: members needing different skills or resources, per-job SLAs and customer promises, and per-job reporting
+and billing if you haven't tested it. The most commonly forgotten path is <strong>unbundling</strong> — decide now what
+happens to member statuses, actual times, consumed products and service reports when a bundle is broken after three of
+five members are done.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> How do you make sure an engineer arrives with the right part?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Start by being honest: there's no out-of-the-box hard rule for "carries the part". The chain is
+Product Required on the work → Product Request → Product Transfer/Shipment → Product Item at the van's Location → Products
+Consumed on completion → Return Order for what comes back.</p>
+<p>The three workable patterns: <strong>①</strong> don't release the appointment until parts are confirmed, with the
+scheduling recipe filtering on a readiness flag; <strong>②</strong> stamp a field from your own parts check and enforce it
+with a <em>Match Fields</em> rule against the resource; <strong>③</strong> schedule anyway and accept the second visit.
+Most organisations do ③ while claiming ①. Choose deliberately — first-time fix is usually the number the business cares
+about most, and it lives or dies here.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> Where would you put the logic to auto-schedule new appointments, and why not in a trigger?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>First choice is configuration: a <strong>scheduling recipe</strong> that auto-schedules appointments
+matching a condition, with its own policy. No code, supported, and the package owns the retry behaviour.</p>
+<p>If it must be code, publish a platform event or enqueue a <strong>Queueable</strong> and call the scheduling API there.
+Not a trigger, because the call is slow, effectively a round trip to the engine, and can't be bulkified per record — a
+200-record load blows CPU limits, and a retry re-runs it and corrupts the plan.</p>
+<p>Whichever route, guard the condition tightly ("status category None, no assigned resource") and never react to fields
+the engine itself writes, or you'll build an automation loop that's invisible in a single debug log.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> Salesforce Scheduler or Field Service?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Scheduler is for booking appointments <em>with</em> people — branch meetings, advisers,
+consultations — where travel is irrelevant and there are no parts. Field Service is for sending people <em>to</em> places
+to do work, where travel is the dominant cost and you need assets, inventory, maintenance and an offline mobile app.</p>
+<p>The test: if nobody drives anywhere and nothing gets fitted, Field Service is expensive machinery you won't use. If
+drive time is your cost driver, Scheduler will never get you there.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> Travel times in the plan don't match reality. Why does it matter so much?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Because every decision the engine makes is built on them. If it believes a cross-city trip takes
+twelve minutes, the plan is fiction, engineers quietly stop following it, and you lose the schedule as a source of truth —
+which is worse than a visibly bad plan, because nobody reports it.</p>
+<p>Fix it before tuning anything: compare a week of estimated travel against actual start times from the mobile app, check
+street-level routing versus straight-line settings, and verify each resource's home base and start/end locations so the
+first and last legs aren't invented. Only then tune objective weights — otherwise you're tuning against a broken
+model.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> A dispatcher says optimisation "used to work and now doesn't". Nothing was deployed. What happened?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Almost always accumulated state rather than a change. Leading candidates: <strong>pinning</strong>
+has crept up until there's nothing left to move; <strong>dispatch is happening too early</strong>, so work is protected
+before optimisation runs; territory membership or shifts weren't generated for the new period; absence volume rose
+(seasonal holiday); appointment volume outgrew the horizon or the run window; or the optimisation job has been failing
+silently — check the request records.</p>
+<p>Also worth checking: a package upgrade, an engine migration, or someone editing a shared policy record. Policies are
+data, so a "no deployment" change is entirely possible — and there's no deployment history to show you.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> You're leading a Field Service implementation. What order do you do things in?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Operating model on paper first — territories, shifts, skills, and the three numbers we'll be judged
+on. Then the work taxonomy (Work Types with honest durations, since everything downstream inherits them), then the
+availability foundation, then resources and skills.</p>
+<p><strong>Calibrate travel before tuning anything.</strong> Then build a small policy library — routine, emergency,
+contractor, optimisation, diagnostic — and prove it with dispatchers scheduling manually. If they don't trust the candidate
+grades, no automation will ever be accepted.</p>
+<p>Then automate one recipe at a time against a measured baseline, pilot optimisation on one territory, ship mobile with
+tight priming and offline-safe validation, close the parts loop, and add maintenance and the customer layer. Instrument
+throughout — unscheduled count, travel minutes, SLA, first-time fix, overtime, pinned counts, sync errors — and tune from
+evidence rather than opinion.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. A custom appointment status behaves strangely — optimisation won't move those appointments. What do you check first?</div>
+  <button class="opt">The work rules in the scheduling policy</button>
+  <button class="opt" data-correct="1">The status category the custom status maps to</button>
+  <button class="opt">The Gantt colour configuration</button>
+  <div class="explain">The platform reasons about status <em>categories</em>, not your labels. A custom status mapped to Dispatched or In Progress is protected from being moved.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. Where should code that calls the scheduling API live?</div>
+  <button class="opt">In an after-insert trigger on Service Appointment</button>
+  <button class="opt" data-correct="1">In a Queueable or behind a platform event — or better, in a scheduling recipe</button>
+  <button class="opt">In a before-update trigger, to avoid an extra DML</button>
+  <div class="explain">The call is slow and effectively a round trip to the engine. From a trigger it blows CPU limits on bulk loads and corrupts the plan on retry.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. Candidate grades under one policy are all within a point of each other. What does that tell you?</div>
+  <button class="opt">The appointment window is too narrow</button>
+  <button class="opt" data-correct="1">The objectives aren't discriminating between these slots</button>
+  <button class="opt">Optimisation hasn't run yet</button>
+  <div class="explain">A grade is a weighted sum of objectives. If every slot scores the same, the weights are too close or the objectives don't vary across these options — so the "best" slot is effectively arbitrary.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">4. Promoting Field Service config from UAT to production — what's the main problem?</div>
+  <button class="opt">Work rules must be deployed before policies</button>
+  <button class="opt" data-correct="1">Policies, rules, objectives and territories are records, so deployments don't carry them</button>
+  <button class="opt">The managed package must be uninstalled first</button>
+  <div class="explain">Most Field Service configuration is data. You need a repeatable, version-controlled data migration — and you must never hard-code the resulting Ids.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">5. A technician's offline work vanished after a day with no signal. Most likely cause?</div>
+  <button class="opt">The appointments were unbundled</button>
+  <button class="opt" data-correct="1">Validation rules or required fields rejected the upload at sync time</button>
+  <button class="opt">Optimisation reassigned the work</button>
+  <div class="explain">Validation fires at sync, not at edit. Anything unsatisfiable offline lands in a sync-error queue the technician won't notice — audit every rule for offline-satisfiability.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">6. Dependencies exist between two appointments, but the engine schedules them in the wrong order. Why?</div>
+  <button class="opt">Dependencies only work for multiday appointments</button>
+  <button class="opt" data-correct="1">The dependency rule isn't in the scheduling and/or optimisation policy</button>
+  <button class="opt">Dependencies require a crew</button>
+  <div class="explain">Dependency records are data. They're only enforced when the dependency rule is present — and it must be in <em>both</em> policies, or overnight optimisation will undo a correct plan.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Field Service — Advanced</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>
