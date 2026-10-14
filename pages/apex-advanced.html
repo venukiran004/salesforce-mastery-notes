@@ -466,6 +466,138 @@ if (FeatureManagement.checkPermission('Approve_Large_Discount')) { /* ... */ }
 </div>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>Enterprise patterns: separation of concerns</h3>
+<p>Once an org has more than a handful of developers, "logic in the trigger handler" stops scaling. The layered pattern
+   that most large Salesforce codebases converge on:</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Layer</th><th>Responsibility</th><th>Rule</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Selector</strong></td><td>All SOQL for one object, in one place</td><td>No business logic. Returns records; enforces field lists and security consistently</td></tr>
+    <tr><td><strong>Domain</strong></td><td>Behaviour and validation belonging to one object</td><td>Operates on a list of records of its own type. No cross-object orchestration</td></tr>
+    <tr><td><strong>Service</strong></td><td>A unit of business work spanning objects</td><td>The transaction boundary. Called by triggers, LWC, flows, REST — all entry points share it</td></tr>
+    <tr><td><strong>Unit of Work</strong></td><td>Collects the DML and commits it once, in dependency order</td><td>Stops the "DML in six places" problem and keeps statement counts predictable</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout tip">
+  <span class="c-ico">⚖️</span>
+  <div class="c-body"><span class="c-title">When the pattern is worth it</span>
+    Four or more developers, or a codebase expected to live five years: yes. A two-person team with twelve classes: the
+    layering costs more than it returns, and a clean handler plus a selector class gets you 80% of the benefit. Adopt
+    the <em>selector</em> first — centralising queries pays off immediately and independently of everything else.</div>
+</div>
+
+<h3>Dependency injection and dynamic instantiation</h3>
+<pre><code class="language-apex">/* Pluggable logic configured in Custom Metadata rather than hard-coded.
+   This is how you let a consultant add a pricing strategy with no deployment. */
+public interface PricingStrategy {
+    Decimal price(Opportunity opp);
+}
+
+public with sharing class PricingFactory {
+    public static PricingStrategy forRecordType(String recordTypeName) {
+        Pricing_Rule__mdt rule = Pricing_Rule__mdt.getInstance(recordTypeName);
+        if (rule == null) return new StandardPricing();
+
+        // Instantiate the class named in metadata
+        Type t = Type.forName(rule.Apex_Class__c);
+        if (t == null) {
+            throw new PricingException('Unknown pricing class: ' + rule.Apex_Class__c);
+        }
+        return (PricingStrategy) t.newInstance();
+    }
+    public class PricingException extends Exception {}
+}</code></pre>
+<p><code>Callable</code> is the other half of this: it gives a loosely-coupled, name-based entry point
+   (<code>call(String action, Map&lt;String, Object&gt; args)</code>) that lets one package invoke another without a
+   compile-time dependency — the standard way to integrate across package boundaries.</p>
+
+<h3>Platform Cache</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Aspect</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Org cache vs session cache</strong></td><td>Org cache is shared by all users; session cache is per user session. Describe results and reference data belong in org cache</td></tr>
+    <tr><td><strong>Partitions</strong></td><td>Capacity is allocated to named partitions. An unallocated partition silently does nothing</td></tr>
+    <tr><td><strong>It is a cache, not storage</strong></td><td>Entries can be evicted at any time under pressure. <strong>Every read must handle a miss</strong> and recompute</td></tr>
+    <tr><td><strong>Good candidates</strong></td><td>Describe/schema results, Custom Metadata lookups, expensive aggregate results, external reference data with a known TTL</td></tr>
+    <tr><td><strong>Bad candidates</strong></td><td>Anything user-specific in org cache, anything requiring consistency, anything you cannot recompute</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Transaction finalizers and reliable async</h3>
+<pre><code class="language-apex">/* A Finalizer runs AFTER a Queueable completes — including when it
+   failed with an uncatchable exception like a limit breach.
+   It is the only place you can reliably record "this job died". */
+public class SyncJob implements Queueable, Finalizer {
+
+    public void execute(QueueableContext ctx) {
+        System.attachFinalizer(this);
+        // ... work that might blow a limit ...
+    }
+
+    public void execute(FinalizerContext ctx) {
+        if (ctx.getResult() == ParentJobResult.UNHANDLED_EXCEPTION) {
+            // Log it, alert, or re-enqueue with a smaller scope — with a retry cap
+            Integer attempts = Integer.valueOf(ctx.getRequestId() != null ? 1 : 1);
+            ErrorLog.capture('SyncJob', ctx.getException());
+        }
+    }
+}</code></pre>
+<p>Without a finalizer, a Queueable that hits a CPU limit disappears with nothing in your logs and no retry. This is the
+   single most valuable async pattern added to the platform in years — see <a href="async-apex.html#advanced">Async
+   Apex</a> for the wider picture.</p>
+
+<h3>Describe calls, schema and heap</h3>
+<ul>
+  <li><strong>Describe results are cached per transaction</strong>, but building them is not free. Fetch once into a static map rather than calling <code>getGlobalDescribe()</code> in a loop — that call in particular is expensive and should almost never appear in bulk code.</li>
+  <li><strong>Prefer targeted describes</strong>: <code>Schema.SObjectType.Account.fields.Name</code> or <code>Account.SObjectType.getDescribe()</code> over a global describe you then index into.</li>
+  <li><strong>Field sets</strong> give admins control over which fields a component queries, without a deployment — the declarative complement to dynamic SOQL.</li>
+  <li><strong>Dynamic SOQL must be escaped.</strong> Any user-supplied fragment goes through <code>String.escapeSingleQuotes()</code>, and bind variables are preferable to concatenation everywhere they are possible.</li>
+</ul>
+
+<h3>Sharing keywords, and what they really control</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Keyword</th><th>Effect</th></tr></thead>
+  <tbody>
+    <tr><td><code>with sharing</code></td><td>Record visibility respects sharing rules. <strong>Does not</strong> enforce field-level security or object permissions</td></tr>
+    <tr><td><code>without sharing</code></td><td>Runs in system mode. Legitimate for deliberate elevation; a finding when it is just convenient</td></tr>
+    <tr><td><code>inherited sharing</code></td><td>Takes the mode of its caller — the correct default for a reusable library class, and the only one that is safe-by-default when invoked from a VF page or REST endpoint</td></tr>
+    <tr><td><strong>Inner classes</strong></td><td>Do <em>not</em> inherit the outer class's sharing declaration. Declare it explicitly</td></tr>
+    <tr><td><strong>Anonymous blocks / tests</strong></td><td>Execute Anonymous runs with sharing by default; tests run in system mode unless you use <code>System.runAs</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Writing Apex that lives inside a package</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Concern</th><th>Guidance</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Access modifiers are permanent</strong></td><td>In a managed package, anything <code>global</code> is a contract you can never break. Default to <code>public</code>; expose <code>global</code> deliberately and rarely</td></tr>
+    <tr><td><code>@namespaceAccessible</code></td><td>Lets a second package in your namespace use a member without exposing it to subscribers — the right tool for internal reuse across packages</td></tr>
+    <tr><td><strong>Deprecation</strong></td><td><code>@deprecated</code> on global members; removing them requires a new major version, and subscribers must be migrated</td></tr>
+    <tr><td><strong>Subscriber limits apply</strong></td><td>Your package code shares the subscriber's governor limits but gets its own namespace-scoped allocation for some limits. Never assume you have the whole budget</td></tr>
+    <tr><td><strong>Testing</strong></td><td>Package tests run in subscriber orgs on upgrade. They must not depend on org-specific data — this is where <code>SeeAllData</code> becomes actively dangerous</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout warn">
+  <span class="c-ico">🧯</span>
+  <div class="c-body"><span class="c-title">Patterns worth more than any framework</span>
+    <strong>Idempotency</strong> — running the same operation twice changes nothing the second time.
+    <strong>Bypass switches</strong> — every automation disableable per user without a deployment.
+    <strong>Structured error logging</strong> — a custom object or platform event capturing class, method, record Id and
+    stack, because production has no debug logs when you need them. These three cost a day each and save entire
+    incidents.</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> What is a wrapper class and when did you last need one?<span class="q-diff easy">Easy</span></summary>

@@ -845,6 +845,130 @@ describe('c-account-list', () =&gt; {
 });</code></pre>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>Cache invalidation — the question that separates seniors</h3>
+<p>Lightning Data Service caches records client-side. When something changes the data <em>outside</em> LDS, the UI goes
+   stale, and the right fix depends on how the data arrived.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Situation</th><th>Correct tool</th></tr></thead>
+  <tbody>
+    <tr><td>You changed the record through <strong>LDS</strong> (<code>updateRecord</code>, record form)</td><td>Nothing — the cache updates itself and every wired component re-renders</td></tr>
+    <tr><td>You changed the record through <strong>Apex</strong>, and read it with <code>@wire(getRecord)</code></td><td><code>notifyRecordUpdateAvailable([{recordId}])</code> — tells LDS that specific record is dirty</td></tr>
+    <tr><td>You read data with <strong><code>@wire(apexMethod)</code></strong></td><td><code>refreshApex(this.wiredResult)</code> — pass the <em>whole</em> wired value, not <code>.data</code></td></tr>
+    <tr><td>You called Apex <strong>imperatively</strong></td><td>Just call it again — no cache involved</td></tr>
+    <tr><td>Another user changed it</td><td>No client-side mechanism will know. Subscribe to a platform event or CDC via <code>empApi</code>, or accept staleness</td></tr>
+  </tbody>
+</table>
+</div>
+<pre><code class="language-js">import { refreshApex } from '@salesforce/apex';
+import { notifyRecordUpdateAvailable } from 'lightning/uiRecordApi';
+
+export default class OrderPanel extends LightningElement {
+    wiredLines;          // keep the whole wired object, not just .data
+
+    @wire(getOrderLines, { orderId: '$recordId' })
+    captureLines(result) {
+        this.wiredLines = result;                 // needed for refreshApex
+        if (result.data) { this.lines = result.data; }
+        else if (result.error) { this.handleError(result.error); }
+    }
+
+    async handleApexMutation() {
+        await recalculateTotals({ orderId: this.recordId });   // imperative Apex
+        await refreshApex(this.wiredLines);                     // re-fetch the wire
+        notifyRecordUpdateAvailable([{ recordId: this.recordId }]); // tell LDS too
+    }
+}</code></pre>
+
+<h3>The GraphQL wire adapter</h3>
+<p>The newer alternative to writing Apex for read-only data: one query across multiple objects, with pagination and
+   filtering, honouring FLS and sharing automatically — and it is the <strong>offline-capable</strong> adapter for mobile.</p>
+<div class="grid g2">
+  <div class="card accent-green"><h4>Use GraphQL when</h4>
+    <ul><li>Read-only data from several related objects</li>
+        <li>You want pagination without writing it</li>
+        <li>Mobile offline support matters — see <a href="field-service-advanced.html#mobile">offline architecture</a></li>
+        <li>You would otherwise write an Apex method that only does SOQL</li></ul></div>
+  <div class="card accent-amber"><h4>Stay with Apex when</h4>
+    <ul><li>You need to write data, or run business logic</li>
+        <li>Aggregations or complex joins beyond the adapter's reach</li>
+        <li>You need a cacheable method shaped for a specific UI</li>
+        <li>Deep performance control over the exact query plan</li></ul></div>
+</div>
+
+<h3>Choosing a communication mechanism</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Need</th><th>Mechanism</th><th>Caveat</th></tr></thead>
+  <tbody>
+    <tr><td>Parent → child</td><td><code>@api</code> property or public method</td><td>Public methods are a contract; avoid reaching into the child's internals</td></tr>
+    <tr><td>Child → parent</td><td><code>CustomEvent</code></td><td>Lowercase event names, no colons. <code>composed: true</code> only when you genuinely need to cross shadow boundaries</td></tr>
+    <tr><td>Siblings on one page</td><td><strong>Lightning Message Service</strong></td><td>Works across LWC, Aura <em>and</em> Visualforce, and across the whole page — including other tabs of a console app, which can surprise you</td></tr>
+    <tr><td>Anywhere, decoupled, server-driven</td><td><code>empApi</code> + platform events</td><td>Needs a subscription lifecycle and cleanup; events are not guaranteed to arrive in order</td></tr>
+    <tr><td>Unrelated components, same record page</td><td>LDS (both wire the same record)</td><td>The most elegant option: no messaging at all, the cache is the channel</td></tr>
+    <tr><td>Console-specific actions</td><td>Workspace API (<code>lightning/platformWorkspaceApi</code>)</td><td>Opening tabs, setting tab labels, closing a subtab after save</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout warn">
+  <span class="c-ico">📡</span>
+  <div class="c-body"><span class="c-title">LMS is a page-wide broadcast</span>
+    Any subscriber on the page receives the message, including a second instance of your own component in another console
+    tab. Include a scope identifier (record Id, a correlation key) in the payload and have subscribers ignore messages
+    that are not theirs — otherwise two open tabs start updating each other's state.</div>
+</div>
+
+<h3>Error shapes, and handling them properly</h3>
+<pre><code class="language-js">// Apex and LDS errors have different shapes. Normalise once, reuse everywhere.
+export function reduceErrors(errors) {
+    if (!Array.isArray(errors)) { errors = [errors]; }
+    return errors
+        .filter(e =&gt; !!e)
+        .map(e =&gt; {
+            // 1 · Page-level errors from LDS
+            if (Array.isArray(e.body)) { return e.body.map(b =&gt; b.message); }
+            // 2 · Field-level / DML errors from Apex
+            if (e.body?.output?.fieldErrors) {
+                return Object.values(e.body.output.fieldErrors)
+                             .flat().map(f =&gt; f.message);
+            }
+            if (e.body?.output?.errors?.length) {
+                return e.body.output.errors.map(x =&gt; x.message);
+            }
+            // 3 · AuraHandledException and plain messages
+            if (typeof e.body?.message === 'string') { return e.body.message; }
+            if (typeof e.message === 'string') { return e.message; }
+            return 'Unknown error';
+        })
+        .flat();
+}</code></pre>
+<p>In Apex, always throw <code>AuraHandledException</code> with a message written <em>for the user</em> — an unhandled
+   exception surfaces a stack trace and an internal class name, which is both unhelpful and an information leak.</p>
+
+<h3>Security in client-side code</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Concern</th><th>Rule</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Client-side checks are UX, not security</strong></td><td>Hiding a button is cosmetic. Every <code>@AuraEnabled</code> method must re-check CRUD, FLS and sharing itself — see <a href="apex-core.html#advanced">user-mode queries</a></td></tr>
+    <tr><td><strong>Never innerHTML user content</strong></td><td>Use <code>lightning-formatted-rich-text</code>, which sanitises. Raw HTML injection is the classic LWC XSS</td></tr>
+    <tr><td><strong>Trusted URLs &amp; CSP</strong></td><td>External scripts, fonts and images need CSP Trusted Sites entries. Loading a CDN script by inventing a workaround is a finding, not a fix</td></tr>
+    <tr><td><strong>Static resources for libraries</strong></td><td>Bundle third-party JS as a static resource and load with <code>loadScript</code> — versioned, reviewable, offline-safe</td></tr>
+    <tr><td><strong>No secrets in client code</strong></td><td>API keys in a component are public. Proxy through Apex with a <a href="integration-core.html#named-credentials">Named Credential</a></td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout tip">
+  <span class="c-ico">🧪</span>
+  <div class="c-body"><span class="c-title">Testing wired components with Jest</span>
+    Register a test wire adapter for each <code>@wire</code>, then emit data, an error, and an empty result in three
+    separate tests, awaiting a microtask before asserting the DOM. Those three cases — data, error, empty — catch the
+    overwhelming majority of real component defects, and they run in milliseconds with no org involved.</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> @wire versus imperative Apex — give me the decision rule.<span class="q-diff easy">Easy</span></summary>

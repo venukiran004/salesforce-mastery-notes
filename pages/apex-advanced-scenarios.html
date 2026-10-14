@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Advanced Apex · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>Advanced Apex</span></div>
+  <h1>Advanced Apex — 100 Scenarios</h1>
+  <p class="lede">Patterns, dependency injection, dynamic Apex, caching, finalizers, sharing keywords, packaging and
+     the design decisions that separate a codebase you can evolve from one you can only add to.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on <a href="apex-advanced.html">Advanced Apex</a>
+    and its <a href="apex-advanced.html#advanced">Advanced</a> section.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="patterns">Patterns &amp; structure (1–14)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Four developers keep writing the same query differently.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Introduce a <strong>selector</strong> class per object: all SOQL for that object in one place, with consistent field
+lists and security mode. It is the single highest-return piece of structure available, and it pays off independently of any
+wider pattern.</p>
+<p>It also makes services unit-testable — inject a stubbed selector and the test never touches the database.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> Business logic lives in three trigger handlers and an LWC controller.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Extract a <strong>service</strong> class owning the operation and the transaction boundary, then make the handlers and
+controllers thin adapters that call it.</p>
+<p>One implementation, one place to test, and the next entry point (REST, a flow action) costs almost nothing. Duplicated logic across
+entry points is how behaviour quietly diverges by channel.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Is the full Domain/Selector/Service/UnitOfWork layering worth adopting?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>At four or more developers, or a codebase expected to live five years, yes. For two people and a dozen classes it costs
+more than it returns.</p>
+<p>Adopt incrementally: selector first, then service when more than one entry point needs the same logic, then unit of work if DML is scattered.
+Domain classes last, and only where object behaviour genuinely justifies them.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> DML happens in six places in one transaction and you hit statement limits.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A <strong>unit of work</strong>: register records as you go, then commit once in dependency order (parents before children,
+resolving relationships).</p>
+<p>It also makes rollback semantics clearer — one commit point rather than six partial states — and keeps statement counts predictable as the
+operation grows.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> You need pluggable pricing logic a consultant can add without a deployment.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>An interface plus <strong>Custom Metadata</strong> naming the implementing class, instantiated with
+<code>Type.forName(name).newInstance()</code> and cast to the interface.</p>
+<p>Guard it: null-check the type and throw a clear configuration exception, and log which implementation ran — dynamic dispatch makes stack
+traces less direct, so observability has to be deliberate.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> Two packages need to call each other's logic without a compile dependency.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><code>Callable</code> — a name-based entry point
+(<code>call(String action, Map&lt;String, Object&gt; args)</code>) that lets one package invoke another with no compile-time reference.</p>
+<p>The cost is a loose contract: no type safety, so validate the action name and arguments explicitly and version the action names as carefully
+as you would a REST API.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> An interface has exactly one implementation. Remove it?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually yes — indirection with no variation is cost without benefit.</p>
+<p>Keep it when you need a <strong>test seam</strong> (the Stub API requires one), when a package boundary demands loose coupling, or when a
+second implementation is genuinely imminent rather than hypothetical.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> A 900-line class does five unrelated things.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Write characterisation tests around the current behaviour first — you cannot refactor safely without them, and they document what
+it actually does versus what its name claims.</p>
+<p>Then extract one responsibility at a time, each separately deployable. A big-bang split of untested logic turns a refactor into an incident
+nobody can attribute.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> Where should validation live in a layered design?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Record-level invariants belong with the object (domain or trigger handler) so they hold on every write path. Operation-level rules
+belong in the service, where the full context is available.</p>
+<p>What you must avoid is the same rule in both places with slightly different conditions — that is how UI and API behaviour
+diverge.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> A singleton cache causes stale data within a transaction.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Statics live for the whole transaction, so a cache populated before a DML will not reflect the change afterwards.</p>
+<p>Either invalidate on write (the cache owner also handles updates), or scope the cache to genuinely immutable data — describe results, Custom
+Metadata, reference lookups.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> How do you keep a service class from becoming a god class?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>One service per business operation or closely related family, not one per object. "OrderSubmissionService" rather than
+"OrderService" that accumulates everything order-shaped.</p>
+<p>When a service exceeds a few hundred lines or its name needs "and", split it. The name is the design signal.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> You need the same logic in Apex and in a flow.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Write it once as a service, and expose an <strong>invocable action</strong> wrapper that calls it — bulk-safe, with a typed
+request and response.</p>
+<p>Never implement the rule twice. The invocable wrapper should contain no logic beyond mapping its inputs to the service
+call.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> A reviewer says your class has too many dependencies.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Count what it needs to be constructed: more than three or four collaborators usually means it is doing several jobs.</p>
+<p>Split by responsibility, or introduce a facade for a cohesive group. Many dependencies also make it tedious to stub, which is itself a design
+smell worth listening to.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> What is the minimum structure worth having in any org?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>One trigger per object delegating to a handler; a selector per object for queries; a service for anything more than one entry point
+needs; a bypass switch; and structured error logging via platform events.</p>
+<p>That set costs a few days and prevents most of the problems that layering is usually introduced to solve later.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="dynamic">Dynamic Apex &amp; describe (15–28)</h2>
+
+<details class="acc"><summary><span class="q-num">15</span> <code>getGlobalDescribe()</code> is in a loop and CPU is exhausted.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It is one of the most expensive calls in Apex and should essentially never appear in a bulk path, let alone a loop.</p>
+<p>Cache in a static map on first use, and prefer targeted describes (<code>Account.SObjectType.getDescribe()</code>,
+<code>Schema.SObjectType.Account.fields.Name</code>) over indexing into a global describe.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> You need to build a query from a field set.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Iterate the field set members to build the SELECT clause — that is the supported way to let admins control which fields a component
+queries without a deployment.</p>
+<p>Add <code>WITH USER_MODE</code> so FLS is enforced, and bound the row count. A field set the admin extends to 200 fields should not silently
+blow your heap.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">17</span> Dynamic SOQL with a user-supplied filter — what are the rules?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Bind variables wherever possible, <code>String.escapeSingleQuotes()</code> on any fragment you must concatenate, and allow-list
+field and object names against a known set.</p>
+<p>Never accept a whole filter expression from a client — that is a generic data-read endpoint regardless of what you call it. And add
+<code>WITH USER_MODE</code>, because dynamic queries enforce nothing automatically.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> You need to set a field whose API name is in configuration.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>record.put(fieldName, value)</code> with a validity check first — <code>getDescribe()</code> on the object to confirm the field
+exists and is writeable.</p>
+<p>Without the check, a typo in configuration becomes a runtime exception in production rather than a clear configuration
+error.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">19</span> You receive an Id and must determine its object type.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>((Id) idString).getSObjectType()</code> resolves it at runtime; the first three characters are the key prefix if you need to
+reason about it manually.</p>
+<p>Use it for generic utilities and polymorphic fields like <code>Task.WhatId</code> — never assume the parent type from current
+usage.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> A generic method must work for any sObject.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Accept <code>List&lt;SObject&gt;</code> and use describe plus <code>get()</code>/<code>put()</code>. Keep the generic boundary small and
+cast to concrete types as soon as possible.</p>
+<p>Generic Apex loses compile-time safety, so every field reference becomes a potential runtime error. It should be a deliberate boundary, not a
+default style.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">21</span> You need to check whether a field exists before using it.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Describe the object and check the field map — essential for code that must run in orgs where the field may not be deployed, such as
+a package.</p>
+<p>Cache the result; describing on every call is wasteful, and in a package you may be doing it for many objects.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> Picklist values must be read at runtime.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>getDescribe().getPicklistValues()</code>, filtering on <code>isActive()</code>. For dependent picklists the validity matrix is
+also available via describe, though decoding it is fiddly.</p>
+<p>Remember values are assigned <em>per record type</em>, so the full field-level list may include values the user cannot
+select.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> Record type Ids are hard-coded in your codebase.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Replace with
+<code>Schema.SObjectType.Account.getRecordTypeInfosByDeveloperName().get('Partner').getRecordTypeId()</code>.</p>
+<p>Ids differ in every org and every refreshed sandbox, so hard-coding guarantees a post-refresh break. The same applies to queues, price books
+and any configuration record.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> You need to serialise an sObject for an external system.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Define an explicit DTO class and map to it, rather than <code>JSON.serialize</code> on the sObject — which includes attributes and
+every populated field, leaking data and inflating payloads.</p>
+<p>The DTO also decouples your API contract from your schema, so renaming a field does not break a consumer.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> JSON from a partner has a field named <code>currency</code>.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Reserved word, so you cannot name an Apex property that. Use <code>JSON.deserializeUntyped</code> and read the map, or define a DTO
+with a different property name and map manually.</p>
+<p>A manual mapping method is usually better anyway — it gives you one place to validate and to handle their next schema
+change.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> Deserialisation fails when the partner adds a new field.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Strict typed deserialisation throws on unknown fields in some forms. Use a tolerant approach — untyped parsing, or a DTO that ignores
+extras — so their additive change does not break you.</p>
+<p>Additive changes should never break a consumer; design for that on both sides of every integration.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> An enum value arrives that your Apex enum does not have.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>valueOf</code> throws. Map through an explicit lookup with an "unknown" branch, and log the unrecognised value so you learn about
+their change.</p>
+<p>External systems add enum values without notice, so an integration that throws on unknown values breaks on their next
+release.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> How do you test dynamic code paths?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Drive the configuration from injectable values rather than deployed Custom Metadata rows (which you cannot insert in a test), and
+assert each branch — including the error branch where the configured class does not exist.</p>
+<p>Dynamic code is exactly where tests matter most, because the compiler is no longer helping you.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="async-patterns">Async patterns &amp; reliability (29–44)</h2>
+
+<details class="acc"><summary><span class="q-num">29</span> A Queueable hit a CPU limit and vanished with no trace.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Attach a <strong>Finalizer</strong>. It runs after the job completes <em>including after an uncatchable failure</em>, in a fresh
+execution context with its own small limit allocation — so it can log the failure even though the parent exhausted everything.</p>
+<p>Without one, limit breaches disappear silently. It is the most valuable async pattern added to the platform in years.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> Your finalizer re-enqueues the job and it loops forever.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>You need a retry cap carried in the job's own state — an attempt counter passed to the constructor and checked before
+re-enqueuing.</p>
+<p>Also shrink the scope on retry (halve the batch) so a deterministic failure eventually isolates itself rather than repeating
+identically.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> Should the finalizer contain business logic?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No — keep it tiny: log, alert, maybe re-enqueue. Its limit allocation is small and it runs in a failure context by
+definition.</p>
+<p>Business logic there is logic that only runs when things went wrong, which is the worst possible place for it to
+live.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> You need to process 5 million records nightly.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Batch Apex with a <code>QueryLocator</code> so rows stream outside the 50,000-row transaction limit, scope tuned to the work per
+record (200 default; 1–10 if each row does a callout).</p>
+<p>Add a high-water mark so a failure resumes rather than restarting, and report partial failure from <code>finish()</code> — a failed chunk does
+not stop the job.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">33</span> Batch jobs sit in "Holding" and never run.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The Flex Queue — you have more batch jobs than the concurrent limit allows, so they queue. You can reorder them; you cannot make them
+run sooner.</p>
+<p>A growing Holding count is your early warning that the nightly window no longer fits. Stagger schedules and consolidate
+jobs.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> Queueable chaining works in production but fails in tests.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Tests allow only one level of chaining. Assert that the first job did its work and that the next was enqueued, then test subsequent
+links as separate units.</p>
+<p>Designing chains so each link is independently testable is good practice anyway — a chain you can only test end-to-end is a chain you cannot
+debug.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> You cannot schedule another Apex job.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Org-wide limit on scheduled jobs reached — usually because someone scheduled one per region or per entity.</p>
+<p>Replace with a single scheduled job that iterates, and audit <code>CronTrigger</code> for abandoned schedules from old
+projects.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> A deployment leaves a scheduled job pointing at changed logic.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Build an <strong>idempotent scheduler setup method</strong> that aborts and recreates all schedules, and run it as a documented
+post-deployment step.</p>
+<p>Then verify <code>CronTrigger.NextFireTime</code> and state after each release. Silent schedule breakage is discovered a week later by the
+business.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> Async work runs twice and creates duplicate records.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Make it idempotent: a unique External Id on the records you create, insert with <code>allOrNone = false</code>, and treat
+<code>DUPLICATE_VALUE</code> as "already done".</p>
+<p>The unique index is the real guard; a pre-check query is only an optimisation and does not hold under concurrency.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> A static guard does not prevent re-processing in an async job.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Async runs in a new transaction, so statics are fresh. A guard cannot span transactions.</p>
+<p>Use a durable marker — a processed flag or timestamp on the record — when the guarantee must survive the transaction
+boundary.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> You need a callout per record for 100,000 records.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Batch Apex implementing <code>Database.AllowsCallouts</code> with a very small scope, since callout limits are per execution rather than
+per job.</p>
+<p>Better if the remote system supports it: send a batch payload instead of per-record calls, or push the whole file to middleware and let it
+call you back.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> How do you coordinate "do A, then B, then C" asynchronously?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A Queueable chain, each link doing one stage and enqueuing the next, with small state held in instance fields rather than
+statics.</p>
+<p>Persist progress durably if the sequence matters across failures — an in-flight chain that dies between links leaves no record unless you wrote
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">41</span> Monitoring shows nothing when async jobs fail.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Query <code>AsyncApexJob</code> on a schedule for Failed and Aborted statuses and alert — the Apex Jobs UI is fine for humans and useless
+for automation.</p>
+<p><code>NumberOfErrors</code> gives you a count, never a cause, so your own error log (written per chunk) is what makes the failure
+actionable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> `@future` or Queueable for new code?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Queueable, almost always: it takes complex types, returns a job Id you can monitor, supports chaining, and supports finalizers.</p>
+<p><code>@future</code> remains only for simple fire-and-forget work in existing code, and for the rare case where you specifically want its
+restrictions.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> Async consumed your daily allocation and everything stopped.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Async executions per 24 hours are org-wide and licence-scaled, and a retry loop can consume them quickly.</p>
+<p>Cap retries, back off exponentially, dead-letter what never succeeds, and alert on the allocation rather than discovering it when all async work
+halts.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> A long-running synchronous process is breaking the UI for other users.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The concurrent long-running request limit — ten synchronous requests over five seconds per org, shared with interactive users.</p>
+<p>Move the work async or use Continuations for long callouts. This limit is uniquely nasty because the symptom appears nowhere near the
+cause.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="cache">Caching &amp; performance (45–56)</h2>
+
+<details class="acc"><summary><span class="q-num">45</span> When should you reach for Platform Cache?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Expensive, re-derivable, shared data: describe results, Custom Metadata lookups, aggregate results, external reference data with a
+known TTL.</p>
+<p>Never for anything you cannot recompute, anything requiring consistency, or anything user-specific in the org cache.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> Your cache reads return null intermittently.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>That is expected — entries can be evicted at any time under memory pressure. Every read must handle a miss and recompute.</p>
+<p>Also check the partition is actually allocated capacity: an unallocated partition silently does nothing, which looks exactly like constant
+eviction.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> Org cache or session cache?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Org cache for data shared by all users (reference data, describes). Session cache for per-user state within a session.</p>
+<p>Putting user-specific data in the org cache is a data-leak bug, not just a design smell.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> A cached value is stale after someone edits the source.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Invalidate on write: whatever updates the source also removes the cache key, ideally through a single owner class.</p>
+<p>If invalidation is not feasible (the source changes outside your code), use a short TTL and accept bounded staleness — and document what
+"bounded" means.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> CPU limit exceeded but queries look efficient.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>CPU counts computation, not waiting — query time, callout time and commit time are excluded. So the cost is loops, collections, JSON,
+or formula evaluation during your DML.</p>
+<p>Read <code>CUMULATIVE_LIMIT_USAGE</code>, which attributes consumption <strong>per namespace</strong> and frequently reveals a managed package
+spending your budget.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> Heap exceeded processing a large result set.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Stop holding it all: <code>Database.getQueryLocator</code> in Batch Apex streams rows, and selecting fewer fields reduces per-row
+cost substantially.</p>
+<p>Also null out large collections when finished and avoid keeping parallel copies (a list plus a map of the same records doubles the
+cost).</p></div></details>
+
+<details class="acc"><summary><span class="q-num">51</span> A nested loop over two 500-item collections is slow.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>250,000 iterations. Replace the inner loop with a <code>Map</code> lookup keyed on the matching value.</p>
+<p>Almost every nested loop in Apex can become one map build plus a single pass, which is the difference between quadratic and
+linear.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> JSON parsing dominates your CPU time.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Parse once and pass the result around rather than re-deserialising the same payload in several methods — a surprisingly common
+pattern.</p>
+<p>For very large payloads, parse untyped and extract only the fields you need, or push the parsing to middleware and accept a simpler shape in
+Salesforce.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> How do you profile which part of your code is expensive?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Limit snapshots at key points — capture <code>Limits.getCpuTime()</code> before and after each stage and log the deltas.</p>
+<p>Combined with <code>CODE_UNIT_STARTED/FINISHED</code> in a debug log, that tells you where the time actually goes instead of where you assume it
+goes.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> You want to warn before a limit is breached, not after.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Compare consumed against <code>Limits.getLimitX()</code> and publish a platform event when you cross about 60%.</p>
+<p>That converts a future incident into a ticket, and the event-based log is visible in production where debug logs are
+not.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> A query is selective but the transaction is still slow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Look at what the save triggers: validation rules, roll-ups, other triggers, flows, sharing recalculation, package logic — all inside
+your transaction.</p>
+<p>The execution tree in a debug log usually reveals automation nobody documented, and your code may be a small slice of the
+total.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> Should you optimise before measuring?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No. On this platform the CPU-versus-waiting distinction changes the fix entirely, and the slow thing is rarely the suspected one.</p>
+<p>Measure, change one thing, re-measure. Optimising by intuition typically produces more complex code at the same
+speed.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="sharing-kw">Sharing keywords &amp; security (57–70)</h2>
+
+<details class="acc"><summary><span class="q-num">57</span> What should a reusable library class declare?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>inherited sharing</code> — it adopts the caller's mode, which is correct for a library and is the only safe-by-default option when
+it might be entered from a Visualforce page or a REST endpoint.</p>
+<p>An unannotated class runs in system mode from those entry points, which is how libraries accidentally become elevation
+paths.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> An inner class is not respecting the outer class's sharing.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Inner classes do not inherit the outer declaration — they default to the caller's mode.</p>
+<p>Declare sharing explicitly on any inner class that does data access. It is an obscure rule that produces genuine
+exposure.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> You need to elevate for one specific operation.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A small, single-purpose <code>without sharing</code> class containing only that operation, with the justification in a comment and the
+inputs tightly validated.</p>
+<p>Deliberate elevation is legitimate. Elevation for convenience across a large class is the finding.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> Does <code>with sharing</code> enforce field-level security?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No. It governs record visibility only — never FLS or object permissions.</p>
+<p>Use <code>WITH USER_MODE</code>, <code>as user</code> DML, or <code>Security.stripInaccessible</code>. This is the most common misunderstanding
+in Salesforce security.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> When is <code>stripInaccessible</code> the right tool?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>For collections arriving from elsewhere — a deserialised payload, a method parameter — where you must remove inaccessible fields before
+using or returning them.</p>
+<p>It also reports what was removed, which lets you decide whether to proceed or fail rather than silently acting on incomplete
+data.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> An <code>@AuraEnabled</code> method accepts an object name.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>That is a generic read endpoint for anyone who can load the component, including guests on a public page.</p>
+<p>Allow-list permitted objects, enforce CRUD and FLS, bound the rows, and return a purpose-built DTO. Better still, write a specific method per
+use case.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> How do you audit a codebase for security gaps?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Grep for <code>without sharing</code>, every <code>@AuraEnabled</code> and <code>@RestResource</code>, and every dynamic SOQL
+construction — then cross-reference against which components are on guest-accessible pages.</p>
+<p>Prioritise by <strong>reachability</strong>: anonymous and external first. Fix the pattern rather than the instance, and add the check to
+CI.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> Should an integration endpoint elevate for performance?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>No, and the premise is usually wrong — sharing enforcement is rarely the bottleneck.</p>
+<p>Authenticate as a user whose access <em>is</em> the restriction and write the class <code>with sharing</code>. A <code>WHERE</code> clause on an
+elevated query means a bug there becomes a breach; sharing fails closed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> A flow calls your class and sees too much.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Record-triggered flows run in system context without sharing, and an <code>inherited sharing</code> class called from there runs in
+system mode too.</p>
+<p>If the Apex must respect the user, declare <code>with sharing</code> and use <code>USER_MODE</code> explicitly rather than depending on the
+caller.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> You must grant record access from code.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Insert share rows with a <strong>custom RowCause</strong> created in Setup, so grants survive ownership changes and are identifiable
+later.</p>
+<p>Build the revoke path and a reconciliation job in the same change — nothing cleans up stale shares, and they are a standard audit
+finding.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> How do you test that security is enforced?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>System.runAs</code> with a user from a minimum-access profile plus only the permission set under test, asserting that restricted
+data is absent or that the expected exception occurs.</p>
+<p>Tests run in system mode by default, so testing as an admin proves nothing — which is why access bugs ship with full
+coverage.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> A user-mode query throws where system mode succeeded.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>That is it working: the user lacks access to an object or field, so the query is rejected rather than returning data they should not
+see.</p>
+<p>Decide deliberately whether to catch and degrade the feature or let it fail — silently stripping can be worse if a decision is then made on
+incomplete data.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> Is hiding a button sufficient protection?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No — the Apex method remains callable. Client-side checks are UX; server-side checks are security.</p>
+<p>Put "who can cause this to run, and in whose context?" in your pull request template. It catches the category of bug that actually makes the
+news.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> A secret needs to be used in a callout.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A <strong>Named Credential</strong> with an External Credential — no secret in code, metadata or custom settings, token refresh handled,
+and rotation becomes a config change.</p>
+<p>Secrets in custom settings are visible to anyone who can read the setting, and secrets in code are in your git
+history.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="packaging">Packaging &amp; distribution (71–82)</h2>
+
+<details class="acc"><summary><span class="q-num">71</span> You marked a method <code>global</code> in a managed package and regret it.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><code>global</code> in a managed package is a permanent contract — you cannot remove or change the signature without a major
+version and migrating every subscriber.</p>
+<p>Deprecate it with <code>@deprecated</code>, add the replacement, and support both. Default to <code>public</code> and expose
+<code>global</code> only deliberately.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> Two packages in your namespace need to share internal code.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>@namespaceAccessible</code> — visible to other packages in your namespace without exposing it to subscribers.</p>
+<p>That is the right tool for a shared "common" package, which is usually what you extract when breaking dependency
+cycles.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> Package dependencies form a cycle and the build fails.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The dependency graph must be acyclic. Break the cycle by extracting the shared pieces into a lower-level package both depend
+on.</p>
+<p>Most of the work of decomposing an org into packages <em>is</em> breaking cycles — the packaging mechanics are the easy
+part.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> Your package's tests fail in a subscriber org on upgrade.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>They depend on org-specific data or configuration. Package tests run in the subscriber's org, where your assumptions about records,
+picklist values and automation do not hold.</p>
+<p>Build all test data in the test, never use <code>SeeAllData</code>, and tolerate the subscriber's own automation firing on your
+inserts.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> Your package code hits limits in a subscriber org but not yours.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Their org has other automation and other packages sharing the same transaction — and <strong>CPU time is shared</strong> even though some
+limits are namespace-scoped.</p>
+<p>Be frugal, push heavy work async, and provide a bypass switch subscribers can use during data loads.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> A subscriber edited your unlocked package's metadata.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Unlocked packages allow it, which is both the feature and the risk — their change is now drift that your next version may
+overwrite.</p>
+<p>Document what is safe to change, detect divergence if you can, and consider a managed package if the components must be
+immutable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">77</span> How do you version an API your package exposes?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Treat <code>global</code> signatures and any <code>@RestResource</code> path as a contract: version in the path or the method name from day
+one, support the old form, and deprecate explicitly.</p>
+<p>Adding versioning later means migrating every consumer simultaneously, which is rarely possible.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> Unlocked, managed or unmanaged for internal modularisation?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Unlocked</strong> — versioned, upgradeable, no namespace required, designed for your own org. Managed is for ISV distribution with
+IP protection; unmanaged has no upgrade path at all.</p>
+<p>Get org-based source control working reliably first; decomposing into packages and introducing version control simultaneously stalls
+programmes.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">79</span> You need to deprecate a class your subscribers use.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Mark it <code>@deprecated</code>, ship the replacement alongside, communicate the timeline, and remove it only in a major version — with a
+migration path documented.</p>
+<p>Subscribers upgrade on their own schedule, so "we removed it in the next release" is not an option for anything
+<code>global</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> How do you test a package upgrade safely?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Install the previous version in a sandbox with realistic data and automation, then upgrade — exercising the paths subscribers actually
+use, and running their tests as well as yours.</p>
+<p>For configuration-heavy packages, recalculate a golden set with known expected outputs. Upgrades change behaviour more often than release notes
+suggest.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">81</span> Ancestry is wrong and subscribers cannot install your new version.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Managed packages declare an ancestry so upgrades know their lineage; getting it wrong produces versions that cannot install over what
+subscribers already have.</p>
+<p>Fix the ancestry declaration and rebuild. This is a packaging-configuration problem, not a code problem, and it is worth getting right before
+the first release.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> Your package needs configuration data in the subscriber org.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Custom Metadata records can ship with the package; most other configuration is data and cannot.</p>
+<p>Provide a post-install script or a setup page that seeds required rows idempotently, and a test that fails clearly when configuration is
+missing.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="judgement">Judgement &amp; craft (83–100)</h2>
+
+<details class="acc"><summary><span class="q-num">83</span> You are asked to add a feature to code you consider unsafe.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Deliver the feature, and raise the specific risk with a concrete scenario and a cost to fix — in writing, briefly.</p>
+<p>Vague objections get overruled; "an external user can read other accounts' data through this method, two days to fix" either gets fixed or gets
+consciously owned.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> A pattern would be cleaner but the team does not know it.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Weigh the cleverness against the maintenance population. Code is read far more than written, and a pattern nobody on the team recognises
+is a liability regardless of its elegance.</p>
+<p>Introduce it where the benefit is clear, document why, and pair on it. Do not scatter it everywhere at once.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> Build a custom framework or adopt an open-source one?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Adopt if it is well-known in the ecosystem (new joiners already know it) and actively maintained. Build only if your needs are genuinely
+unusual.</p>
+<p>Either way, keep it thin: a framework you cannot fully explain to a new developer in twenty minutes will be worked around.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> How do you make a codebase easy to onboard into?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Consistency over cleverness: one way to do each thing, names that describe behaviour, a documented entry point per object, and tests that
+show intended usage.</p>
+<p>Plus a short written description of the layering decisions and the reasons. Undocumented conventions are learned by accident, inconsistently,
+over months.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> You inherit code with no tests and must change it.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Write characterisation tests capturing the <em>current</em> behaviour first — including the parts you think are wrong, which you note but do
+not change yet.</p>
+<p>Then change behaviour deliberately, one test at a time. Refactoring and fixing simultaneously makes it impossible to attribute a
+regression.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> A method name and its behaviour disagree.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Fix the name, not the comment. A comment explaining that <code>validate()</code> also sends email is a comment that will be ignored.</p>
+<p>If renaming is risky because of external callers, that is itself information about the coupling you have.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> When is a comment worth writing?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>When it explains <strong>why</strong> — a non-obvious constraint, a rejected alternative, a platform quirk you worked around, a business rule
+with a source.</p>
+<p>Comments restating what the code does rot and mislead. Comments recording decisions are the most valuable documentation in any Salesforce
+codebase.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> How much abstraction is too much?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>When tracing a simple operation requires opening five files, or when adding a field means changing four layers.</p>
+<p>Abstraction should absorb change, not multiply it. If the layers are not earning their keep by isolating something that actually varies, remove
+them.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> A reviewer wants 100% coverage on a utility class.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Coverage is not the goal; verified behaviour is. Push for tests that assert outcomes on the branches that matter, including error
+paths.</p>
+<p>The honest check: break a line deliberately and see whether a test fails. If not, the coverage is decoration regardless of the
+percentage.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> You need to prove a refactor changed nothing.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Characterisation tests written before the change, run after — plus, for data-heavy logic, a comparison run on a realistic dataset in a
+sandbox with outputs diffed.</p>
+<p>For pricing or calculation logic, a golden set with expected values to the penny is the only convincing evidence.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> The org has no error logging. Where do you start?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A platform-event-based log: class, method, message, stack, record Id, correlation id and quiddity — published so the record survives a
+rollback.</p>
+<p>Then route Apex exception emails to a monitored address and add an alert on log volume. This is a one-day task that changes every future
+incident.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> How do you decide between fixing forward and rolling back?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>There is no transactional rollback, so "roll back" means deploying the previous tag plus manually reversing what cannot be redeployed.</p>
+<p>Fix forward when the fix is small and understood; roll back when the change is broad and the previous state is known-good. Keep a per-release
+list of irreversible changes so the decision is informed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> A dependency injection framework is proposed for a 20-class org.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Overkill. Constructor injection by hand gives you the test seams without a framework, and twenty classes do not need a container.</p>
+<p>Revisit if the codebase grows substantially or if you need runtime-configurable implementations — which <code>Type.forName</code> plus Custom
+Metadata already handles.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> Static analysis flags 300 issues. What now?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Set a severity threshold that fails the build, fix those, and baseline the rest so new code cannot add to the pile.</p>
+<p>A list of 300 unprioritised findings gets ignored entirely. A gate on severity plus a non-regression baseline gets the codebase improving
+steadily.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> Your clever solution is three times faster and much harder to read.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Ask whether the speed matters — measured, against a limit you are actually approaching. If not, take the readable version.</p>
+<p>If it does matter, keep the clever version but isolate it behind a clear interface, comment the <em>why</em>, and test it
+thoroughly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> How do you keep technical debt from accumulating invisibly?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Measure it on one page — automations per object, API version spread, assertion-free tests, permission sprawl, limit headroom — and reserve a
+fixed slice of every sprint for the worst item.</p>
+<p>Debt that competes with features for priority always loses; debt with a reserved allocation gets fixed. See
+<a href="governance.html#advanced">measuring debt</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> What makes Apex genuinely production-ready?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Bulk-safe, idempotent, observable (structured logging with correlation ids), bounded (no unbounded queries or collections), bypassable
+(a switch you can flip during an incident), and tested on the failure paths as well as the happy one.</p>
+<p>None of that is clever. All of it is the difference between a bad afternoon and a bad quarter.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit worth more than any pattern?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Writing down <strong>why</strong> — the decision, the rejected alternative, the constraint that forced it — in the code and in the commit.</p>
+<p>Patterns are rediscoverable from the code. Reasons are not, and their absence is why teams cannot safely change anything they did not personally
+write.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="apex-advanced.html">Advanced Apex</a>, the <a href="scenarios.html">scenario index</a>, or
+    <a href="async-apex-scenarios.html">Async Apex — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Advanced Apex — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

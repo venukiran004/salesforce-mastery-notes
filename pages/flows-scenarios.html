@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flow Builder · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>Flow</span></div>
+  <h1>Flow Builder — 100 Scenarios</h1>
+  <p class="lede">Entry conditions and re-entry, before versus after save, bulkification, fault handling, running
+     context, Orchestrator, Apex boundaries, and the flows that become unmaintainable.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on <a href="flows.html">Flow Builder (Deep)</a>
+    and its <a href="flows.html#advanced">Advanced</a> section.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="entry">Entry conditions &amp; timing (1–16)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Your flow creates a duplicate task every time the record is edited.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The entry condition matches on every save while the condition remains true. You want "only when a record is updated to meet the
+condition" so it fires on the <em>transition</em>.</p>
+<p>That single setting prevents most duplicate-task and repeated-email complaints.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> You need to fire only when a specific field changes.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Use <code>ISCHANGED()</code> in a formula entry condition, or the transition option with a condition on that field.</p>
+<p>Checking only the current value means the flow runs when unrelated fields change, which cascades automation and wastes
+limits.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> You need the prior value of a field.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>$Record__Prior</code> in a record-triggered flow, or <code>PRIORVALUE()</code> in a formula.</p>
+<p>It is null on create, so guard for that — a comparison against a null prior value is a common cause of flows firing on
+insert.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Before-save or after-save for setting a field on the same record?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Before-save</strong>, always. It mutates the record in flight with no extra DML, is dramatically faster, and avoids a second save
+that re-triggers automation.</p>
+<p>After-save for same-record updates is the single most common flow performance and recursion
+mistake.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> Your before-save flow cannot do what you need.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Before-save flows are deliberately restricted: no Apex actions, no creating or updating other records, no callouts — only field assignment
+on the triggering record (plus Get Records).</p>
+<p>If you need related records, that is after-save. Splitting into one before-save for fields and one after-save for related work is a legitimate
+and common pattern.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> Two flows on the same object run in an unexpected order.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Within the same object and timing, order is unspecified unless you set the flow's <strong>trigger order</strong> (1–2000).</p>
+<p>Set it, document it, and prefer converging on one flow per object per timing with a named
+owner.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> Where does a record-triggered flow sit relative to triggers?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Before-save flows run <em>before</em> before-triggers; after-save flows run <em>after</em> after-triggers and before roll-ups.</p>
+<p>So a before-save flow can set a value an Apex trigger then reads — which is useful and occasionally
+surprising.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> A flow needs to run only for one record type.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Add it to the entry conditions using the record type's <em>developer name</em> via a formula, not a hard-coded Id.</p>
+<p>Ids differ per org and per refreshed sandbox, so a hard-coded record type Id in a flow is a guaranteed post-refresh
+break.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> Your flow must not run during a data migration.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Add a bypass to the entry conditions — a custom permission check or a hierarchy custom setting the migration user has.</p>
+<p>Then run a reconciliation afterwards to apply the derived values the flow would have set. Bypassing without reconciling imports incomplete data
+permanently.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> A flow fires on records created by another flow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Expected — automation triggers automation. Whether it is a problem depends on whether the cascade is intended.</p>
+<p>Guard the entry condition on something that distinguishes the origin (a source field), and keep one automation per object per timing so cascades
+are traceable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> The flow must run when a related record changes.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Flows trigger on their own object only. Put the flow on the related object and have it update or act on the parent.</p>
+<p>Be careful about volume: a flow on a high-volume child object acting on parents is a lock-contention risk at
+scale.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> You need to react to a delete.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A record-triggered flow configured for delete, which runs <em>before</em> the delete — so you can read the record but you are acting ahead
+of the deletion.</p>
+<p>Cascade deletes from a master-detail parent also trigger it, which archiving logic frequently
+forgets.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> A flow should run 24 hours after a status change.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A <strong>scheduled path</strong> on the record-triggered flow, offset from a date field or from when the criteria were met.</p>
+<p>It runs in a separate asynchronous transaction, so re-check the record state — it may have changed in the
+interim.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> A scheduled path acts on stale data.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>By the time it runs, the record may have moved on. Always re-evaluate the condition inside the scheduled path rather than trusting the
+original entry.</p>
+<p>That is the difference between "send the reminder if still open" and "send the reminder
+regardless".</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> You need a flow to run on a schedule, not on a record change.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A <strong>schedule-triggered flow</strong> with a filter — it runs for each matching record on the schedule.</p>
+<p>Watch volume: these iterate records and can hit element-execution limits. Above a few thousand records, Batch Apex is the right
+tool.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> A flow needs to run immediately after commit, not during the save.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>An <strong>asynchronous path</strong> — it runs right after the transaction commits, with fresh limits, which is where callouts
+belong.</p>
+<p>It is also the right place for work that must not block or fail the user's save.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="bulk-flow">Bulkification &amp; limits (17–32)</h2>
+
+<details class="acc"><summary><span class="q-num">17</span> Your flow hits a SOQL limit on a bulk load.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A Get Records inside a loop. The engine bulkifies elements <em>outside</em> loops across all records in the transaction, but not inside
+one.</p>
+<p>Restructure: get all the data you need once, then loop over an in-memory collection.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> An Apex action inside a loop blows limits.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Apex actions, subflows and callouts inside loops are <strong>not</strong> bulkified by the engine. Each iteration is a separate
+invocation.</p>
+<p>Move the action outside the loop and pass it a collection — which requires the Apex to accept a <code>List</code>, as a well-written invocable
+action does.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">19</span> You need to create one child per parent for 200 parents.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Build a collection in the loop with Assignment, then one Create Records element <em>after</em> the loop.</p>
+<p>That is the canonical flow bulk pattern, and it is exactly analogous to collecting and doing one DML in
+Apex.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> A loop over 50,000 records fails.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Flow has a limit on executed elements per transaction, and a loop multiplies elements by iterations.</p>
+<p>That volume belongs in Batch Apex. Flow is not the tool for large-scale data
+processing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">21</span> How do you know whether your flow is bulk-safe?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Test it with a 200-record load and read the debug log's cumulative limits. The flow debugger runs one record and will not reveal
+bulkification problems.</p>
+<p>Also look for any Get, Create, Update, Delete, Apex or subflow element inside a
+loop.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> A subflow inside a loop is slow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Each invocation is separate, so its elements and DML multiply by the iteration count.</p>
+<p>Either move the subflow outside the loop and pass a collection, or inline the logic. Subflows are for reuse and clarity, not for use inside hot
+loops.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> You need to filter a collection without querying again.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Use a collection filter element (or a loop with a decision building a second collection) rather than a second Get
+Records.</p>
+<p>In-memory filtering costs elements but no queries, which is usually the right trade in a bulk
+context.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> A flow updates the same record twice in one run.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Two Update elements on the same record means two DML operations and two save paths. Consolidate into one update after all the
+assignments.</p>
+<p>In a before-save flow, you assign fields and the platform saves once — which is why it is so much
+cheaper.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> Your flow is one of five automations on the object and the save is slow.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>They all share the transaction's CPU and limits, so being individually efficient is necessary but not sufficient.</p>
+<p>Read <code>CODE_UNIT_STARTED/FINISHED</code> to see the real cost distribution, then campaign to consolidate — one entry point per object per
+timing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> A Get Records returns more rows than you expected.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No filter, or a filter that is not selective. Flow will happily fetch a very large collection into memory.</p>
+<p>Always filter, and set a limit where the logic allows — an unbounded Get is a future failure with a date on
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> You need only the first matching record.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Set the Get Records element to store only the first record, with an explicit sort order — otherwise "first" is whatever the database
+returns.</p>
+<p>Relying on an unsorted first record produces behaviour that changes as data
+changes.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> A flow needs data from five levels up the hierarchy.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Use cross-object references on the triggering record where possible (<code>$Record.Account.Parent.Name</code>), which costs no extra
+query.</p>
+<p>Multiple sequential Get Records elements are the expensive alternative, and they add up quickly in a bulk
+context.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> Your flow fails only for one user.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>In a screen flow (user context), a Get Records returning nothing is almost always sharing or FLS — not the flow.</p>
+<p>Log in as them and check record access. In a record-triggered flow (system context) the cause is more likely data shape or a null they have that
+others do not.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> How do you reduce element count in a complex flow?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Use formulas instead of chains of decisions and assignments, filter collections in one element rather than looping, and move genuinely
+complex computation into an invocable Apex action.</p>
+<p>A flow needing 200 elements has usually outgrown the tool for part of its
+job.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> A flow hits the DML row limit.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It is creating or updating too many records in one transaction — frequently a loop creating children per parent across a bulk load.</p>
+<p>Reduce the work, or move it to an asynchronous path or Batch Apex. Flow shares the same 10,000 DML-row ceiling as
+Apex.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> Is Flow slower than Apex for the same logic?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Generally yes for bulk work — the engine's element execution has overhead Apex does not, and after-save flows add a save.</p>
+<p>For modest volumes the difference is irrelevant and the maintainability wins. At scale, the gap matters and Apex becomes the right
+choice.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="faults">Fault handling (33–48)</h2>
+
+<details class="acc"><summary><span class="q-num">33</span> A record-triggered flow fails and the user's save is rolled back.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Without a fault path, an element failure throws and takes the transaction with it, showing the user an unhelpful technical
+message.</p>
+<p>Add a fault path on every DML and Apex element: log the failure, and either continue or fail with a message that explains
+itself.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> Where should a fault path write the error?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>To an error-log object (or a platform event), capturing <code>$Flow.FaultMessage</code>, the record Id, the flow name and the interview
+context.</p>
+<p>Reportable, alertable, and available in production where debug logs are not. A fault path that only shows a screen loses the diagnostic
+entirely.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> Flow errors email the person who built it, who has left.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Default behaviour emails the flow owner. Change the error-email recipient setting to a monitored address, and build real alerting off your
+error log.</p>
+<p>Single-person notification is a guaranteed future gap and a common finding when an org changes
+hands.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> A screen flow shows a raw platform error to a customer.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Fault path to a screen that explains what happened and what to do next, while the log record captures the technical
+detail.</p>
+<p>In a customer-facing context that difference is reputational, not merely cosmetic.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> Should every element have a fault path?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Every element that can fail for reasons outside your control — DML, Apex actions, callouts, Get Records that may return nothing you did not
+expect.</p>
+<p>Decisions and assignments do not need them. Blanket fault paths add clutter; targeted ones add
+reliability.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> A fault path itself fails.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually because it does DML that is also invalid, or writes a message longer than the field allows.</p>
+<p>Keep fault paths minimal and defensive: truncate the message, use a simple object with few required fields, and prefer a platform event so the log
+survives a rollback.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> How do you make a flow retry a failed callout?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Flow has no native retry. Patterns: a fault path that creates a "to retry" record which a scheduled flow or batch picks up, or push the
+callout into Apex that handles retry properly.</p>
+<p>For anything where delivery matters, the Apex route with a finalizer and a dead-letter path is the honest
+answer.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> You need partial success — process the good records, log the bad.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Flow DML is all-or-none for the collection, so one bad record fails the element.</p>
+<p>Either validate and split the collection before the DML, or call an invocable Apex action that performs partial-success DML and returns the
+failures. The Apex route is cleaner for integration volumes.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">41</span> How do you test fault paths?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Force the failure: a Flow Test with data that violates a validation rule, or an Apex action configured to throw.</p>
+<p>Untested fault paths routinely contain their own bugs, which only surface during the incident they were meant to
+handle.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> Flow Tests — what are they good for?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Declarative tests for record-triggered flows: given an input record, assert the outcome. They belong in CI alongside Apex
+tests.</p>
+<p>In orgs where flows carry most of the logic, this is the application's test suite, and its absence is a bigger risk than low Apex
+coverage.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> You cannot reproduce a flow failure.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check the error email or your log for the element that failed and the fault message, then reproduce with that record's data as that
+user.</p>
+<p>Enable <code>WORKFLOW=FINER</code> in a debug log to see element-by-element execution — it shows exactly which branch was
+taken.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> Errors appear only on bulk loads.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A limit, or a null that exists in some records and not others. The flow debugger with one record will never show either.</p>
+<p>Test at 200 records with variation, including nulls and records that should not qualify.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> A flow silently does nothing.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check the entry conditions first (the transition option in particular), then whether the flow is active, then whether a Get Records returned
+nothing and a decision took the default path.</p>
+<p>"Did nothing" is usually a condition evaluating differently than you think, not a
+failure.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> How do you log a flow's progress for debugging?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Create log records (or publish platform events) at key decision points during development, behind a custom-permission check so you can
+enable it for one user in production.</p>
+<p>That gives you production tracing without logging for
+everyone.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> Should a flow ever swallow an error?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Only where the failure is genuinely tolerable — a nice-to-have enrichment — and even then it must be logged.</p>
+<p>A fault path that routes to the end with no record of what happened turns a visible failure into an invisible one, which is
+worse.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> How do you alert the business about flow failures?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Surface the error log as a list view and a report with a conditional subscription, so failures are data the business can see and
+chase.</p>
+<p>Nobody chases an email nobody reads, or a log nobody can
+access.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="context-flow">Running context &amp; security (49–62)</h2>
+
+<details class="acc"><summary><span class="q-num">49</span> A record-triggered flow sees records the user cannot.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>By default they run in <strong>system context without sharing</strong>. That is powerful and it is a security review item.</p>
+<p>If the flow must respect the user, use an autolaunched flow with the user-context option, or do the sensitive work in Apex that enforces
+access.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> A screen flow's Get Records returns nothing for some users.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Screen flows run in the user's context, so sharing and FLS apply. The records exist but are not visible to them.</p>
+<p>Check record access by logging in as the user — this is almost never a flow
+problem.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">51</span> A flow exposed to guest users worries you. Why?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A system-context flow reachable from a public page is the same risk class as <code>without sharing</code> Apex — and it is reviewed far
+less often.</p>
+<p>Audit what it reads and writes, run it in user context where possible, validate every input, and treat it as a public endpoint. See
+<a href="experience-cloud.html#advanced">guest hardening</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> An autolaunched flow — which context should it use?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Choose deliberately: system context with or without sharing, or user context — and write the choice and the reason in the flow
+description.</p>
+<p>Undocumented context choices are how a flow becomes an unexamined elevation
+path.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> Does a flow enforce field-level security?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>In user context, yes. In system context, no — it can read and write fields the user cannot see.</p>
+<p>Which means a system-context flow returning data to a screen can leak fields. Decide what the flow should be permitted to
+surface.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> An invoked Apex class behaves differently than expected in a flow.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The Apex keeps its own sharing declaration. An <code>inherited sharing</code> class called from a system-context flow runs in system
+mode.</p>
+<p>Declare <code>with sharing</code> and use <code>USER_MODE</code> explicitly if the Apex must respect the
+user.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> A flow needs to do something the running user cannot.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>That is a legitimate use of system context — but scope it: do only the elevated operation that way, and keep the rest in user
+context.</p>
+<p>Blanket elevation for convenience is the pattern that turns up in security
+reviews.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> How do you check a permission inside a flow?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>$Permission</code> for custom permissions, and <code>$User</code> fields for profile or role checks — with custom permissions strongly
+preferred, since they survive profile reorganisation.</p>
+<p>Use the same custom permission for component visibility and for the server-side check, so they cannot
+diverge.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> A screen flow must not be launchable by anyone.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Control access through the flow's own access settings and through where you surface it — then check the permission inside the flow as
+well.</p>
+<p>Hiding the launch point is presentation. The in-flow check is the
+control.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> Flow input from a screen is used in a Get Records filter.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>In user context, sharing limits the damage. In system context it is a user-controlled query over data they may not be entitled to
+see.</p>
+<p>Validate and constrain the input, and prefer user context for anything driven by user
+input.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> Who should be able to edit a flow in production?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Ideally nobody — flows are metadata and should arrive through the pipeline, because a flow edit is a behaviour change with no review
+trail.</p>
+<p>In practice, give admins a fast sanctioned path instead, and detect production flow changes with drift detection. See
+<a href="branching-strategy.html#drift">drift</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> Two developers changed the same flow on different branches.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A text merge of flow XML produces a flow that deploys and behaves incorrectly — missing connectors, duplicated elements.</p>
+<p>Treat flows as unmergeable: force a conflict via <code>.gitattributes</code>, one owner per flow per release, and split large flows into subflows
+so two people are not in the same file.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> A flow version was activated in production by accident.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Activate the correct version (versions are retained, so this is recoverable), then capture how it happened.</p>
+<p>Prevention: remove flow-edit rights in production, deploy flows through the pipeline, and alert on flow definition changes via Setup Audit
+Trail.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> How do you review a flow for security?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Three questions: what <strong>context</strong> does it run in; what can <strong>invoke</strong> it (guest page? external user?); and what does
+it <strong>touch</strong> and return.</p>
+<p>Those three cover the realistic risk. A system-context flow on a public page is the case to find
+first.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="apex-boundary">Flow, Apex &amp; Orchestrator (63–80)</h2>
+
+<details class="acc"><summary><span class="q-num">63</span> When has logic outgrown Flow?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Signals: a loop inside a loop, a formula nobody can read, 200 elements, or a flow that needs a comment to explain it.</p>
+<p>Move that piece into an invocable Apex action and keep the flow as orchestration — admins keep visibility, you get testability and
+performance.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> How should an invocable action be written for Flow?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Accept a <code>List</code> of typed requests, return a <code>List</code> of responses aligned <strong>positionally and in count</strong>, and
+do one query for all requests rather than per request.</p>
+<p>Mismatched sizes or reordered results land values on the wrong records,
+silently.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> Your Apex action works for one record and breaks in bulk.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The flow bulkified the call but your Apex handles only the first request, or queries per request.</p>
+<p>Build the output inside a loop over the input, with a single query up front. Test with a list of several
+requests.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> A flow needs a callout.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Use an asynchronous path, or an invocable Apex action marked for callouts, or an External Service / HTTP Callout action — never
+synchronously inside the save.</p>
+<p>And handle the failure path, because a callout in automation will fail
+eventually.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> What does a Pause element actually do?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>It commits everything so far and <strong>ends the transaction</strong>, resuming later in a new one with fresh limits.</p>
+<p>That is the sanctioned way to do a callout after DML, or to wait for a time or an event — and it means anything after the pause sees a potentially
+changed world.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> A five-stage approval with reassignment and reminders.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Flow Orchestrator</strong>: stages, steps, assignment to users or queues, each step its own interview, with conditional
+routing.</p>
+<p>Say what you give up versus an approval process: record locking and the built-in approval history, both of which you then implement
+deliberately.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> Orchestrator or a screen flow with a wizard?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A screen flow is one person, one sitting. Orchestrator is multi-person, multi-day, with work assigned and tracked across
+steps.</p>
+<p>If the process spans people and time, a screen flow will become a series of records and reminders you build yourself —
+badly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> A flow calls a subflow that calls another subflow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Legitimate for reuse, but each level adds elements and makes debugging harder, and depth inside loops multiplies cost.</p>
+<p>Keep the hierarchy shallow and the interfaces explicit — subflows with many input variables are usually doing too
+much.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">71</span> You need to call a flow from Apex.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>Flow.Interview</code> with a map of inputs, started from Apex. Useful for reusing an admin-maintained decision from code.</p>
+<p>Be careful about limits and error handling: a flow failure inside your transaction behaves like any other failure, and you own the
+message.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> Platform event-triggered flow — what is different?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It runs as the Automated Process user in its own transaction after publication, with no access to the publisher's state.</p>
+<p>So pass everything needed in the payload, make it idempotent (delivery is at-least-once), and set trace flags on that user to debug
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> Migrating a Process Builder process to Flow changes behaviour.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Expected: timing in the save order differs, and a before-save flow does not re-fire triggers the way a workflow field update
+does.</p>
+<p>Test the whole save path, not just the field value — particularly any trigger that was relying on the re-entry. Migrate one at a
+time.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> Should new automation be Flow or Apex by default?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Flow for field updates, related-record creation and notifications that admins should own and see. Apex for bulk-sensitive logic, complex
+data shapes, reuse across entry points and real error handling.</p>
+<p>The deciding question is usually "who maintains this in two years?", not which is technically
+capable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> A flow and a trigger both react to the same change.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Decide ownership per field and per behaviour, and remove the duplicate. Two automations maintaining the same field is a loop waiting to
+happen.</p>
+<p>If both must exist, make the ordering explicit and document which owns
+what.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> How do you reuse a decision across several flows?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A subflow returning the outcome, or a formula field on the record, or an invocable Apex action — depending on whether the logic is
+flow-shaped or computation-heavy.</p>
+<p>Duplicating a decision across five flows guarantees they drift
+apart.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">77</span> Admins want to change thresholds without a deployment.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Read the threshold from a Hierarchy Custom Setting or Custom Metadata rather than hard-coding it in the flow.</p>
+<p>Flows are metadata, so a hard-coded value means a deployment for every tweak — which pushes people toward editing flows in
+production.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> A flow needs to call out and then update records atomically.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Not possible — you cannot call out after DML in a transaction, and atomicity across a remote system does not exist.</p>
+<p>Use a Pause or asynchronous path, make the remote call idempotent with a correlation id, and reconcile. See
+<a href="integration-patterns.html#advanced">consistency models</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">79</span> You need to process 100,000 records from a flow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>That is Batch Apex. A schedule-triggered flow iterating 100,000 records will hit element and DML limits.</p>
+<p>Flow can start the batch via an invocable action, keeping the orchestration declarative and the heavy lifting in
+Apex.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> How do you hand over a complex flow to an admin team?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Descriptions on the flow and on every non-obvious element, named resources (not <code>varTemp1</code>), a documented entry condition, and a
+Flow Test that encodes the intended behaviour.</p>
+<p>An undocumented 100-element flow is not a handover; it is a
+liability.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="judgement">Judgement &amp; maintenance (81–100)</h2>
+
+<details class="acc"><summary><span class="q-num">81</span> Your org has 14 flows on Account.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Document before changing: a debug log of one save shows the real execution tree, including flows nobody remembered.</p>
+<p>Then consolidate by risk — delete the dead, merge by timing, set trigger order, move same-record updates to before-save — incrementally, behind
+Flow Tests.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> A flow nobody understands is business-critical.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Write Flow Tests capturing its current behaviour <em>before</em> touching it, which both documents it and protects you.</p>
+<p>Then refactor in small steps — extracting subflows or an Apex action — with each step separately
+deployable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">83</span> How do you name flow resources?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Descriptively and consistently: <code>varSelectedAccountId</code>, <code>colOverdueCases</code>,
+<code>fmlDiscountPercent</code>.</p>
+<p>A convention that signals type and purpose makes a large flow readable. <code>var1</code> and <code>decision3</code> make it
+archaeology.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> Flows are deployed but inactive in production.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Flow activation state can differ by environment and is a common post-deployment gap — the metadata arrived, the behaviour did not.</p>
+<p>Include activation verification in the release checklist, and ideally assert it in a post-deployment
+script.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> How many flow versions should you keep?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Keep enough to roll back (the previous working version, at least) and delete the rest periodically — dozens of obsolete versions make the
+list unusable.</p>
+<p>Version history is also your rollback mechanism for a flow, which makes it worth
+curating.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> A stakeholder wants logic in Flow so they can change it.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Split it: the flow owns orchestration and the tunable decisions; an invocable Apex action owns complex, bulk-sensitive
+computation.</p>
+<p>Everyone gets what they need, and the flow stays small enough to
+read.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> Flow or validation rule for a data check?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Validation rule when the check is formula-expressible on the record and admins should see it in one place. Before-save flow when it needs
+related data or a friendlier message.</p>
+<p>Pick one home per rule — duplicated validation produces inconsistent behaviour between UI and
+API.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> A flow is slow and you cannot tell which element.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Enable <code>WORKFLOW=FINER</code> in a debug log for element-by-element execution with timings.</p>
+<p>It is verbose, but it is the only way to see which decision branch was taken and where the time
+went.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> Should flows be version-controlled?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Yes — they are metadata and they are business logic. But treat the files as <strong>unmergeable</strong> and assign one owner per flow per
+release.</p>
+<p>Version control also gives you the review conversation, which matters more for flows than for most metadata because the diff is hard to
+read.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> How do you review a flow in a pull request?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Not from the XML diff, which is unreadable. Review it <em>in the builder</em> in a sandbox, against a written description of the intended
+change.</p>
+<p>Check entry conditions, context, fault paths, loops containing DML or Apex, and whether a Flow Test
+exists.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> A flow works in the builder debugger but fails in production.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The debugger runs one record, as you, often in a different context. Production has bulk, other users' sharing, real data shapes and other
+automation.</p>
+<p>Test with a bulk load, as a non-admin user, in a sandbox with realistic
+data.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> How do you stop flows proliferating?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A convention: one record-triggered flow per object per timing, with subflows for logical grouping, and a design-authority check for anything
+touching a shared object.</p>
+<p>Proliferation is a governance problem, and the cost lands on whoever debugs the save two years
+later.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> An admin built a flow that breaks an integration.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Flows run on API writes too, so a new validation-style flow or a required-field assignment can reject integration records.</p>
+<p>Treat flow changes as changes: tiered review, and an integration regression smoke test after
+release.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> You need to disable a flow quickly during an incident.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Deactivating is a metadata change; faster is a bypass condition in the entry criteria checking a custom permission or hierarchy custom
+setting you can flip instantly.</p>
+<p>Build that bypass before you need it — the same principle as a trigger kill
+switch.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> A flow sends emails to the wrong people after a sandbox refresh.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Real data came across and deliverability was not restricted. Set email deliverability to System Email Only <em>before</em> anyone logs
+in.</p>
+<p>Include it in a scripted post-refresh checklist — it is the mistake that reaches real customers. See
+<a href="devops.html#advanced">post-refresh</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> How do you measure whether a flow is worth keeping?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Does it still run (log its executions), does anyone rely on its output, and does its cost in the save justify it?</p>
+<p>Orgs accumulate flows for processes that ended years ago, and nobody deletes them because nobody can prove they are
+unused.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> A flow's logic duplicates an Apex trigger's.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Remove one. Duplication means two places to change, two chances to diverge, and double the cost in every save.</p>
+<p>Keep whichever better fits the maintenance population, and delete the other deliberately with a note of what was
+removed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> What makes a flow genuinely production-ready?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Transition-based entry conditions, before-save for same-record fields, no DML or Apex inside loops, fault paths with durable logging, a
+documented running context, a bypass switch, named resources, a description, and a Flow Test.</p>
+<p>That list takes an extra hour and prevents most flow
+incidents.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> The business wants everything in Flow because "no code".<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>"No code" is not "no engineering" — flows need bulk thinking, error handling, testing, version control and review exactly as code
+does.</p>
+<p>The honest framing: Flow changes <em>who</em> can maintain the logic, not whether it needs to be engineered
+properly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit that most improves flows?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Using <strong>transition-based entry conditions</strong> and <strong>before-save for same-record updates</strong>, by default.</p>
+<p>Those two choices prevent duplicate side effects, recursion, unnecessary saves and most of the performance complaints — before you have written a
+single element.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="flows.html">Flow Builder (Deep)</a>, the <a href="scenarios.html">scenario index</a>, or
+    <a href="lwc-core-scenarios.html">LWC Core — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Flow — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

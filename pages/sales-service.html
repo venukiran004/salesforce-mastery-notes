@@ -283,6 +283,109 @@
    trending needs a <a href="reports.html#advanced-reports">reporting snapshot</a>.</p>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>Forecasting, properly</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Concept</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Forecast categories</strong></td><td>Opportunity stages map to categories (Pipeline, Best Case, Commit, Closed). The <em>mapping</em> is the forecast design — stage names are just labels on top of it</td></tr>
+    <tr><td><strong>Forecast types</strong></td><td>Revenue or quantity, by opportunity, product family, opportunity split, or territory. Multiple types can run at once, which is how sales and finance get different views of the same pipeline</td></tr>
+    <tr><td><strong>Adjustments</strong></td><td>Managers override their team's roll-up without touching the underlying opportunities, and both numbers are retained — the auditable "my rep is optimistic" mechanism</td></tr>
+    <tr><td><strong>Quotas</strong></td><td>Loaded per user per period; drives attainment reporting. Almost always loaded via API, not the UI</td></tr>
+    <tr><td><strong>Hierarchy</strong></td><td>Forecasts roll up the <em>forecast</em> hierarchy (derived from roles), so a broken role hierarchy produces a broken forecast</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Opportunity revenue structures</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Feature</th><th>Use when</th><th>Watch out</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Opportunity Products (line items)</strong></td><td>You sell discrete products and need per-product reporting</td><td>Amount becomes a roll-up of line items and is no longer directly editable</td></tr>
+    <tr><td><strong>Product Schedules</strong></td><td>Revenue or quantity spread over time (monthly recognition)</td><td>Schedules are per line item and get large quickly — they are a volume consideration</td></tr>
+    <tr><td><strong>Opportunity Splits</strong></td><td>Several reps share credit — revenue splits (must total 100%) or overlay splits (any total)</td><td>Enabling splits is a long-running background process on a large org. Plan it as a change, not a checkbox</td></tr>
+    <tr><td><strong>Enterprise Territory Management</strong></td><td>Assignment and reporting by territory rather than role; territory-based sharing</td><td>A second hierarchy to maintain alongside roles. Powerful, and genuinely heavy</td></tr>
+    <tr><td><strong>Price Books</strong></td><td>Different prices per segment, region or channel</td><td>Every product needs a Price Book Entry per book <em>and</em> currency. This is the usual cause of "the product isn't selectable"</td></tr>
+    <tr><td><strong>When to move to CPQ</strong></td><td>Bundles, configurable options, discount schedules, subscriptions, amendments and renewals</td><td>See <a href="cpq.html">CPQ</a> — standard products and schedules stop being enough quickly</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Omni-Channel routing in depth</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Piece</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Service Channel</strong></td><td>Maps an object (Case, Chat, Lead, custom) to routing behaviour</td></tr>
+    <tr><td><strong>Routing Configuration</strong></td><td>Priority, routing model and the <em>capacity cost</em> of one item of this type</td></tr>
+    <tr><td><strong>Presence Configuration / Status</strong></td><td>What "Available" means and the agent's total capacity</td></tr>
+    <tr><td><strong>Queue-based routing</strong></td><td>Items go to a queue; agents assigned to the queue receive them. Simple and predictable</td></tr>
+    <tr><td><strong>Skills-based routing</strong></td><td>Items carry skill requirements; the engine matches agents with those skills. Supports timed skill dropping — relax requirements if nothing is matched in <em>n</em> seconds, which prevents items starving</td></tr>
+    <tr><td><strong>Routing models</strong></td><td>Least Active (balance workload), Most Available (fill the quietest agent), or External Routing via API</td></tr>
+    <tr><td><strong>Secondary routing priority</strong></td><td>Tie-break within a priority — usually oldest-first, to stop old items being overtaken forever</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout tip">
+  <span class="c-ico">⚖️</span>
+  <div class="c-body"><span class="c-title">Capacity is the lever people forget</span>
+    Agents can handle three chats and one voice call but not three of each — model that with <strong>capacity
+    weights</strong> rather than item counts. A voice call costing 5 and a chat costing 1 against a capacity of 5 means
+    one call <em>or</em> five chats, automatically. Getting weights right fixes most "agents are overwhelmed / agents are
+    idle" complaints without touching routing logic.</div>
+</div>
+
+<h3>Entitlements, milestones and the SLA clock</h3>
+<ul>
+  <li><strong>Entitlement Process</strong> defines the milestones; the <strong>Business Hours</strong> on the entitlement (or the case) define what "4 hours" means.</li>
+  <li><strong>Milestone time triggers</strong> fire relative to the milestone target: warning actions before, violation actions after. Configure both — a violation you only learn about afterwards is a report, not a process.</li>
+  <li><strong>Stopping the clock</strong>: the case's <code>IsStopped</code> flag pauses the SLA while you wait on the customer. If you do not implement this, your SLA metrics measure your customers' response times, not yours.</li>
+  <li><strong>Milestones are per-case-per-process</strong>, and changing the entitlement process on an open case does not retrofit history.</li>
+  <li><strong>Holidays</strong> attach to Business Hours. Missing holidays is the most common cause of "the SLA says we breached but we were closed".</li>
+</ul>
+
+<h3>Knowledge and case deflection</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Concern</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Article lifecycle</strong></td><td>Draft → Published → Archived, with versions. Only one published version at a time; translations version independently</td></tr>
+    <tr><td><strong>Data Categories</strong></td><td>The classification and visibility mechanism — category group visibility controls <em>who sees which articles</em>, including guest users</td></tr>
+    <tr><td><strong>Record types for articles</strong></td><td>Different article structures (FAQ, how-to, known issue) with different fields</td></tr>
+    <tr><td><strong>Search is the whole product</strong></td><td>Articles nobody can find have no value. Invest in titles, keywords and synonyms; review the search terms that returned nothing — that report is your content backlog</td></tr>
+    <tr><td><strong>Deflection measurement</strong></td><td>Track article views in the self-service path against cases created on the same topic. Deflection claimed without measurement is not deflection</td></tr>
+    <tr><td><strong>Attach-and-close discipline</strong></td><td>Agents attaching the article that solved the case is what makes the knowledge base improve itself — and it needs to be in the console workflow, not a nice-to-have</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>The metrics, and how to compute them honestly</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Metric</th><th>Definition that survives scrutiny</th></tr></thead>
+  <tbody>
+    <tr><td><strong>First Contact Resolution</strong></td><td>Cases closed with one customer interaction and <em>no reopen within n days</em>. Without the reopen window, closing cases prematurely improves the metric</td></tr>
+    <tr><td><strong>Average Handle Time</strong></td><td>Agent time on the case, excluding stopped-clock periods. Falling AHT with rising reopens is a problem being hidden, not solved</td></tr>
+    <tr><td><strong>SLA attainment</strong></td><td>Milestone completion within target, on Business Hours, excluding customer-wait time</td></tr>
+    <tr><td><strong>Pipeline velocity</strong></td><td>(Opportunities × win rate × average deal size) ÷ sales cycle length. More actionable than any single stage conversion number</td></tr>
+    <tr><td><strong>Forecast accuracy</strong></td><td>Committed versus actual, by period and by manager. The one number that tells you whether your stage-to-category mapping is real</td></tr>
+    <tr><td><strong>Deflection rate</strong></td><td>Self-service sessions resolved without creating a case — and you must define "resolved" before you report it</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout warn">
+  <span class="c-ico">📉</span>
+  <div class="c-body"><span class="c-title">Every metric gets gamed in the direction you point it</span>
+    Measure AHT alone and cases get closed early. Measure case volume closed and cases get split. Measure CSAT alone and
+    agents stop touching difficult cases. Always pair a throughput metric with a <strong>quality</strong> metric —
+    reopen rate, CSAT, or first-time fix — and review them together. This is the single most useful thing you can tell a
+    service leader.</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> Why can't I add a product to this Opportunity?<span class="q-diff med">Medium</span></summary>

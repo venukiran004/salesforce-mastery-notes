@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fundamentals · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>Fundamentals</span></div>
+  <h1>Fundamentals — 100 Scenarios</h1>
+  <p class="lede">Platform architecture, multitenancy, org strategy, licences, releases and record Ids — as situations
+     you have to react to, not definitions to recite.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Read the scenario, answer out loud in under ninety seconds, <em>then</em> open the answer. The concepts behind these
+    are on <a href="fundamentals.html">Salesforce Fundamentals</a> — if an answer surprises you, go back to that page
+    rather than memorising this one.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="multitenancy">Platform &amp; multitenancy (1–10)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> A developer says "let me add a database index to speed this up". What do you tell them?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>You cannot — there is no infrastructure access on a multitenant platform. Your data lives in shared
+structures with a tenant discriminator, so indexes are managed by Salesforce.</p>
+<p>What you <em>can</em> do: mark a field External Id or Unique (which gives you an index for free), request a custom or
+two-column index from Support for a field you filter on constantly, or restructure the query to lead with an already-indexed
+selective field. See <a href="apex-core.html#advanced">selectivity</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> The same SOQL query is fast in your sandbox and times out in production. No code changed.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The query optimiser keeps statistics <strong>per tenant</strong> and decides based on <em>your</em> data
+distribution. A filter that returned 2% of rows in the sandbox returns 40% in production, crosses the selectivity
+threshold, and the optimiser abandons the index for a scan.</p>
+<p>Diagnose with the Query Plan tool against production, not the sandbox. Cost above roughly 1 means a table scan.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> A stakeholder asks why Salesforce "arbitrarily" limits them to 100 SOQL queries.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>It is not arbitrary — it is the mechanism that stops one tenant consuming shared compute and degrading
+everyone else on the instance. That is also why limits are enforced <em>per transaction</em> and are not negotiable or
+purchasable.</p>
+<p>The useful reframe for the stakeholder: the limit is a design constraint like a memory budget. Hitting it means the
+design needs to change shape (bulk patterns, asynchronous processing), not that the platform needs persuading.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Someone proposes storing 400 million rows of IoT telemetry on a custom object.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Push back on the storage model, not the requirement. Standard objects at that volume cost real storage
+money, slow reports, and complicate sharing recalculation.</p>
+<p>Options, in order: keep it in the source system and query live via Salesforce Connect external objects; land it in a
+<strong>Big Object</strong> if you need it on-platform (and design the composite index first, because it cannot be changed
+later); or put it in Data Cloud with zero-copy access to the warehouse. Only aggregate, decision-relevant data belongs in
+a standard object. See <a href="data-management.html#advanced">Data Management</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> Your org is on the Winter release but a client's org is still on the previous one. How?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Releases roll out by instance over several weeks, so two orgs can legitimately be on different
+versions for a short window. Sandboxes are upgraded ahead of production, which is what gives you a free preview window.</p>
+<p>Check <code>status.salesforce.com</code> for each instance's release date. You cannot defer a release — but you can pin
+an <strong>API version</strong> so your integrations behave consistently across the change.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> An Apex class written in 2019 still behaves per its old API version. Is that a bug?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No — it is the stability guarantee. Each class is saved against an API version and keeps that version's
+semantics forever, which is why a platform upgrade does not break your code.</p>
+<p>The cost is slow debt accumulation: classes on long-retired API versions miss newer behaviour and can block features.
+Bump API versions deliberately as a maintenance task with regression tests, not silently whenever you happen to edit a
+class.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> A new admin adds a custom field and asks when the database migration will run.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>There isn't one. The platform is metadata-driven: your object and field definitions are rows in a
+metadata dictionary interpreted at runtime, not columns in a physical table.</p>
+<p>That is why schema changes are instant and reversible, why there is no build step, and why "deploying" means moving
+metadata rather than running DDL.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> A transaction takes 40 seconds of wall clock but never hits the CPU limit. Explain.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>CPU time counts <em>your computation</em> — loops, collections, JSON, formula evaluation. It does
+<strong>not</strong> count time waiting for SOQL to return, waiting for a callout, or database commit time.</p>
+<p>So a transaction dominated by waiting can run long without approaching the 10-second limit, while a compute-heavy
+transaction can fail at 11 seconds of wall clock. Read the cumulative limits section of the debug log rather than timing
+with a stopwatch. See <a href="governor-limits.html#advanced">Limits</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> A managed package is installed and your previously-fine trigger starts failing on CPU.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The package's triggers run inside <em>your</em> transaction on the same save, and <strong>CPU time is
+shared</strong> even though some other limits are namespace-scoped. Your trigger did not get slower; the budget got
+smaller.</p>
+<p>Prove it from the cumulative limits section of a debug log, which attributes consumption per namespace. Then either
+slim your own logic, move work asynchronous, or take the evidence to the vendor — a log naming their namespace is what
+gets a support case taken seriously.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> Why can't you get a full database backup with a single SQL dump?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No infrastructure or database access on a multitenant platform — your data is interleaved with other
+tenants' in shared structures.</p>
+<p>Your options are API-based: the Weekly Export (CSV, no relationships preserved — <em>not</em> a backup), Bulk API
+extraction with PK chunking, or a third-party backup product. And metadata backup is a separate concern, which is what
+version control is for. Test the restore, or you have a hypothesis rather than a backup.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="orgs">Org strategy &amp; environments (11–20)</h2>
+
+<details class="acc"><summary><span class="q-num">11</span> Two business units argue constantly over releases. One proposes splitting into two orgs.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Ask the diagnostic question first: <strong>do they share customers, processes or reporting?</strong> If
+yes, splitting destroys the single customer view — the hardest thing to retrofit — and you will still have the same
+disagreement, now across two orgs plus an integration to build.</p>
+<p>Release conflict is usually a governance and branching problem wearing an architecture costume. Fix it with parallel
+release branches, clear ownership of conflict-prone metadata, and decomposition into unlocked packages. Separate orgs are
+defensible when there is genuinely no shared customer or process, or when regulators force it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> You have one Full sandbox refreshed every 29 days and need UAT, performance testing and a data-migration rehearsal.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>You cannot have all three simultaneously on one Full sandbox, so sequence them against the refresh
+cycle and be explicit about the trade-off with the business: performance testing and migration rehearsal need real data
+volume, UAT mostly needs realistic shape.</p>
+<p>Practical split: Full sandbox for the migration rehearsal and performance work close to go-live; a Partial Copy with a
+good sandbox template for ongoing UAT; Developer Pro for integration testing. If the programme genuinely needs more,
+buying another Full sandbox is cheaper than a failed go-live.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> After a sandbox refresh, customers receive test emails. What went wrong and what is the fix?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Email deliverability was left at "All Email" and real contact data came across with the refresh.</p>
+<p>The fix is a scripted post-refresh checklist run <em>before</em> anyone logs in: set deliverability to System Email
+Only first, mask or scramble PII, repoint named credentials at test endpoints, deactivate scheduled jobs and integration
+users, disable outbound messages, then reseed config data. Automate it as an Apex class — a manual checklist gets skipped
+exactly once. See <a href="devops.html#advanced">DevOps</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> A developer asks for a Developer sandbox to test a 2-million-record migration.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Wrong environment. Developer sandboxes carry metadata only and have small data storage — the load will
+fail on storage long before it tells you anything useful about performance.</p>
+<p>Migration rehearsals need a Full sandbox (real volume and shape) or at minimum a Partial Copy for logic validation.
+Use the Developer sandbox for the transformation logic, the Full sandbox for the timed rehearsal.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> Finance asks you to enable multi-currency "just to see what it does".<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Refuse in a sandbox-only form. Multi-currency is <strong>irreversible</strong> once enabled, and
+Advanced Currency Management on top of it changes roll-up and reporting behaviour again.</p>
+<p>Test it in a throwaway Developer org or a sandbox you are willing to abandon, never in production or in a sandbox you
+depend on. Keep an explicit list of irreversible settings — multi-currency, custom fiscal years, state/country picklists,
+person accounts, enhanced domains — and require a design-authority decision for each. See
+<a href="governance.html#advanced">Governance</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> A regulator requires EU customer data to stay in the EU. Your org is hosted in the US.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>This is a data-residency constraint that can override architectural preference. Options: a Hyperforce
+org in the required region, or a separate org for the regulated population with integration back to the rest.</p>
+<p>Work the problem with legal rather than guessing — "data residency" sometimes means storage location, sometimes
+processing location, sometimes only specific field categories. The answer changes the architecture substantially, so get
+the requirement precisely before designing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">17</span> Your scratch org "doesn't look like production" and features are missing.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The scratch org definition file declares edition, features and settings, and yours does not match
+production. Derive it instead of guessing: use an <strong>org shape</strong> from production, which produces a definition
+reflecting real edition and features.</p>
+<p>Then consider an <strong>org snapshot</strong> so a 20-minute setup becomes a 2-minute spin-up — it transforms developer
+onboarding.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> A consultancy proposes a separate org per country for 12 countries.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Challenge it hard. Twelve orgs means twelve of everything — releases, configuration, integrations,
+support — and no cross-country customer view or reporting without building it.</p>
+<p>Ask: do countries share customers or processes? Are the differences really data residency and regulation, or just local
+preference? Most "country differences" are handled inside one org with record types, translation, multi-currency and
+territory-based sharing. Reserve separate orgs for genuine regulatory isolation, and expect to justify each one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">19</span> You inherit an org and nobody knows what is in it. First week?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Inventory before touching anything. Run Optimizer and Health Check, review Setup Audit Trail for recent
+change patterns, list installed packages, count automations per object, and check limit headroom (storage, API, async,
+scheduled jobs).</p>
+<p>Then baseline it into version control — retrieve production into <code>main</code>, accept that it is ugly, and tag it.
+You cannot manage drift without a starting point, and making the baseline beautiful first is how this exercise burns three
+months. See <a href="branching-strategy.html#advanced">Branching Strategy</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> Someone wants to develop directly in production because "it's faster".<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>It is faster right up to the first mistake, and there is no rollback on this platform — a deployment
+cannot be reversed transactionally.</p>
+<p>The honest response is to make the sanctioned path genuinely fast rather than lecturing: a hotfix branch with a
+twenty-minute pipeline. People bypass process when process is slow. Then remove metadata-edit rights in production, once
+the corridor exists.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="metadata">Metadata vs data (21–30)</h2>
+
+<details class="acc"><summary><span class="q-num">21</span> A change set deployment succeeds but the feature doesn't work in UAT.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Almost always missing <strong>data</strong> that the feature depends on: custom setting rows, Custom
+Metadata records, queue members, picklist value assignments per record type, or package configuration.</p>
+<p>Metadata deployed, configuration data did not. Build an idempotent post-deployment Apex script that seeds required rows
+and can be re-run safely, and include it in the release runbook.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> Your CPQ price rules work in UAT and are missing in production after go-live.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>CPQ configuration — price rules, conditions, actions, lookup queries, discount schedules, product
+options — is <strong>data</strong>, not metadata. Deployments do not carry it.</p>
+<p>You need a scripted, version-controlled migration in dependency order (products → options → rules → conditions/actions
+→ lookups), re-pointing references because record Ids differ per org. Keep a set of golden quotes with known expected
+totals and recalculate them after every migration. See <a href="cpq.html#advanced">CPQ</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> Is a report metadata or data?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A report definition is metadata and deploys. Its <strong>folder</strong> and the folder's sharing are the
+fiddly part, and custom report types are metadata too.</p>
+<p>The results are obviously data. The practical implication: a report can deploy successfully and be invisible to users
+because nobody deployed or configured the folder access.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> A developer hard-codes a record type Id in Apex and it breaks after a sandbox refresh.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Record Ids differ per org and per refreshed sandbox. Never hard-code any Id — record types, scheduling
+policies, queues, price books, Custom Metadata rows.</p>
+<p>Resolve by developer name at runtime (<code>Schema.SObjectType.Account.getRecordTypeInfosByDeveloperName()</code>), or
+store the <em>name</em> in Custom Metadata and look it up. This single habit prevents a whole category of
+post-deployment incidents.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> Should Custom Metadata hold your business rules or your environment switches?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Both work, but know what you are choosing. Custom Metadata is <em>deployable metadata</em>, so it travels
+with your release and is queryable without consuming SOQL limits — ideal for business rules a consultant maintains and
+for environment-level feature flags that should ship with the code.</p>
+<p>If an admin must change the value in production <em>without</em> a deployment, that is a Hierarchy Custom Setting
+instead — which is also what you want for an incident kill switch.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> Profiles cause a merge conflict on every pull request. What do you do?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Stop versioning them. A profile is one enormous XML file covering every object, field and tab, so two
+unrelated features both rewrite it — and people learn to resolve those diffs carelessly, including the ones that matter.</p>
+<p>Move permissions into permission sets and permission set groups, strip profiles to the minimum (login hours, IP ranges,
+defaults, layout and record type assignments), and <code>.forceignore</code> them — then manage them deliberately per org
+and document that. See <a href="branching-strategy.html#merge-hell">the metadata that won't merge</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> Two developers edited the same flow on different branches. Git merged it cleanly.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>That is the dangerous outcome. A flow is one XML blob with generated element coordinates — a line-by-line
+merge produces a flow that <em>deploys</em> and behaves incorrectly: missing connectors, duplicated elements, orphaned
+decisions.</p>
+<p>Mark flow files unmergeable in <code>.gitattributes</code> so a conflict is forced, assign one owner per flow per
+release, and split large flows into subflows so two people are not in the same file. If both must change it, they do it
+sequentially.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> An admin fixed a validation rule in production on Friday. Your release on Monday reverts it.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Classic config drift: <code>main</code> no longer matches production, and a full deployment overwrites
+the undocumented change silently.</p>
+<p>Close the loop: nightly drift detection diffing production metadata against <code>main</code> and failing loudly;
+retrieve the change into a <code>config/*</code> branch and PR it into main; merge down to develop and open release
+branches the same day. Then give admins a sanctioned fast path so this stops being necessary. See
+<a href="branching-strategy.html#drift">drift</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> Which is riskier to deploy: a new field, or a deleted field?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>The deletion, by a wide margin. Adding a field is additive and reversible. Deleting one is a
+<strong>destructive change</strong> that takes the data with it, and nothing on this platform rolls back transactionally.</p>
+<p>So destructive changes live in a separate manifest, applied deliberately, with explicit review — and your per-release
+documentation should list what is <em>not</em> reversible, which is what turns a rollback decision into a judgement rather
+than a guess.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> Your repo claims to describe the org. How do you prove it to an auditor?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>With a mechanism and its run history, not an assertion: a scheduled job that retrieves production
+metadata, diffs it against <code>main</code>, and fails on divergence.</p>
+<p>Supporting controls: <code>main</code> equals production as an enforced invariant with tagged releases, deployments by
+a service account, human metadata-edit rights removed in production, Setup Audit Trail reviewed weekly, ticket ids in
+merge commits. And the honest caveat — config that is <em>data</em> (CPQ, Field Service, metadata rows) needs its own
+versioned migration and reconciliation.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="licences">Licences (31–40)</h2>
+
+<details class="acc"><summary><span class="q-num">31</span> You designed an internal app on Platform licences. In UAT, users cannot see Opportunities.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Platform licences cannot access standard CRM objects like Opportunity and Case. That is the trade for
+being much cheaper, and discovering it after design is a painful week.</p>
+<p>Options: redesign to use custom objects only (legitimate if the CRM data was convenience rather than requirement),
+upgrade that population to full Salesforce licences, or split the app. The lesson is to verify object availability per
+licence <em>before</em> design, not after — it is the single most expensive licence mistake on the platform.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> A user has the right profile but a feature still doesn't appear.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check for a missing <strong>permission set licence</strong>. Modern features (CRM Analytics, Field
+Service, Sales Console) are sold as permission set licences that must be assigned to the user <em>in addition</em> to the
+permission set itself.</p>
+<p>Also check legacy <strong>feature licences</strong> — checkboxes on the user record like Marketing User or Knowledge
+User. The three-layer model (user licence, permission set licence, feature licence) is where most "it's not showing up"
+tickets live.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">33</span> 100,000 customers need portal access. Which licence family?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>At that volume, high-volume <strong>Customer Community</strong>. The critical consequence: high-volume
+licences have <strong>no role hierarchy</strong>, so access comes from <strong>Sharing Sets</strong> matching the user's
+Contact/Account to the record, and internal visibility of records they own requires a <strong>Share Group</strong>.</p>
+<p>If they need roles, reports and sharing rules, that is Customer Community Plus at a higher price. Designing on the
+assumption roles exist and then discovering the licence lacks them is a redesign. See
+<a href="experience-cloud.html#advanced">Experience Cloud</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> Member-based or login-based community licences for 5,000 occasional users?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Model it rather than guessing. Login-based licences are a monthly pool of logins and suit genuinely
+occasional use; member-based suits frequent users. The crossover is usually around two or three logins per member per
+month.</p>
+<p>Then measure in a pilot before buying at scale — estimates of community login behaviour in business cases are
+consistently wrong, in both directions.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> Partners need to work Leads and Opportunities. Which licence?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Partner Community — it is the external licence family that includes CRM objects like Leads and
+Opportunities, plus partner roles under the account (up to three) and Super User access for partner managers.</p>
+<p>Customer Community cannot do this. If there is a distributor/reseller tier, add External Account Hierarchy so a parent
+account can see its children's records.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> An integration user is consuming a full Salesforce licence. Can you avoid that?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Often yes — Salesforce offers integration-oriented licences with API access but no UI, which are cheaper
+for a service account that only makes API calls.</p>
+<p>Whatever you use, make it a <strong>dedicated</strong> integration user with a least-privilege permission set, not a
+named human's admin account — which breaks the day they leave and makes every audit trail ambiguous.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> You deactivate a departing user and a nightly batch stops two weeks later.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>They owned the <strong>scheduled Apex job</strong>, which runs as its submitter. Deactivating them killed
+it, and nothing alerted you.</p>
+<p>Offboarding checklist: freeze first, revoke OAuth tokens, reassign record ownership, then check scheduled jobs, dashboard
+running users, integration credentials, queue and group memberships, and whether they are a Named Principal on a Named
+Credential. See <a href="identity.html#advanced">Identity</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> Licence counts look fine but a managed package feature stops working for some users.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Package licences are assigned per user and are separate from your Salesforce licences — and they expire,
+often silently. Check the package's licence assignment page.</p>
+<p>Build a periodic licence true-up into your platform health review: Salesforce licences, permission set licences, feature
+licences and package licences, with utilisation. It is also where you find the money nobody is using.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> Can you reduce licence count mid-contract because usage is lower than expected?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Generally not mid-term — reductions happen at renewal, which is a commercial conversation rather than a
+technical one.</p>
+<p>What you can do technically is measure utilisation properly (active users, last login, feature usage) and bring evidence
+to the renewal. Start that measurement months ahead, because "we think about 200 are unused" does not survive a
+negotiation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> A guest user needs to create records on a public site. What licence does that consume?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Guest access does not consume a per-user licence, but it is bounded by the site's limits and it is a
+<strong>security</strong> question before a licensing one.</p>
+<p>Guest users cannot own records, so creations are reassigned to a default owner you must configure. Review the guest
+profile's object and field permissions, use guest sharing rules only, audit any <code>@AuraEnabled</code> method reachable
+from the page, and rate-limit creation — a guest-writable object with no validation is a spam target.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="releases">Releases &amp; upgrades (41–50)</h2>
+
+<details class="acc"><summary><span class="q-num">41</span> A critical update has an enforcement date in two releases. How do you handle it?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Treat it as a backlog item with a deadline, not an email. Critical updates are the changes that actually
+break things, and the enforcement date is not negotiable.</p>
+<p>Process: assign an owner, test it enabled in a sandbox well ahead of the date, fix what breaks, then enable in production
+before enforcement. Reacting at the deadline is how a critical update becomes an incident.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> Your sandbox is on the new release and production is not. What should you be doing?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Using the free testing window. Run your regression suite, exercise the areas the release notes touch for
+your stack, and verify integrations against the new API version if you plan to bump it.</p>
+<p>Find out which preview window your sandbox falls into ahead of time — teams discover this too late and lose the window
+entirely, then meet the release in production.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> How do you triage 400 pages of release notes?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Filter to your own stack: the objects, APIs and features you actually use, plus anything marked as a
+critical update or security change. An hour per release with a named owner catches nearly everything that matters.</p>
+<p>Keep a standing list of "features we depend on" to filter against, and record decisions (adopt now / evaluate / ignore)
+so the next release does not re-litigate the same items.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> A new release changes behaviour your integration relied on. Who is at fault?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually the integration, for not pinning an API version — behaviour is guaranteed within a version, which
+is precisely why versions exist.</p>
+<p>Fix forward: pin the version explicitly in the endpoint path, keep an inventory of which integration uses which version,
+and track Salesforce's retirement schedule. A version retirement notice should be a planned project, never a
+surprise.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> You want to upgrade a managed package. What do you do first?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Install it in a sandbox and regression-test — a package upgrade can change calculation behaviour, add
+triggers and fields to your objects, and consume more of your CPU budget.</p>
+<p>For packages with configuration (CPQ, Field Service), recalculate a golden set with known expected results afterwards.
+And schedule the upgrade as a change with a rollback position, because uninstalling is not a clean reverse.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> Can you roll back a release in production?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Not transactionally — there is no rollback primitive. "Roll back" means deploying the previous known-good
+state and <em>manually reversing</em> what cannot be redeployed: destructive changes, data changes, picklist values,
+irreversible settings.</p>
+<p>So the practical controls are a tag per release (making the first half trivial) and a documented per-release list of
+irreversible changes. Forward-fix is usually the better answer, which is why a fast hotfix path matters more than a
+rollback plan.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> A deployment to production takes three hours. Reduce it.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Two changes. <strong>Delta deployments</strong>: generate the manifest from the diff between the last
+release tag and HEAD rather than deploying the whole repo. <strong>Validate then quick deploy</strong>: run the tests in a
+validation-only deployment ahead of the window, then promote that validated build without re-running them.</p>
+<p>Minutes rather than hours. The trade-off is that delta deployments leave untouched metadata alone, so they hide drift —
+pair them with scheduled drift detection. See <a href="branching-strategy.html#delta">delta deployments</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> Your scheduled jobs break after every deployment.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Deployments can leave schedules intact but pointing at changed logic, or block changes to classes
+referenced by active jobs.</p>
+<p>Build an <strong>idempotent scheduler setup method</strong> you can re-run post-deployment to abort and recreate every
+schedule, and include it in the release runbook. Also query <code>CronTrigger</code> after each release to verify
+<code>NextFireTime</code> and state.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> A feature you built is being deprecated by Salesforce. How do you find out early?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Release notes and the retirement announcements, read every release by a named owner — plus the Metadata
+Coverage Report and API version retirement schedule for anything you automate against.</p>
+<p>The structural answer is to keep an inventory of platform features you depend on, so a retirement notice can be matched
+against it in minutes rather than discovered by a broken integration.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> Should you adopt a new feature in the release it ships in?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually not for anything load-bearing. New features often ship with gaps — missing metadata support (so
+you cannot deploy them), missing API coverage, or beta status with no SLA.</p>
+<p>Check the Metadata Coverage Report and the GA status before building on it. Adopt early for low-risk improvements,
+deliberately late for anything in a critical path.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="ids">Record Ids &amp; keys (51–60)</h2>
+
+<details class="acc"><summary><span class="q-num">51</span> An external system merged two of your records into one. The Ids looked different to you.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>You sent <strong>15-character Ids</strong>, which are case-sensitive, to a system that uppercases or
+compares case-insensitively — so two genuinely different Ids collapsed into one.</p>
+<p>Always exchange <strong>18-character</strong> Ids externally; the suffix is a case-safe checksum. Use
+<code>CASESAFEID()</code> in formulas and reports, and make 18 characters a rule on every interface. Excel does this too,
+which is why exported Id lists cause the same bug.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> In Apex, a 15-character and 18-character Id compare as unequal. Why?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>You are comparing them as <code>String</code>. Cast both to <code>Id</code> and they are equal — the
+<code>Id</code> type normalises.</p>
+<p>This is a common integration bug: a map keyed on <code>String</code> Ids misses lookups when one side is 15 characters
+and the other 18. Key maps on <code>Id</code>, not <code>String</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> You receive an Id and don't know what object it belongs to.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>The first three characters are the key prefix (001 Account, 003 Contact, 006 Opportunity, 500 Case, 00Q
+Lead, 005 User). In Apex, <code>((Id) idString).getSObjectType()</code> resolves it at runtime.</p>
+<p>That runtime resolution is the right approach for generic utilities and for polymorphic fields like
+<code>Task.WhatId</code>, where you cannot assume the parent type.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> An integration needs to upsert records without storing Salesforce Ids.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Use an <strong>External Id</strong> field — unique, indexed, holding the remote system's key — and upsert
+against it. The remote system keeps using its own identifier and never needs to know your Ids.</p>
+<p>This is also your idempotency guarantee: the unique index means a duplicate delivery fails on the duplicate rather than
+creating a second record. Run the same upsert twice as a test and confirm it updates rather than duplicates.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> Is a record Id reused after you delete the record?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No — Ids are not recycled. A deleted record's Id continues to identify that (now deleted) record, which is
+why it can be restored from the recycle bin with the same Id.</p>
+<p>Practical consequence: a stale Id in an external system resolves to nothing rather than to a different record. That is a
+safer failure than reuse would be, and it is why Ids are reasonable long-term references.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> A URL with a record Id works for you and 404s for a colleague.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Record access, not the Id — they lack sharing or object permissions, so the record is not visible to them
+and the page behaves as if it does not exist.</p>
+<p>Diagnose by logging in as them, then walk the sharing chain: object permissions, FLS, OWD, role hierarchy, sharing rules,
+manual and Apex shares, implicit parent sharing, restriction rules. See <a href="security.html#advanced">Security</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> Your My Domain changes and every bookmarked URL breaks.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Enhanced domains change the hostname in every URL: bookmarks, SSO configuration (Entity Id and ACS URL),
+integration endpoints, email templates with hard-coded links, and embedded content.</p>
+<p>Treat it as a project with a communication plan and an inventory of everything referencing the old host — not a setting.
+Test SSO and every integration in a sandbox first, because an Entity Id mismatch breaks login entirely.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> Should you expose Salesforce Ids in a customer-facing URL?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Prefer not to. Ids leak which object and roughly when a record was created, they are enumerable in spirit,
+and they couple your public surface to internal identifiers.</p>
+<p>Use a separate opaque reference (a random token on the record, indexed and unique) for public URLs. And regardless,
+never rely on Id obscurity for access control — enforce sharing and FLS server side.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> A data load fails on self-referential lookups (Account parent, Contact reports-to).<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>You cannot populate a reference to a record that does not exist yet. Load in two passes: first create all
+records without the self-reference, then update them with the relationship using External Ids to resolve the targets.</p>
+<p>Same principle for any dependency order: parents before children, and anything circular needs a second pass. See
+<a href="data-management.html#advanced">Data Management</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> Why does sorting a list of sObjects in Apex give an unexpected order?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><code>List&lt;SObject&gt;.sort()</code> sorts on the <em>first field in the SELECT clause</em> by
+default, which is rarely what you intended. Nulls also sort first ascending, so Apex and a report can disagree about "the
+top record".</p>
+<p>Fix: sort in SOQL with an explicit <code>ORDER BY</code>, or implement <code>Comparable</code> on a wrapper class, or
+pass a <code>Comparator</code> to <code>sort()</code> when you need more than one ordering.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="mvc">MVC, request lifecycle &amp; architecture (61–70)</h2>
+
+<details class="acc"><summary><span class="q-num">61</span> A user says "the page is slow". Where do you start?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The Lightning Usage App, to see EPT by page, browser and user — it frequently reveals one browser or one
+user population rather than a platform problem.</p>
+<p>Then component-level instrumentation on the page to attribute the time, and the browser network tab for Apex call count
+and payload size. Five components each fetching their own data is five round trips, and consolidation is usually the
+biggest single win. See <a href="ux-mobile.html#advanced">performance</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> Where does a validation rule fire relative to a before trigger?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>After before-save flows and before triggers, and before after triggers. So a before trigger can set a
+field that then fails validation — which is correct and occasionally surprising.</p>
+<p>The ordering matters most for the re-entry cases: a workflow field update re-fires before and after triggers but does
+<em>not</em> re-run validation rules by default. See <a href="apex-triggers.html#order-of-execution">order of
+execution</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> Is a flow part of the Model, the View or the Controller?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Mostly Controller — it orchestrates logic. A screen flow spans Controller and View; the Model is your
+objects and fields.</p>
+<p>The useful version of this question is not taxonomy but <em>where logic should live</em>: declarative automation for
+orchestration and simple field work, Apex for bulk performance, complex data shapes and reuse. See
+<a href="flows.html#advanced">Flow ⇄ Apex</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> Two record-triggered flows on the same object run in an unpredictable order.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Within one category and timing, order is not guaranteed unless you set the flow's <strong>trigger
+order</strong> explicitly (1–2000).</p>
+<p>Better still, converge on one entry point per object per timing with a named owner. Multiple automations on one object
+competing for order is how a save becomes unpredictable — see <a href="admin.html#advanced">automation order</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> Where should business logic live if it must be callable from a trigger, an LWC and a REST endpoint?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A <strong>service class</strong> that owns the transaction boundary, with all three entry points calling
+it. The trigger handler, the <code>@AuraEnabled</code> method and the <code>@RestResource</code> become thin adapters.</p>
+<p>That is the single highest-value piece of structure in a growing codebase: one implementation, one place to test, and
+new entry points cost nothing. See <a href="apex-advanced.html#advanced">enterprise patterns</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> A roll-up summary and a trigger both update the same parent field. What happens?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>They fight, and the roll-up generally wins because it recalculates on the platform's own schedule within
+the save. You will see values that flicker or revert.</p>
+<p>Pick one mechanism per field. If the aggregation is expressible as a roll-up summary, use it and delete the trigger
+logic; if not, use the trigger and do not create a roll-up on that field. Never both.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> Why does updating a child record fire the parent's triggers?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Roll-up summary recalculation saves the parent, which runs the parent's triggers. This is how cross-object
+trigger storms usually start.</p>
+<p>It also explains implicit parent locking: inserting or updating a detail record locks its master-detail parent, which is
+the root cause of most <code>UNABLE_TO_LOCK_ROW</code> errors. Sort DML by parent Id so concurrent transactions lock in the
+same order.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> A platform event subscriber cannot see static variables set by the publisher.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Correct and by design. Subscribers run in a <strong>separate transaction</strong>, as the Automated
+Process user, with fresh limits and no access to the publisher's static state.</p>
+<p>Pass everything the subscriber needs in the event payload — ids plus the few fields it requires, a correlation id and a
+published timestamp. That separation is also a legitimate way to escape mixed-DML restrictions.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> How does the platform decide which page layout a user sees?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>The combination of their profile (or permission-set assignment) and the record's record type. That matrix
+is why record types multiply maintenance so quickly.</p>
+<p>Dynamic Forms largely removes the need for layout-driven record types — conditional field visibility on one layout
+instead of cloning layouts per variant. Do that before adding your eighth record type.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> Is hiding a field with component visibility a security control?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No. Component visibility and Dynamic Forms conditions are presentation — the data is still accessible via
+API, reports and SOQL.</p>
+<p>Field-level security is the control. Conflating the two is one of the most common findings in a security review, and it
+is trivially demonstrable with a single REST call.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="limits-scenarios">Limits in practice (71–80)</h2>
+
+<details class="acc"><summary><span class="q-num">71</span> A Data Loader job of 10,000 records fires your trigger 50 times. Is that a bug?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No — it arrives as 50 chunks of 200 in <em>separate transactions</em>, each with its own limits. That is
+normal and desirable.</p>
+<p>What <em>is</em> a bug is a static <code>alreadyRan</code> boolean guard, which also blocks the legitimate second batch
+of 200 inside a single transaction. Guard by record Id instead. See <a href="apex-triggers.html#advanced">recursion
+control</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> "Just make it a batch job" — when does that not fix the limit problem?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>When the limit is <strong>row count</strong>. Async doubles CPU (10s → 60s), heap (6MB → 12MB) and query
+count (100 → 200), but total query rows (50,000) and DML rows (10,000) are unchanged.</p>
+<p>So async fixes heavy computation over moderate data. It does not fix a design that tries to load 200,000 rows into one
+transaction — that needs chunking with a query locator.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> Interactive users start getting errors at the same time your nightly integration runs.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The <strong>concurrent long-running requests</strong> limit — ten synchronous requests over five seconds
+per org, shared between your background work and real users. Your integration is consuming the slots.</p>
+<p>This is the nastiest limit on the platform because the symptom appears nowhere near the cause. Fix: move integration
+work asynchronous, off the synchronous path, and keep long-running synchronous calls out of integration patterns
+entirely.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> Your API-based integration fails every day at 4pm.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Daily <strong>API request limit</strong> exhaustion — it is org-wide and scales with licences, and a
+polling integration consumes a surprising share.</p>
+<p>Check <code>/limits</code>, then fix the cause: replace polling with platform events or CDC, batch requests via
+Composite, and alert at a percentage of the daily limit rather than discovering it at 100%.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> You cannot schedule a new Apex job. Nothing is obviously wrong.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>You have hit the org-wide limit on scheduled Apex jobs. Teams reach it by scheduling per-region or
+per-entity jobs.</p>
+<p>Fix the pattern: one scheduled job that iterates over the regions, rather than one job per region. Also audit
+<code>CronTrigger</code> for abandoned schedules left behind by old projects.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> A batch job fails at 95% complete after four hours.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Design it so that cannot waste the whole run. Persist a <strong>high-water mark</strong> ("processed up
+to here") so a re-run resumes rather than restarting, and check remaining limits mid-loop so the job re-enqueues the
+remainder instead of dying.</p>
+<p>Also use <code>allOrNone = false</code> with an error log so one bad record costs you that record, not the batch. And
+attach a Finalizer to Queueables so an uncatchable failure is at least recorded.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">77</span> Email notifications silently stop sending. No exceptions anywhere.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The daily single-email or mass-email limit, which is org-wide and fails quietly rather than throwing in
+your code path.</p>
+<p>Monitor it, and reconsider whether email is the right channel for high-volume notification — platform events, custom
+notifications or an external messaging service scale better and do not share a daily cap with everything else.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> Ten subscribers listen to one platform event. Your event allocation disappears.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Both publishing <em>and delivery to each subscriber</em> consume allocation, so ten subscribers multiply
+consumption roughly tenfold.</p>
+<p>Fix by consolidating subscribers (one subscriber that fans out internally), keeping payloads thin, and reviewing whether
+every subscriber genuinely needs every event. See <a href="integration-events.html#advanced">allocations</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">79</span> How do you find out you are approaching a limit <em>before</em> breaching it?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Instrument it. Capture <code>Limits.getCpuTime()</code>, query and DML counts and heap at key points,
+compare against <code>Limits.getLimitX()</code>, and warn at around 60% — publishing a platform event so the warning is
+visible in production where debug logs are not.</p>
+<p>At org level, monitor storage, daily API calls, async executions and scheduled job counts on a schedule with alerting.
+These are the limits that fail silently. See <a href="governor-limits.html#advanced">instrumenting limits</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> An unbounded SOQL query has worked for three years. Is it fine?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>It is an incident with a date on it. An unbounded query works until the data crosses the row limit or the
+selectivity threshold, and then fails — usually at the worst possible time, with no code change to blame.</p>
+<p>Bound every collection with a <code>LIMIT</code> you chose deliberately, and handle the case where there is more data
+than you fetched.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="products">Product fit &amp; the wider platform (81–90)</h2>
+
+<details class="acc"><summary><span class="q-num">81</span> The business wants appointment booking. Salesforce Scheduler or Field Service?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Scheduler if the customer comes to you — branch meetings, advisers, consultations — where travel is
+irrelevant and there are no parts. Field Service if you send people to places to do work, where drive time is the dominant
+cost and you need assets, inventory and an offline mobile app.</p>
+<p>The test: if nobody drives anywhere and nothing gets fitted, Field Service is expensive machinery you will not use. See
+<a href="field-service-advanced.html#scheduler-vs-fs">the comparison</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> Standard quoting is not enough. When is CPQ justified?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>When you need configurable bundles with options and rules, discount schedules, subscription pricing,
+amendments mid-term and renewals. Standard Products, Price Books and Schedules cover simple catalogue selling and stop
+abruptly after that.</p>
+<p>Be clear about the cost: CPQ configuration is largely <em>data</em>, so it brings its own migration and regression
+problem. See <a href="cpq.html#advanced">CPQ</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">83</span> A stakeholder asks for "a dashboard like Tableau" inside Salesforce.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Clarify what they actually need. Standard reports and dashboards for operational, live, single-object-plus-children
+data — free and buildable by anyone. CRM Analytics for blended Salesforce data, trending and large datasets embedded in
+CRM. Tableau for enterprise BI across many non-Salesforce sources.</p>
+<p>The decision point: "do I need to join data Salesforce reporting cannot join, or trend beyond what snapshots hold?" If
+not, a report is cheaper to build and far cheaper to maintain. See <a href="analytics.html#advanced">choosing a
+tool</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> Marketing wants email. Account Engagement or Marketing Cloud Engagement?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Account Engagement (Pardot) for B2B: prospect nurture, scoring and grading, tight CRM integration, modest
+volumes. Marketing Cloud Engagement for B2C scale, cross-channel journeys, and complex data-driven personalisation.</p>
+<p>The B2C platform's Contact Key decision is effectively permanent, so if that is the direction, settle it with the CRM team
+on day one. See <a href="marketing.html#advanced">Marketing</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> Does an AppExchange package need its own review before you install it?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Yes, regardless of its security review status. Install in a sandbox and check: what triggers, flows,
+validation rules and fields it adds to <em>your</em> objects; how much CPU it adds to your transactions; what data leaves
+your org and to where; the upgrade path; and what uninstalling actually leaves behind.</p>
+<p>Also plan the exit before you depend on it. See <a href="governance.html#advanced">ISV discipline</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> When is Data Cloud the right answer rather than more custom objects?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>When you need a unified profile across systems with identity resolution, very large volumes, calculated
+insights across the lake, or activation of segments to other channels — and particularly when the data already lives in a
+warehouse, where <strong>zero copy</strong> avoids ingesting it twice.</p>
+<p>It is not a cheaper custom object. It meters on consumption, and identity resolution is a business decision with real
+over-merge and under-merge consequences. See <a href="einstein-ai.html#advanced">Data Cloud</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> A stakeholder asks for an AI agent on day one of a new implementation.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Sequence it honestly: AI amplifies whatever data and process you already have. On a new implementation
+there is no transcript history, no clean knowledge base and no measured baseline, so there is nothing to ground against and
+nothing to prove improvement against.</p>
+<p>Deliver the core process first, instrument it, clean the knowledge content, then add agents against a measured baseline.
+Saying that costs you a little enthusiasm and saves a failed pilot. See <a href="agentforce.html#advanced">Agentforce</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> Do you build it, buy it from AppExchange, or integrate an existing system?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Decide on three axes: is this a <em>differentiating</em> capability (build) or a commodity (buy); does a
+system of record already exist elsewhere (integrate, do not duplicate); and what is the total cost of ownership including
+upgrades, limits consumption and the exit.</p>
+<p>The common failure is building a commodity because it felt easy in a demo, then maintaining it for eight years.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> Experience Cloud or a custom front end against the APIs?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Experience Cloud when you want speed, built-in identity, sharing and CMS, and your UX needs are within its
+templates — LWR for public and performance-sensitive sites. A custom front end when the UX is genuinely bespoke or must
+live inside an existing app, using headless identity and the APIs.</p>
+<p>Be honest about the cost of custom: you now own authentication, authorisation surfaces, accessibility and every
+security review finding yourself.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> The business asks for "real-time" integration. What do you ask back?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Decompose it into a number. "Real-time" usually means one of: the user must see it before finishing the task
+(under ~2 seconds — synchronous request-reply), within seconds but nobody is waiting (platform events), within minutes
+(events plus reconciliation), or overnight is fine (batch, and far cheaper to run).</p>
+<p>Very often the real requirement is "I don't want to explain stale data", which a visible <em>last synced</em> timestamp
+solves better than any architecture. See <a href="integration-patterns.html#advanced">latency budgeting</a>.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="judgement">Judgement calls (91–100)</h2>
+
+<details class="acc"><summary><span class="q-num">91</span> A requirement would need 14 automations on Account. What do you say?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Not "no" — "not like that". Document the existing execution tree first (a debug log of one Account save
+shows what actually runs, including the automations nobody remembered), then consolidate toward one entry point per object
+per timing with explicit ordering.</p>
+<p>Deliver the requirement inside that structure, incrementally and behind tests, so each consolidation is attributable if
+something regresses. And add a bypass switch while you are in there.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> A stakeholder insists on a field that duplicates data already on the parent.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Ask the diagnostic question: does the value need to be <strong>filterable, sortable or usable in
+automation</strong> on this object, or does someone just need to see it? If the latter, a cross-object formula field or
+the related record's layout solves it with no duplication and no sync problem.</p>
+<p>If it genuinely must be stored (selectivity at volume, point-in-time snapshot), say so explicitly and own the sync
+mechanism — denormalisation is a legitimate choice when it is a decision rather than an accident.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> You are asked to estimate a piece of work you have never done on the platform.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Separate the known from the unknown and price the unknown as a spike. Give a range with the assumptions
+stated, name the specific thing you need to prove (does this metadata deploy? does this API support this volume? does this
+licence include this object?), and timebox a proof of concept.</p>
+<p>An estimate with explicit assumptions is defensible when it moves. A single confident number is not.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> A developer wants to use a brand-new beta feature in a critical path.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check three things before opinions: GA status and SLA, Metadata Coverage (can you even deploy it?), and
+whether there is a supported fallback.</p>
+<p>Beta features in a critical path mean you own the risk with no support commitment. Use them where failure is recoverable,
+and keep the critical path on GA functionality — or carry the feature behind a flag you can switch off.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> The business wants a change live tomorrow and your release is in two weeks.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>That is what a hotfix path is for: branch from <code>main</code> (never develop, which holds unreleased
+work), fix with a test, validate against production, deploy, tag — then forward-merge <code>main</code> into develop and
+every open release branch the same day.</p>
+<p>If you do not have that path, build it, because the alternative is someone changing production directly and you never
+seeing it. See <a href="branching-strategy.html#hotfix">hotfixes</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> You discover a security hole in production during a release.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Contain first: if a user or integration is the vector, <strong>freeze</strong> the user and revoke tokens —
+freeze is instant and reversible, unlike deactivation. Restrict the surface (profile permission, guest access, site) rather
+than attempting an elegant fix under pressure.</p>
+<p>Then assess exposure with Event Monitoring and Setup Audit Trail, fix forward through the hotfix path with a test, and
+write up what made it reachable. Containment before diagnosis, diagnosis before elegance.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> Your predecessor built everything with <code>without sharing</code>. Where do you start?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Inventory and triage, not a rewrite. Find every <code>without sharing</code> class and classify: genuinely
+needs elevation (document why), should be <code>with sharing</code>, or should be <code>inherited sharing</code> because it
+is a library called from multiple contexts.</p>
+<p>Prioritise anything reachable from an <code>@AuraEnabled</code> method on a guest-accessible page or a REST endpoint —
+that is an exfiltration path, not a code-style issue. Remember inner classes do not inherit the outer declaration. See
+<a href="apex-advanced.html#advanced">sharing keywords</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> A report shows different numbers from a CRM Analytics dashboard on the same data.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Nearly always a join in the data prep: an inner join silently dropping rows with no match, or a
+one-to-many join <em>multiplying</em> rows so every subsequent sum is inflated.</p>
+<p>Check row counts after every join node in the recipe and reconcile the dataset total against the Salesforce report before
+anyone builds on it. The second candidate is a security predicate filtering rows for the viewing user. See
+<a href="analytics.html#advanced">CRM Analytics</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> You are the only Salesforce person and everything is urgent. How do you choose?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Rank by irreversibility and blast radius, not by who asked loudest: security exposure first, then data
+integrity (silent corruption is worse than visible downtime), then blocked revenue-generating work, then everything else.</p>
+<p>Then spend some of the remaining time on the things that reduce future urgency — drift detection, error logging, a bypass
+switch, a fast hotfix path. Pure reaction never ends on its own.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> What single habit prevents the most production incidents on this platform?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Making every change <strong>reversible, observable and bounded</strong>. Concretely: no hard-coded Ids;
+bypass switches on every automation; structured error logging via platform events so records survive a rollback; bounded
+queries and collections; and a tag per release so "deploy the last known good state" is one command.</p>
+<p>None of it is clever. All of it is the difference between a bad afternoon and a bad quarter — and it costs about a day
+each to put in place.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="fundamentals.html">Salesforce Fundamentals</a>, on to the
+    <a href="scenarios.html">full scenario index</a>, or try
+    <a href="admin-scenarios.html">Admin — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Fundamentals — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

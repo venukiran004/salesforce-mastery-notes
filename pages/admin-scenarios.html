@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>Admin</span></div>
+  <h1>Admin — 100 Scenarios</h1>
+  <p class="lede">Schema design, formulas and roll-ups, record types, validation, duplicates, queues, approvals and
+     capture channels — as decisions you have to defend, not features to list.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in under ninety seconds, then open the answer. The concepts are on
+    <a href="admin.html">Admin Essentials</a> and its <a href="admin.html#advanced">Advanced</a> section.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="schema">Objects, fields &amp; relationships (1–10)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> The business needs a child record that can be moved to a different parent later.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Master-detail relationships can allow reparenting, but it is off by default and master-detail brings
+cascade delete plus inherited sharing you may not want. If reparenting is routine, a <strong>lookup</strong> is usually the
+honest choice.</p>
+<p>The cost of choosing lookup: no roll-up summary fields, so aggregation needs a flow, a trigger or a declarative roll-up
+tool. Make that trade explicitly rather than discovering it after the data model is live.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> You need a many-to-many relationship between Projects and Employees.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A <strong>junction object</strong> with two master-detail relationships. The first master-detail you create
+is the primary — it controls the record's ownership, sharing and the default layout, and it is what appears in the record
+name on list views.</p>
+<p>Put extra context on the junction itself (role, allocation percentage, start and end dates) — that is usually why the
+relationship exists rather than a simple link.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> A master-detail child needs its own sharing, independent of the parent.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Not possible. Master-detail children have no share object; access is inherited from the master, full stop.</p>
+<p>If independent sharing is a real requirement, it must be a <strong>lookup</strong> relationship with its own OWD and
+sharing rules — and you then lose roll-up summaries and cascade delete, which you may need to rebuild. Decide before
+building, because converting the relationship type later is a data migration.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Someone wants a picklist with 400 values.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>That is a lookup to a custom object, not a picklist. 400 values is unusable in a UI, impossible to
+maintain, and it will be wrong within a month.</p>
+<p>A lookup gives you searchability, an owner, active/inactive flags, effective dates and reportability. Reserve picklists
+for small, stable, genuinely enumerated sets — and use a <strong>global value set</strong> when the same list appears on
+several objects.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> A field needs to hold a value that must be unique across the org.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Mark it Unique — and consider External Id as well if an outside system owns the value, because that gives
+you upsert-by-key plus a free index.</p>
+<p>Decide case sensitivity deliberately: a case-insensitive unique text field treats "ABC123" and "abc123" as the same
+value, which is usually what you want for human-entered references and occasionally not.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> You need to change a Text field to a Picklist on 2 million records.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Possible but risky: values that do not match a picklist entry behave unpredictably, and anything filtering
+or integrating on the field may break. At that volume the conversion is also slow.</p>
+<p>Safer pattern: create the new picklist field alongside, migrate values in controlled batches with a mapping you can
+verify, repoint reports, automation and integrations, then retire the old field after a bake period. Never convert in place
+on a large object without a rehearsal in a Full sandbox.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> A field was deleted by mistake. What are your options?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Deleted fields sit in a recycle-bin-like state for a limited period and can be undeleted with their data —
+act fast rather than rebuilding.</p>
+<p>If it has been erased, the field comes back empty and you restore values from a backup or an export. This is exactly why
+destructive changes get explicit review in a release and why "deploy the previous tag" does not undo a deletion. See
+<a href="branching-strategy.html#release">releases</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> A new required field breaks an existing integration.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Making a field required at the <em>field level</em> enforces it on every write path — API included — so an
+integration that does not send it now fails.</p>
+<p>If the requirement is really about the UI, make it required on the <strong>page layout</strong> or via a validation rule
+scoped to exclude the integration user instead. Then fix the integration properly rather than leaving a permanent
+exception.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> The business wants to track history on 30 fields of one object.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Standard Field History Tracking is capped at around 20 fields per object with limited retention — so 30 does
+not fit, and the retention probably does not meet whatever the real requirement is.</p>
+<p>Ask what the history is <em>for</em>. Audit and regulatory needs point to <strong>Field Audit Trail</strong> (Shield) with
+long retention. Operational "what changed recently" is often better served by a purpose-built custom object written by
+automation, which you then control and report on.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> You are asked to add 40 fields nobody can explain the use of.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Each field is permanent cognitive load, migration cost, layout clutter and a future "what is this?" ticket.
+Ask for the <em>decision</em> each field supports, and who will look at it.</p>
+<p>Offer the alternatives: a report instead of a stored value, a formula instead of a duplicate, or one structured field
+instead of five flags. Then run a field-usage review periodically and delete the ones at 0% population — deliberately, with
+a note of what was removed.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="formulas">Formulas &amp; roll-ups (11–20)</h2>
+
+<details class="acc"><summary><span class="q-num">11</span> A formula field won't save — "compiled size too large".<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Formulas compile to a byte size far beyond the characters you typed, and nested <code>IF</code>s plus
+repeated cross-object references explode it.</p>
+<p>Fixes in order: replace nested <code>IF</code> chains with <code>CASE</code>; factor repeated sub-expressions into a
+helper formula field and reference that; shorten long cross-object paths by storing the value closer. If it still will not
+fit, the logic belongs in automation writing to a plain field.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> A report filtered on a cross-object formula field times out at volume.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A formula spanning objects generally cannot be indexed, so filtering on it forces a scan — and it is
+re-evaluated on every row returned.</p>
+<p>Fix by materialising the value: have automation write it to a plain, indexable field on the record (and backfill), then
+filter on that. Single-object deterministic formulas <em>can</em> be indexed, so sometimes flattening the formula is enough.
+See <a href="apex-core.html#advanced">selectivity</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> Arithmetic in a formula returns blank instead of a number.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A null in any operand makes the whole expression null unless you handle it. The field's "treat blank fields
+as zeroes" versus "as blanks" setting silently changes every result.</p>
+<p>Be explicit: wrap operands in <code>BLANKVALUE()</code> or <code>NULLVALUE()</code> so the intent is visible in the
+formula rather than hidden in a radio button somebody will change later.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> You need a roll-up but the relationship is a lookup.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Roll-up summary fields require master-detail. Options: a record-triggered flow (easy, low volume, you own
+bulkification and recursion), an Apex trigger (complex criteria, high volume, fully controllable), or a declarative roll-up
+tool (admin-maintained, but it consumes the same governor limits your own code would).</p>
+<p>First though — ask whether the number needs to be <em>stored</em> at all. If someone just needs to look at it, a report
+costs nothing to write and nothing to maintain.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> A roll-up summary on a parent with 50,000 children causes lock errors.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>That is <strong>account data skew</strong>: child DML locks the master-detail parent while the roll-up
+recalculates, so concurrent operations on children of the same parent contend.</p>
+<p>Mitigations: split the mega-parent if the business allows, sort DML by parent Id so transactions lock in a consistent
+order, reduce batch sizes, and move from parallel to serial loading. See
+<a href="data-management.html#advanced">skew</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> A roll-up and a trigger both maintain the same field. Values flicker.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>They are fighting, and the roll-up generally wins because it recalculates on the platform's schedule within
+the save.</p>
+<p>Pick one mechanism per field: if the aggregation is expressible as a roll-up summary, use it and delete the trigger logic;
+if it is not, use the trigger and do not create a roll-up on that field. Never both.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">17</span> You need a roll-up that only counts children meeting a condition.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Roll-up summary fields support filter criteria, so simple conditions are declarative and free.</p>
+<p>The limits appear with conditions that reference the parent, cross-object values, or anything dynamic — those need
+automation. A common workaround is a formula checkbox on the child that encodes the condition, then roll up on that.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> A formula needs the number of working days between two dates.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Date arithmetic cannot know your holidays. A formula can approximate weekdays, but it will be wrong on
+public holidays and the business will notice at the worst moment.</p>
+<p>Use <strong>Business Hours</strong> with holidays attached, driven from automation (Apex <code>BusinessHours</code>
+methods or an invocable action). Missing holidays is the standard cause of "the SLA says we breached but we were
+closed".</p></div></details>
+
+<details class="acc"><summary><span class="q-num">19</span> A currency formula is a penny out on some records.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Rounding and scale. Intermediate results carry more precision than the displayed value, so rounding at the
+end differs from rounding at each step — and the field's decimal places only affect display.</p>
+<p>Decide the rounding convention with finance and encode it explicitly (<code>ROUND()</code> at the defined stage).
+In Apex, never use <code>Double</code> for money; use <code>Decimal</code> with
+<code>setScale(2, RoundingMode.HALF_UP)</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> Should a KPI live in a formula field, a roll-up, or a report?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Formula if it is derived per record and must always be current. Roll-up or automation if it aggregates
+children <em>and</em> must be filterable, sortable or usable in automation. Report if someone only needs to look at it.</p>
+<p>The question that settles it: "will anything other than a human eye consume this value?" If not, do not store it — stored
+values need maintaining, backfilling and testing forever.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="recordtypes">Record types, layouts &amp; Dynamic Forms (21–30)</h2>
+
+<details class="acc"><summary><span class="q-num">21</span> A user says a picklist value exists but they cannot select it.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Picklist values are assigned <strong>per record type</strong>. Check the record type's available values before
+you check the field — that is the answer the overwhelming majority of the time.</p>
+<p>If it is a dependent picklist, there is a second dimension: the controlling field's value must also be available for that
+record type, and the dependency matrix must include the combination.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> You have 10 record types and 15 profiles. Maintenance is unmanageable.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>That is a 150-cell matrix of layout assignments plus picklist value assignments per record type — and it grows
+multiplicatively.</p>
+<p>Migrate to <strong>Dynamic Forms</strong>: one layout with conditional field visibility replaces most layout-driven record
+types. Keep record types only where they genuinely drive different <em>processes</em> (sales process, support process,
+different picklist domains), not different field arrangements.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> Someone proposes a record type to hide sensitive fields from a team.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Record types are not security. They shape the UI; the data remains accessible via API, reports and SOQL.</p>
+<p><strong>Field-level security</strong> is the control, applied through profiles and permission sets. Demonstrating the hole
+takes one REST call, which is a useful thing to do once with the stakeholder watching.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> A field is on the layout but users cannot see it.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Field-level security on their profile or permission sets overrides the layout — FLS wins.</p>
+<p>Walk it in order: FLS, then the layout assigned to their profile/record type combination, then component visibility or
+Dynamic Forms conditions, then whether the field is on a section they have collapsed. Login as the user rather than
+reasoning about it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> Dynamic Forms has 25 conditional sections and the page is slow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Conditional visibility is still rendering work, and 25 sections is both slow and impossible to reason
+about.</p>
+<p>Simplify the information architecture rather than tuning: what does this user need <em>on load</em>, and what belongs on a
+second tab, a related list, or a guided flow? Measure with EPT and component instrumentation first so you fix the real
+cost. See <a href="ux-mobile.html#advanced">page performance</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> The business wants a different page layout per country for 20 countries.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Twenty layouts is twenty things to maintain in step. Use one layout with Dynamic Forms conditions on a
+country field, and drive labels through translation rather than separate layouts.</p>
+<p>Push back on whether the differences are real: usually three or four genuine variants hide behind twenty requests, and the
+rest is local preference that does not justify permanent maintenance cost.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> A quick action appears for everyone but should only appear for approvers.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Dynamic Actions</strong> — set visibility criteria on the action, based on a custom permission the
+approvers hold (not a profile name, which breaks when profiles change).</p>
+<p>And enforce it server side too: the action's underlying flow or Apex must check the permission itself, because hiding a
+button is presentation, not authorisation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> Users complain the record page has 40 fields and they use six.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Design from the task, not the schema. The six fields go in a prominent top section or the highlights panel;
+the rest move to collapsed sections, tabs or a details subtab.</p>
+<p>Also set the <strong>compact layout</strong> deliberately — its first four fields are the highlights panel and the mobile
+card, and most orgs never choose them on purpose.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> You need a related list showing only the three primary contacts, sorted.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Dynamic Related Lists</strong> — filter by criteria, choose the columns, set the sort and the row
+limit. No code, and it replaces the "all 400 contacts" default that nobody can use.</p>
+<p>If the filter needs data not on the child record, a formula checkbox on the child encoding the condition gives the related
+list something to filter on.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> Changing a record type's business process breaks existing records.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Records hold a stage or status value that may no longer exist in the new process, so they end up in an
+invalid state that automation and reports treat inconsistently.</p>
+<p>Plan it as a data migration: map old values to new, update records in controlled batches, verify there are no orphans, and
+only then retire the old values. Also check validation rules, automation and reports that reference the removed
+values.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="validation">Validation &amp; data quality (31–40)</h2>
+
+<details class="acc"><summary><span class="q-num">31</span> A new validation rule breaks the nightly integration load.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Validation rules fire on <em>every</em> write path, including the API — so a rule written for the UI now
+rejects integration records that were previously fine.</p>
+<p>Options: scope the rule to exclude the integration user or profile (<code>$User.Id</code> / a custom permission bypass),
+fix the integration to supply the data, or move the check to a report and remediation process. Choose deliberately — a
+permanent bypass is a decision, not an accident.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> A validation rule is written as "error if valid" and blocks everything.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>The logic is inverted: a validation rule blocks the save when its formula evaluates to <strong>TRUE</strong>
+— "error if true".</p>
+<p>Write the condition as the <em>bad</em> state, test it with a record that should pass and one that should fail, and put the
+intent in the error message so the next admin reads the purpose rather than reverse-engineering the formula.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">33</span> A validation rule must only apply to records created from now on.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Scope it by date or by a flag: <code>AND(ISNEW(), condition)</code> for creation only, or compare
+<code>CreatedDate</code> against a cutover date so historical records are exempt.</p>
+<p>Without that, the rule blocks edits to legacy records that were valid when created — which surfaces as "I can't save a
+record I didn't change" and erodes trust in your rules generally.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> Users complain an error message is unhelpful.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Fix the message, it is the cheapest usability win available. Say what is wrong, what to change and why —
+"Close Date cannot be in the past for an open Opportunity" rather than "Invalid data".</p>
+<p>Also attach the error to the <strong>field</strong> rather than the record where possible, so the message appears next to
+the input the user must fix.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> A validation rule needs to check a value on the parent record.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Cross-object formulas can walk up the relationship, so this is usually declarative. The catch is that the
+parent value is read at save time — so a later change to the parent does not retroactively invalidate the child.</p>
+<p>If the rule must hold continuously, you need automation on the parent too, or a periodic data-quality report. State which
+guarantee the business actually needs.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> A validation rule must not fire during a data migration.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Add a bypass condition keyed on a <strong>custom permission</strong> held by the migration user, or a
+hierarchy custom setting switchable per user — not a hard-coded username, which breaks and cannot be audited.</p>
+<p>Then run a reconciliation report after the load to find records that would have failed, and remediate them. Bypassing
+without reconciling imports the bad data permanently.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> Required on the layout versus required on the field — which do you choose?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Layout-required enforces in the UI only. Field-required (universally required) enforces on every write path
+including the API, and it also prevents the field being blank in existing data operations.</p>
+<p>Use field-level for genuine data integrity that must never be violated anywhere; layout or validation for process
+requirements that integrations legitimately bypass. Getting this backwards is the usual cause of a broken
+integration.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> 60% of Accounts have no industry populated. How do you fix data quality?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Measure, then prevent, then remediate, then keep measuring. A dashboard of completeness by field and by owner
+makes it visible; validation or required fields prevent new gaps; a backfill (enrichment data or an owner campaign) fixes
+history.</p>
+<p>Making a field required <em>without</em> a backfill plan means users cannot save legacy records — which is how data-quality
+initiatives get abandoned in week two.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> You need to prevent closing an Opportunity without a signed contract file.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A validation rule cannot see related files directly. Pattern: automation sets a checkbox or counter field
+when a qualifying file or record exists, and the validation rule checks that field.</p>
+<p>Make sure the automation handles deletion too — otherwise the flag stays true after the file is removed, and the control is
+theatre.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> Validation rules, before-save flows and triggers all validate the same thing.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Pick one home per rule and document it. Duplicated validation means three places to change, three error
+messages, and inconsistent behaviour between UI and API paths.</p>
+<p>Rough division: validation rules for declarative, formula-expressible record checks; before-save flows or triggers where the
+check needs related data, bulk context or a friendlier message; Apex where it must be unit-tested as part of a service.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="duplicates">Duplicate &amp; matching rules (41–50)</h2>
+
+<details class="acc"><summary><span class="q-num">41</span> A duplicate rule blocks a 2am migration and the job fails.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Duplicate rules apply to API writes unless configured otherwise, and a blocking rule will reject rows
+mid-load.</p>
+<p>For a planned migration: deactivate the rule for the load window, or set it to Allow-with-alert, or bypass it in Apex with
+<code>Database.DMLOptions.DuplicateRuleHeader.allowSave</code>. Then run a duplicate report afterwards and merge
+deliberately — do not leave the rule off.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> Duplicates still get created despite a duplicate rule.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check the matching rule's fuzziness and which fields it compares — exact-match on Email misses
+"j.smith@x.com" versus "jsmith@x.com". Then check whether the duplicate rule is active, whether it covers the entry path
+(UI, API, import), and whether it is set to alert rather than block.</p>
+<p>Also remember matching rules need to be <em>activated</em> and can take time to index after creation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> A merge loses data the business needed.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Merging keeps the master's field values unless you choose otherwise, reparents most child records, and
+deletes the losers — and related records with restrictive relationships or custom automation may not survive the way you
+expect.</p>
+<p>Before any bulk merge: export both sides, test the merge on a sample in a sandbox with real automation active, and check
+what happens to tasks, files, campaign members and custom children. Merge is effectively irreversible.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> How do you dedupe 200,000 existing Accounts?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Not with duplicate rules — those prevent new duplicates, they do not clean history. You need a dedicated
+process: extract, match externally or with a dedupe tool, review the proposed merges (a human sampling step is
+non-negotiable), then merge in batches with a verified rollback position.</p>
+<p>Decide the survivorship rules up front — which record wins, which field values survive, what happens to children — and
+record them. "The newest wins" is a decision; "whatever the tool did" is not.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> Matching rules work for Leads but not for Person Accounts.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Person Accounts behave as a hybrid of Account and Contact, and duplicate/matching support differs — cross-object
+Lead-to-Contact matching also has its own rules.</p>
+<p>Verify what your edition and configuration actually support rather than assuming symmetry, and test each entry path (UI,
+API, web-to-lead, import) separately. Person Accounts are also an irreversible enablement, so this is worth knowing before
+you turn them on.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> Sales wants to see potential duplicates without being blocked.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Set the duplicate rule to <strong>Allow with alert</strong>, and add the Potential Duplicates component to the
+record page so matches are visible in context.</p>
+<p>That is usually the right posture for a sales team: blocking creates workarounds (slightly misspelled names), while a
+visible alert plus a merge path gets the behaviour you wanted.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> An integration creates duplicates every night.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The integration is inserting rather than upserting on a stable key. Fix the integration, not the duplicates:
+add an <strong>External Id</strong> holding the source system's identifier and upsert against it.</p>
+<p>The unique index on that field is the real guarantee — a repeated delivery then fails on the duplicate rather than creating
+a second record. See <a href="integration-core.html#advanced">idempotency</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> Two users create the same Account within seconds of each other.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Duplicate rules compare against committed data, so a genuine race can slip through — and no amount of rule
+tuning closes that window.</p>
+<p>If uniqueness genuinely matters, enforce it with a <strong>Unique field</strong> (a normalised key — lowercased name plus
+postcode, maintained by automation). A database constraint is the only thing that holds under concurrency.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> Marketing and Sales disagree on what counts as a duplicate.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>That is the actual problem — matching rules just encode somebody's answer. A father and son at the same
+address, or two branches of one company, are duplicates to one team and distinct to the other.</p>
+<p>Get the definition agreed in writing, test the rule against a labelled sample where you know the right answer, and revisit
+it periodically. The same conversation applies to Data Cloud identity resolution at much larger scale. See
+<a href="einstein-ai.html#advanced">identity resolution</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> How do you prevent duplicates from Web-to-Lead?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Duplicate rules cover the Web-to-Lead path, so start there with alerting plus assignment to a review queue
+rather than blocking — a blocked web submission is a lost enquiry.</p>
+<p>Better still, match on email and <em>update</em> the existing Lead or Contact (automation on creation), so repeat enquiries
+enrich the record rather than fragmenting it. Losing the enquiry is worse than holding a duplicate for an hour.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="config">Custom Settings, Metadata &amp; Labels (51–60)</h2>
+
+<details class="acc"><summary><span class="q-num">51</span> You need a threshold an admin can change in production without a deployment.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A <strong>Hierarchy Custom Setting</strong> — editable in production, with org, profile and user-level
+overrides at runtime.</p>
+<p>If the value should instead ship <em>with</em> the release and be version-controlled, that is a Custom Metadata Type. The
+distinction is exactly "who owns changing this, and does it need a release?"</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> You need a kill switch to disable a trigger during an incident.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Hierarchy Custom Setting, checked at the top of every handler, switchable <strong>per user</strong> — so you
+can disable automation for the migration user without affecting anyone else, and without a deployment at 2am.</p>
+<p>"We commented out the trigger in production" is not a plan. Build the switch before you need it. See
+<a href="apex-triggers.html#advanced">bypass design</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> Custom Metadata rows are missing in production after deployment.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The <em>type</em> deploys as metadata; whether the <em>records</em> come along depends on how they were
+packaged and deployed, and they are frequently forgotten.</p>
+<p>Make the dependency explicit: include the rows in your deployment artefact, and write a test that fails when a required
+row is absent. A silent missing configuration row is far worse than a failed deployment.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> Why prefer Custom Metadata over a Custom Setting for business rules?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Custom Metadata is queryable without consuming SOQL limits, supports relationships and picklists, is
+deployable with the release, and can be packaged. That makes it the right home for mapping tables and rule configuration a
+consultant maintains.</p>
+<p>Custom Settings win only where runtime per-user/per-profile values or production-editable switches are the point.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> A test fails because it cannot insert Custom Metadata.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>You cannot insert Custom Metadata in a test — it is visible without <code>SeeAllData</code> but not
+insertable.</p>
+<p>Design for it: have the class accept injected configuration (a constructor parameter or a settable static) so tests supply
+their own values, with the Custom Metadata lookup as the default. That makes the logic unit-testable rather than dependent
+on deployed rows. See <a href="testing.html#advanced">test data</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> UI text needs translating into five languages.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Custom Labels</strong> for text in code, components, flows and validation messages; Translation
+Workbench for metadata labels, picklist values and help text.</p>
+<p>Hard-coded strings are the thing that makes a localisation project expensive later, so use labels from the start even in a
+single-language org — it costs nothing extra at build time.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> Custom labels cause merge conflicts on every pull request.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>All labels live in one file, so everyone edits it. Treat it as append-only with alphabetical ordering, and
+configure a union merge driver in <code>.gitattributes</code> so both sides' additions are kept.</p>
+<p>Same approach for translation files. See <a href="branching-strategy.html#merge-hell">the metadata that won't
+merge</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> Where should an API endpoint URL live?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>In a <strong>Named Credential</strong>, not a custom setting — it holds the endpoint and the
+authentication, handles token refresh, keeps secrets out of code and metadata, and lets you rotate credentials as a config
+change.</p>
+<p>Your Apex then calls <code>callout:My_Service/path</code> with no URL and no token in sight. See
+<a href="integration-core.html#advanced">Named Credentials</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> An admin edited a Custom Metadata row in production. Is that a problem?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It is config drift — the deployed value and the production value now differ, and your next deployment may
+overwrite theirs.</p>
+<p>Either bring it into the drift-detection loop and treat production edits as changes to capture, or move genuinely
+admin-owned values into Custom Settings where production editing is the intended behaviour. Ambiguity about who owns a value
+is what causes the incident. See <a href="branching-strategy.html#drift">drift</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> You need environment-specific values (sandbox versus production).<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Named Credentials for endpoints, plus Custom Metadata or Custom Settings for the rest — seeded per
+environment by your post-deployment script rather than branched in code.</p>
+<p>Never branch on org Id or sandbox name in Apex. That couples your logic to a specific environment, breaks on refresh, and
+makes the code untestable.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="queues">Queues, groups &amp; ownership (61–70)</h2>
+
+<details class="acc"><summary><span class="q-num">61</span> Queue, public group or role — which do you use for what?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Queue</strong> when records need to be <em>owned</em> by a pool and worked from a list (cases,
+leads). <strong>Public group</strong> for sharing and permission grouping — groups cannot own records.
+<strong>Role</strong> for hierarchy-based access roll-up and reporting.</p>
+<p>A frequent mistake is using a role hierarchy to express a work pool; the queue is what gives you ownership, a list view and
+assignment.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> A queue owns 800,000 Cases and ownership changes cause lock errors.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Ownership skew.</strong> When one owner holds a very large share of an object (commonly cited
+threshold around 10,000+), every ownership or role change involving them triggers massive sharing recalculation and record
+locking.</p>
+<p>Mitigations: route to several queues rather than one, keep the skewed owner out of the role hierarchy (or at the top with no
+peers), and archive closed cases so the pool stays bounded. See <a href="security.html#advanced">sharing
+mechanics</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> A user left and owns 40,000 records. You need to deactivate them.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Reassign ownership first — you cannot deactivate cleanly while they are the owner of active records and the
+sharing recalculation on reassignment is substantial.</p>
+<p>Do it in a controlled window, in batches, and also check what else they own: scheduled jobs, dashboard running user,
+integration credentials, queue memberships, Named Credential principal. Freeze them immediately for access, then reassign,
+then deactivate. See <a href="identity.html#advanced">offboarding</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> Cases assigned to a queue are not visible to the team.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Queue membership grants access to records <em>owned by the queue</em> — so check the queue's members (users,
+roles, public groups) and whether the people complaining are actually in it.</p>
+<p>Then check the queue's supported objects, the list view's filter and sharing, and whether the records were actually assigned
+to the queue or to a user. Login as the user rather than reasoning from configuration.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> Records need to be owned by a team, not an individual.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Use a queue for genuine shared ownership and working-from-a-list. If individuals must still own records but
+the team needs access, use Account/Opportunity/Case <strong>teams</strong> or sharing rules to a public group.</p>
+<p>Avoid a single "shared" user account as the owner — it creates ownership skew, destroys accountability and breaks the audit
+trail.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> You need a round-robin assignment across six agents.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Assignment rules do not round-robin natively. The usual patterns: Omni-Channel routing with capacity-based
+models (the right answer for service at any scale), or a counter held in a custom setting or custom object incremented by
+automation.</p>
+<p>If you hand-roll it, handle concurrency — two simultaneous records reading the same counter will both pick the same agent
+unless you lock or use a single-threaded path.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> Ownership changes trigger hours of sharing recalculation.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Expected at volume: changing an owner, a role hierarchy or a sharing rule recalculates share rows
+asynchronously, and it can take hours on a large org while locking groups.</p>
+<p>Plan bulk ownership or hierarchy changes in controlled windows, never at 08:00 Monday. For a large reorganisation, ask
+Salesforce to enable <strong>deferred sharing maintenance</strong> so you suspend recalculation and resume once.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> A public group's membership is locked and you cannot edit it.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Group membership tables are locked while sharing recalculation runs — so a large change elsewhere is blocking
+you.</p>
+<p>Wait for recalculation to finish (check the setup monitoring pages), and in future batch group and role changes rather than
+making them piecemeal during business hours.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> How do you give one user access to one record, permanently?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Manual share is the easy answer, but it is removed when ownership changes — which makes "permanently" false.</p>
+<p>For durable programmatic grants use <strong>Apex managed sharing with a custom RowCause</strong>, which survives owner
+changes and is identifiable and reportable later. And remember you cannot share above the OWD. See
+<a href="security.html#advanced">Apex managed sharing</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> A "Default" lookup record is referenced by 300,000 children and inserts are slow.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Lookup skew.</strong> Concurrent inserts contend over the same parent row, producing DML lock
+errors that look like a code problem.</p>
+<p>Fix the data shape: spread the values across multiple parents, or replace the lookup with a picklist or text field if the
+relationship was only ever there for reporting convenience.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="approvals">Assignment, escalation &amp; approvals (71–80)</h2>
+
+<details class="acc"><summary><span class="q-num">71</span> A record is stuck in "Pending" approval forever.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually a missing or unconfigured <strong>recall</strong> path, an approver who is inactive, or a delegated
+approver chain that leads nowhere.</p>
+<p>Check the approval history on the record, then the process's approver assignment (dynamic approver fields pointing at a blank
+or deactivated user are the classic cause). Configure recall actions explicitly — they are the most commonly skipped part of
+an approval process.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> Automation fails because a submitted record is locked.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Approval submission locks the record by default, so automation attempting to update it fails.</p>
+<p>Options: configure the process to leave records unlocked for the relevant step, grant the Modify All on locked records
+permission to the automation's running user, or sequence your automation to run before submission or after approval. Pick
+one and document why.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> Approvers hard-coded by name have all left the company.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Use a <strong>dynamic approver</strong> — route via the submitter's manager field or a custom user-lookup on
+the record — rather than naming individuals.</p>
+<p>Where a named group is genuinely required, use a queue or a public group so membership is maintained in one place. Named
+individuals in process definitions are guaranteed future breakage.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> The business needs a five-stage conditional sign-off with reminders and reassignment.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>That has outgrown approval processes, which are for linear, record-locking approvals.
+<strong>Flow Orchestrator</strong> is the fit: stages, steps, assignment to users or queues, each step its own interview, with
+conditional routing.</p>
+<p>Say what you give up: record locking and the built-in approval history, both of which you then implement deliberately. See
+<a href="flows.html#advanced">Orchestrator</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> Submission silently fails and users do not know why.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Entry criteria block submission without explanation. That is the designed behaviour and it is a poor user
+experience.</p>
+<p>Add a <strong>validation rule</strong> expressing the same condition with a clear message, so the user learns what to fix.
+Keep the entry criteria as the guard, and the validation as the explanation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> Two approvers must both approve, and either can reject.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A single step with <strong>parallel approvers</strong> set to require unanimous approval gives you exactly
+that — all must approve, any rejection stops it.</p>
+<p>If you need "any one of three" instead, the same step configured for first-response. Spell out which behaviour the business
+means, because "both need to approve" and "two of these people" are different configurations.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">77</span> Delegated approvers mean the manager never personally approved anything.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Delegation covers absence but breaks the assumption that a specific person approved — which may matter to
+your auditors.</p>
+<p>Decide the policy deliberately: allow delegation and record who actually approved (the approval history does), or disable it
+and accept approvals stalling during leave. The wrong answer is leaving it on by default and discovering the gap during an
+audit.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> Case escalation rules fire at the wrong times.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Almost always Business Hours: the wrong business hours applied, holidays missing, or a timezone mismatch between
+the business hours record and the case.</p>
+<p>Then check the escalation rule's criteria order (first matching rule entry wins) and whether the clock is being stopped
+while waiting on the customer. See <a href="sales-service.html#advanced">entitlements and the SLA clock</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">79</span> Assignment rules put records with the wrong owner.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Rule entries are evaluated in order and the <strong>first match wins</strong> — so a broad entry near the top
+swallows records intended for a specific entry below it.</p>
+<p>Reorder from most specific to most general, and remember assignment runs <em>after</em> your before triggers, so logic keyed
+on OwnerId in a before trigger sees the pre-assignment value.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> An approval must notify an external system when granted.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Final approval actions can trigger a flow, which publishes a <strong>platform event</strong> or enqueues
+async work to make the callout — you cannot call out directly in the approval transaction.</p>
+<p>Make the downstream handling idempotent and retryable, and log the correlation id, because an approval notification that
+silently fails is a business process that silently stops.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="capture">Lead &amp; Case capture (81–90)</h2>
+
+<details class="acc"><summary><span class="q-num">81</span> Web-to-Lead stops working after a form redesign.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>The generated form posts specific field ids plus your org id — a redesign that changed input names breaks the
+mapping silently, and Web-to-Lead fails quietly rather than erroring.</p>
+<p>Regenerate the form, verify the hidden org id and return URL, and set up the lead creation notification so a drop in volume
+is visible. Also monitor volume as a metric — silent capture failure can run for weeks.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> Web-to-Lead is being spammed with junk submissions.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It is a public endpoint, so treat it like one: CAPTCHA on the form, honeypot fields, server-side validation
+before posting, and rate limiting at your web layer.</p>
+<p>Inside Salesforce, route suspicious submissions to a review queue via assignment rules rather than into the sales pipeline,
+and keep the daily Web-to-Lead limit in mind — spam consumes it and legitimate leads get dropped.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">83</span> Email-to-Case creates cases but loses attachments.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check the attachment size limits and whether you are using standard or On-Demand Email-to-Case, which differ.
+Large attachments can be dropped or truncated.</p>
+<p>Also verify the email service's settings for how it handles unrecognised senders and bounced routing. Testing with a 20MB
+attachment before go-live is cheaper than discovering it from a customer.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> Customer replies create new cases instead of threading.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Thread identification is failing — either the thread token is missing from outbound templates, or you are
+relying on a mechanism the reply strips.</p>
+<p>Ensure outbound emails include the threading token (or use the modern reference-header-based threading), and test with the
+real mail clients your customers use. Reply chains that fork into new cases wreck both metrics and customer
+experience.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> You hit the daily Email-to-Case limit.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Limits here scale with licences and are org-wide. First check what is consuming them — auto-replies looping,
+spam, or a mailbox forwarding everything including notifications.</p>
+<p>Then reduce load at source: filter before forwarding, suppress auto-reply loops, and consider messaging channels for
+high-volume interactions rather than email. Alert on approaching the limit rather than discovering it at 100%.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> Leads need to go to different teams by country and product.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Assignment rules with entries ordered most-specific first, assigning to queues rather than individuals so
+membership is maintainable.</p>
+<p>Keep the last entry as a catch-all to a triage queue — without it, non-matching leads stay with the default owner and nobody
+notices them. A silent default owner is where leads go to die.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> Lead conversion loses custom field data.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Custom lead fields need explicit <strong>field mapping</strong> to Account, Contact and Opportunity fields, and
+the types must be compatible.</p>
+<p>Audit the mapping whenever either side changes, and test conversion with a fully populated lead. Lost data at conversion is
+usually discovered months later when someone asks why the information is missing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> Should duplicate leads block conversion?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually alert rather than block, with the matched Account and Contact offered so the user converts into the
+<em>existing</em> records instead of creating new ones.</p>
+<p>Blocking conversion tends to produce workarounds (slightly altered names), which is worse than a visible duplicate with a
+merge path.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> A case needs to be created from a form on a public website, with files.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Web-to-Case does not handle files well. The robust pattern is an Experience Cloud page or a custom endpoint
+(Apex REST) that creates the case and attaches files, behind proper validation and rate limiting.</p>
+<p>Treat it as a public endpoint: guest user permissions reviewed field by field, no <code>without sharing</code> in the path,
+size limits enforced, and spam controls. See <a href="experience-cloud.html#advanced">guest hardening</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> Capture volumes dropped 40% and nobody noticed for three weeks.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The real failure is monitoring, not the channel. Capture paths fail <em>silently</em> — Web-to-Lead stops
+posting, an email service bounces, a limit is exhausted.</p>
+<p><strong>Alert on absence, not just on errors</strong>: a feed that normally delivers 500 leads a day and delivered zero
+should page someone. That one dashboard prevents more lost revenue than any amount of rule tuning.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="judgement">Automation order &amp; admin judgement (91–100)</h2>
+
+<details class="acc"><summary><span class="q-num">91</span> Your flow runs twice on one save.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Something is re-saving the record: a workflow field update (which re-fires triggers and flows once), a
+roll-up recalculation, or an after-save flow updating its own record.</p>
+<p>Fixes: use the "only when a record is updated to meet the condition" entry option so you fire on the <em>transition</em>,
+move same-record field updates into a <strong>before-save</strong> flow, and converge on one automation per object per
+timing. See <a href="flows.html#advanced">re-entry</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> Two flows on one object run in an order you did not expect.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Within the same object and timing, order is not guaranteed unless you set the flow's <strong>trigger
+order</strong> value explicitly.</p>
+<p>Set it, document it, and ideally reduce to one entry point per timing with a named owner. Relying on observed order is
+relying on an implementation detail.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> A validation rule fires before your before-trigger can fix the data.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check the actual order: before-save flows, then before triggers, then validation rules. So a before trigger
+<em>can</em> correct data ahead of validation — if your logic is in an after trigger, it runs too late.</p>
+<p>Move the defaulting into a before-save flow or before trigger. And remember workflow field updates re-fire triggers but do
+not re-run validation by default.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> Your org has workflow rules, processes, flows and triggers on Account.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Document before changing. A debug log of one Account save gives you the real execution tree, including the
+automations nobody remembered.</p>
+<p>Then consolidate by risk: delete what is provably dead, migrate workflow rules and processes into flows, converge on one
+entry point per timing, and move same-record updates to before-save. Do it incrementally behind tests so each step is
+attributable. See <a href="admin.html#advanced">automation order</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> A stakeholder wants a change in production "right now".<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Offer the sanctioned fast path rather than a yes or a no: a hotfix branch, a quick validation, a deploy
+within the hour. People go around process when process is slow.</p>
+<p>If the change is genuinely trivial and reversible (a label, a report), say so and do it through the normal route. If it is a
+validation rule or automation, the twenty-minute path is still faster than the incident.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> You are asked to grant Modify All Data to solve an access problem.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Almost never the right answer — it is the lazy fix that fails the first audit and grants far more than the
+requirement.</p>
+<p>Diagnose the actual gap: object permissions, FLS, OWD, role hierarchy, sharing rules, or a restriction rule. Then grant the
+minimum through a permission set. If elevation is genuinely needed for a specific operation, that is
+<code>without sharing</code> Apex scoped to that operation, reviewed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> An admin made 30 changes in production last month, undocumented.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Capture before you correct. Setup Audit Trail tells you what changed; retrieve those changes into a
+<code>config/*</code> branch and PR them so git matches production again, then merge down so the next release does not revert
+them.</p>
+<p>Then address the cause rather than the person: 30 changes means the sanctioned path is too slow or does not exist. Build it,
+then restrict production edit rights. See <a href="branching-strategy.html#drift">drift</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> You need to test an admin change safely but have no sandbox.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Spin up a Developer Edition org or a scratch org for anything structural. For a change you must make in
+production, limit blast radius: scope it to one profile or permission set first, verify, then widen.</p>
+<p>And never test an irreversible setting (multi-currency, state/country picklists, person accounts) anywhere you care
+about.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> A declarative change caused a production incident. What is the process fix?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Treat declarative changes with the same review as code, tiered by risk: a field label needs no board, but a
+validation rule, an automation, anything touching a shared object, integrations or security does.</p>
+<p>Publish the tiers so people can self-serve the small stuff — governance that is uniformly heavy gets bypassed, which produces
+less control than none. See <a href="governance.html#advanced">operating model</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> What is the most under-rated admin habit?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Writing down <em>why</em>. The description field on every field, rule, flow and permission set; the business
+reason in the error message; the decision and the rejected alternative in a comment.</p>
+<p>Six months later nobody remembers, and undocumented configuration is the reason orgs accumulate automation nobody dares
+delete. It costs thirty seconds per change and it is the difference between an org you can evolve and one you can only add
+to.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="admin.html">Admin Essentials</a>, the <a href="scenarios.html">full scenario index</a>, or
+    <a href="security-scenarios.html">Security — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Admin — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

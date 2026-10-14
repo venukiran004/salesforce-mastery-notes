@@ -448,6 +448,133 @@
 </div>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>View state: what is in it and how to shrink it</h3>
+<p>The 170KB view state limit is the defining constraint of Visualforce, and it is almost always caused by something you
+   did not realise was being serialised.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>What goes into view state</th><th>Mitigation</th></tr></thead>
+  <tbody>
+    <tr><td>Every non-transient controller member variable</td><td><code>transient</code> on anything re-derivable: large collections, wrappers, describe results, caches</td></tr>
+    <tr><td>The component tree and its state</td><td>Fewer components; avoid deeply nested <code>apex:repeat</code> over large lists</td></tr>
+    <tr><td>Queried sObjects with every selected field</td><td>Select only the fields the page renders. A <code>SELECT</code> of 60 fields over 500 rows is the usual culprit</td></tr>
+    <tr><td>The whole list behind a pageable table</td><td><code>StandardSetController</code> with a page size, or a custom keyset pager that holds only the current page</td></tr>
+    <tr><td>Maps built for rendering convenience</td><td>Mark them transient and rebuild in a getter</td></tr>
+  </tbody>
+</table>
+</div>
+<pre><code class="language-apex">public with sharing class AccountListController {
+
+    // Persisted: tiny, and needed across postbacks
+    public String  searchTerm  { get; set; }
+    public Integer pageNumber  { get; set; }
+
+    // NOT persisted: rebuilt on each request, so it costs no view state
+    private transient List&lt;Account&gt; results;
+    private transient Map&lt;Id, Decimal&gt; totalsByAccount;
+
+    public List&lt;Account&gt; getResults() {
+        if (results == null) {
+            results = [
+                SELECT Id, Name, Industry        // only the rendered fields
+                FROM Account
+                WHERE Name LIKE :('%' + searchTerm + '%')
+                WITH USER_MODE
+                ORDER BY Name
+                LIMIT 50
+            ];
+        }
+        return results;
+    }
+}</code></pre>
+<div class="callout tip">
+  <span class="c-ico">🔍</span>
+  <div class="c-body"><span class="c-title">Use the View State inspector</span>
+    Enable Development Mode and the View State tab shows the size of every member, broken down by component tree, state
+    and controller fields. It names the culprit in seconds — guessing at <code>transient</code> keywords is slower and
+    usually wrong about which variable mattered.</div>
+</div>
+
+<h3>Choosing a data-access mechanism in Visualforce</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Mechanism</th><th>Characteristics</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Standard controller</strong></td><td>No code, full view state, automatic FLS and layout respect. Fine for simple record pages</td></tr>
+    <tr><td><strong>Custom controller / extension</strong></td><td>Full control, full view state cost, postback model with <code>rerender</code></td></tr>
+    <tr><td><strong>JavaScript Remoting</strong></td><td><code>@RemoteAction</code> static methods, <strong>no view state</strong>, JSON in and out. The right choice for anything interactive — and the pattern closest to modern development</td></tr>
+    <tr><td><strong>Remote Objects</strong></td><td>Declarative CRUD from JavaScript with no Apex at all. Limited, but zero code for simple cases</td></tr>
+    <tr><td><strong>Continuations</strong></td><td>Long-running callouts without holding a thread or burning the concurrent long-running request limit — see <a href="integration-core.html#advanced">long-running patterns</a></td></tr>
+  </tbody>
+</table>
+</div>
+<p>For a page that must stay on Visualforce, <strong>JavaScript Remoting plus client-side rendering</strong> is
+   dramatically faster than postbacks and sidesteps view state entirely.</p>
+
+<h3>Visualforce for PDF and email</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Concern</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr><td><code>renderAs="pdf"</code></td><td>Still the standard way to generate a document from Salesforce data. Rendered by an older engine with limited CSS support</td></tr>
+    <tr><td><strong>CSS limitations</strong></td><td>No flexbox or grid. Use tables for layout, <code>@page</code> for size and margins, and inline or embedded CSS — external stylesheets are unreliable</td></tr>
+    <tr><td><strong>Fonts and Unicode</strong></td><td>Non-Latin scripts need an embedded font via a static resource and <code>@font-face</code>, or characters render as boxes</td></tr>
+    <tr><td><strong>Page size limits</strong></td><td>PDF generation has heap and size ceilings. A 500-page invoice run belongs in batches of smaller documents</td></tr>
+    <tr><td><strong>Images</strong></td><td>Must be accessible to the rendering context — static resources or documents, not session-protected URLs</td></tr>
+    <tr><td><strong>Email templates</strong></td><td>Visualforce email templates still handle complex, data-driven emails better than most alternatives, including related lists in the body</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Aura: events, and why they were hard</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Event type</th><th>Propagation</th><th>Problem it caused</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Component event</strong></td><td>Bubbles up the containment hierarchy — capture, bubble, handled by ancestors</td><td>Reasonable, but ordering across nested handlers surprised people</td></tr>
+    <tr><td><strong>Application event</strong></td><td>Broadcast to <em>every</em> component that handles it, anywhere</td><td>The classic performance and debugging disaster — a single event waking dozens of components</td></tr>
+    <tr><td><strong>Storable actions</strong></td><td>Cached server responses for speed</td><td>Callbacks could fire twice (cached then fresh), so non-idempotent handlers misbehaved</td></tr>
+    <tr><td><strong>LWC equivalent</strong></td><td><code>CustomEvent</code> for up, public API for down, Lightning Message Service for cross-tree</td><td>Explicit and scoped — see <a href="lwc-advanced.html#advanced">choosing a mechanism</a></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Migration strategy: Aura and Visualforce to LWC</h3>
+<ul class="steps">
+  <li><b>Inventory and measure first.</b> Pages by usage (Lightning Usage App), by business criticality, and by complexity. Plenty of old pages are used by nobody — deleting them is the cheapest migration available.</li>
+  <li><b>Migrate leaves before branches.</b> An LWC can be nested inside an Aura component, but not the reverse, so rebuild the innermost components first and let the Aura shell remain temporarily.</li>
+  <li><b>Replace the data layer early</b> — swap <code>@RemoteAction</code> or controller methods for <code>@AuraEnabled</code> cacheable methods, or Lightning Data Service, which often removes most of the Apex entirely.</li>
+  <li><b>Use the interop points deliberately</b>: LWC inside Aura, and Lightning Message Service to talk to a Visualforce page you cannot yet retire.</li>
+  <li><b>Rebuild, do not transliterate.</b> A postback-oriented page translated element-by-element into LWC produces bad LWC. Re-express the <em>requirement</em>.</li>
+  <li><b>Keep the old page available</b> behind a permission until the replacement has run in production for a cycle — the rollback story matters more than the elegance.</li>
+</ul>
+
+<h3>When Visualforce is still the right answer</h3>
+<div class="grid g2">
+  <div class="card accent-green"><h4>Legitimate remaining uses</h4>
+    <ul><li><strong>PDF generation</strong> — still the most practical built-in option</li>
+        <li>Complex, data-driven <strong>email templates</strong></li>
+        <li>Pages embedded in long-lived integrations that expect a URL</li>
+        <li>Stable internal admin utilities nobody looks at</li>
+        <li>Public pages on Sites with no need for a modern UI</li></ul></div>
+  <div class="card accent-rose"><h4>Stop writing new Visualforce for</h4>
+    <ul><li>Anything interactive or record-centric</li>
+        <li>Anything that must work on mobile</li>
+        <li>Anything needing reuse across pages and contexts</li>
+        <li>Anything an LWC with LDS would do in half the code</li></ul></div>
+</div>
+
+<div class="callout exam">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">The interview answer on legacy technology</span>
+    Do not say "Visualforce is dead". Say: "LWC for anything new; Visualforce still earns its place for PDF and complex
+    email templates. I migrate by usage and risk rather than wholesale, leaves first since LWC nests inside Aura but not
+    the reverse, and I rebuild rather than transliterate — because a postback design translated literally produces poor
+    LWC." That demonstrates judgement rather than fashion.</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> Standard controller, custom controller or extension — which and when?<span class="q-diff easy">Easy</span></summary>

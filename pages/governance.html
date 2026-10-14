@@ -225,6 +225,121 @@ String msg = System.Label.Insufficient_Permissions;</code></pre>
 </div>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>An operating model that actually functions</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Body</th><th>Decides</th><th>Cadence</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Product / demand board</strong></td><td>What gets built, and in what order. Owns the roadmap and says no</td><td>Fortnightly</td></tr>
+    <tr><td><strong>Design authority</strong></td><td>How it gets built — patterns, reuse, build-vs-buy, data model changes, anything touching shared objects</td><td>Weekly, lightweight</td></tr>
+    <tr><td><strong>Change advisory</strong></td><td>What goes live and when; release content and risk acceptance</td><td>Per release</td></tr>
+    <tr><td><strong>Platform health review</strong></td><td>Technical debt, limits, performance, security posture, licence utilisation</td><td>Monthly</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout warn">
+  <span class="c-ico">🚦</span>
+  <div class="c-body"><span class="c-title">Governance fails in one of two directions</span>
+    <strong>Too heavy</strong>: every change needs three approvals, so people stop asking and build in production — your
+    governance now produces <em>less</em> control than none. <strong>Too light</strong>: forty automations on Account and
+    nobody knows what any of them do. The fix for both is the same — <strong>tier your changes</strong>. A field label
+    change needs no board. A new object, a shared automation, or anything touching integrations or security does. Publish
+    the tiers so people can self-serve the small stuff.</div>
+</div>
+
+<h3>Measuring technical debt in a way people act on</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Signal</th><th>Where to get it</th><th>What it tells you</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Automations per object</strong></td><td>Setup, plus metadata analysis</td><td>Three record-triggered flows, two triggers and a workflow rule on Account is an incident waiting for a Tuesday</td></tr>
+    <tr><td><strong>Unused fields and objects</strong></td><td>Optimizer, Field Usage reports</td><td>Fields with 0% population are cognitive load and migration cost. Delete them deliberately</td></tr>
+    <tr><td><strong>API version spread</strong></td><td>Metadata query across Apex classes</td><td>Classes on long-retired API versions are a rewrite risk and a security exposure</td></tr>
+    <tr><td><strong>Test quality, not coverage</strong></td><td>Assertion counts, <code>SeeAllData</code> usage</td><td>Coverage at 82% with no assertions is 0% real coverage — see <a href="testing.html#advanced">Testing</a></td></tr>
+    <tr><td><strong>Permission sprawl</strong></td><td>Health Check, permission set analysis</td><td>Users with Modify All Data, profiles nobody can explain</td></tr>
+    <tr><td><strong>Drift events</strong></td><td>Setup Audit Trail, pipeline drift checks</td><td>Undocumented production changes per month. Trending up means your process is too slow — see <a href="branching-strategy.html#drift">drift</a></td></tr>
+    <tr><td><strong>Limit headroom</strong></td><td>Limits API, API usage page</td><td>Storage, daily API calls, async executions, scheduled jobs. The ones that fail silently</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Put these on one page, review monthly, and allocate a fixed slice of every sprint to the worst item. Debt that
+   competes with features for priority always loses; debt with a reserved allocation gets fixed.</p>
+
+<h3>Single org versus multi-org, decided properly</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Question</th><th>Pushes you towards</th></tr></thead>
+  <tbody>
+    <tr><td>Do these units share customers?</td><td>Shared customers → <strong>one org</strong>. A fragmented customer view is the hardest thing to retrofit</td></tr>
+    <tr><td>Do they share processes or reporting?</td><td>Shared → one org</td></tr>
+    <tr><td>Different regulators or data residency requirements?</td><td>Different → <strong>separate orgs</strong>, and the decision may not be yours</td></tr>
+    <tr><td>Can they agree a release calendar?</td><td>No, and never will → separate orgs reduce the conflict, at the cost of duplication</td></tr>
+    <tr><td>Is one unit's limit consumption harming another?</td><td>Yes → separate orgs isolate limits</td></tr>
+    <tr><td>Is the real problem governance rather than architecture?</td><td>Very often. Splitting the org to avoid a difficult conversation gives you two orgs <em>and</em> the same conversation</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Mergers, acquisitions and org consolidation</h3>
+<ul class="steps">
+  <li><b>Inventory before deciding anything</b> — objects, automations, integrations, licences, users, data volume and quality in both orgs. Consolidation decisions made before this are guesses.</li>
+  <li><b>Choose the surviving org deliberately</b>: usually the one with the better data model and fewer managed packages, not the larger one.</li>
+  <li><b>Map the data model</b>, field by field, and resolve the conflicts — duplicate customers, incompatible picklists, different currencies and fiscal years.</li>
+  <li><b>Decide what does not come across.</b> Historical data can live in a read-only archive or Big Object rather than polluting the surviving org — this is the decision that saves the most time.</li>
+  <li><b>Plan identity and licences</b> early: SSO, provisioning, licence transfers and the contractual true-up are long-lead items.</li>
+  <li><b>Run both in parallel</b> for a period with a defined cutover, and keep the retired org read-only rather than deleting it.</li>
+  <li><b>Expect this to take longer than the business thinks.</b> The technical migration is rarely the constraint; agreeing whose process wins is.</li>
+</ul>
+
+<h3>Localisation and multi-country orgs</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Area</th><th>What to get right</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Multi-currency</strong></td><td>Enabling it is <strong>irreversible</strong>. Static conversion rates are simple but mis-state history; <strong>Advanced Currency Management</strong> adds dated exchange rates for opportunities — and changes how roll-ups and reports behave</td></tr>
+    <tr><td><strong>Fiscal year</strong></td><td>Custom fiscal years are also effectively irreversible and affect every forecast and report. Decide once, with finance</td></tr>
+    <tr><td><strong>Translation Workbench</strong></td><td>Translates metadata labels, picklist values and help text. Custom Labels are the mechanism for translatable text in code and components</td></tr>
+    <tr><td><strong>State and country picklists</strong></td><td>Switching from text to picklists is a one-way migration touching every record, integration and report filter. Do it early or not at all</td></tr>
+    <tr><td><strong>Locale vs language vs timezone</strong></td><td>Three separate user settings. Locale drives number and date <em>format</em>; language drives labels; timezone drives datetime display. Most "wrong date" bugs are a locale/timezone confusion</td></tr>
+    <tr><td><strong>Data residency</strong></td><td>May force a multi-org or Hyperforce decision regardless of architectural preference</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout danger">
+  <span class="c-ico">🚫</span>
+  <div class="c-body"><span class="c-title">The irreversible settings list</span>
+    Multi-currency, Advanced Currency Management, custom fiscal years, state/country picklists, person accounts,
+    enhanced domains, Connected Campaigns, and enabling several packaged products. <strong>Keep this list in your
+    governance documentation</strong> and require a design-authority decision for every item on it. "We turned it on in
+    the sandbox to see what it did" is not recoverable in production.</div>
+</div>
+
+<h3>AppExchange and ISV discipline</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Before installing</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Install in a sandbox first</strong></td><td>Always. Measure the CPU it adds to your triggers and the limits it consumes</td></tr>
+    <tr><td><strong>Check what it adds to your objects</strong></td><td>Triggers, flows, validation rules and fields on <em>your</em> Account and Case. This is where package conflicts live</td></tr>
+    <tr><td><strong>Read the security review status and permissions</strong></td><td>What data leaves your org, and to where. Required for your own compliance position</td></tr>
+    <tr><td><strong>Understand the upgrade path</strong></td><td>Push upgrades, major-version migrations, and how much notice you get</td></tr>
+    <tr><td><strong>Plan the exit</strong></td><td>Uninstalling leaves data and sometimes metadata behind. Know what removal looks like before you depend on it</td></tr>
+    <tr><td><strong>Licence true-up</strong></td><td>Per-user package licences need assigning and auditing, and they expire — often silently</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout exam">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">The Well-Architected framing worth remembering</span>
+    Three pillars — <strong>trusted</strong> (secure, compliant, reliable), <strong>easy</strong> (intentional,
+    automated, resilient to change), <strong>adaptable</strong> (composable, scalable, able to absorb new requirements).
+    Its practical value is as a <em>review checklist</em>: ask of any design "which pillar does this weaken, and have we
+    accepted that consciously?" That question catches more real problems than any architecture diagram.</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> An org has 15 flows and 3 triggers on Account. What's your plan?<span class="q-diff hard">Hard</span></summary>

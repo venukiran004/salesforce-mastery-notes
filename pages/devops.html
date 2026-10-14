@@ -425,6 +425,132 @@ jobs:
 </div>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<div class="callout note">
+  <span class="c-ico">🌿</span>
+  <div class="c-body"><span class="c-title">Branch topology has its own page</span>
+    Models, environment mapping, hotfix flow, the metadata that will not merge, drift detection and PR gates are covered
+    in depth on <a href="branching-strategy.html">Branching Strategy</a>. This section covers everything around it:
+    packaging, environments, authentication and release mechanics.</div>
+</div>
+
+<h3>Scratch orgs, org shapes and snapshots</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Tool</th><th>What it solves</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Scratch org definition file</strong></td><td>Declares edition, features and settings. Version-controlled, so every developer gets an identical environment</td></tr>
+    <tr><td><strong>Org shape</strong></td><td>Derives the definition from an existing org — the answer to "my scratch org doesn't look like production"</td></tr>
+    <tr><td><strong>Org snapshot</strong></td><td>A reusable point-in-time image of a scratch org, so a 20-minute setup becomes a 2-minute spin-up. Transforms developer onboarding</td></tr>
+    <tr><td><strong>Source tracking</strong></td><td>The org remembers what changed locally and remotely. <code>sf project retrieve start</code> without a manifest only works because of this — and conflicts are reported rather than silently overwritten</td></tr>
+    <tr><td><strong>Seeding data</strong></td><td><code>sf data tree import</code> or a plan file. Keep seed data in the repo; a scratch org without data is useless for real testing</td></tr>
+  </tbody>
+</table>
+</div>
+<pre><code class="language-bash"># A reproducible developer environment, from clone to working org
+sf org create scratch --definition-file config/project-scratch-def.json \
+  --alias dev --duration-days 7 --set-default
+
+sf project deploy start                      # or: sf project source push
+sf org assign permset --name My_App_Admin
+sf data tree import --plan data/seed-plan.json
+sf apex run --file scripts/post-setup.apex   # scheduled jobs, config rows
+
+# What have I changed that the org doesn't know about, and vice versa?
+sf project retrieve preview
+sf project deploy preview</code></pre>
+
+<h3>Packaging: the three kinds, concretely</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>Unlocked</th><th>Managed (2GP)</th><th>Unmanaged</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Who it's for</strong></td><td>Your own org — modularising internal metadata</td><td>ISVs distributing on AppExchange</td><td>Templates and one-off distribution</td></tr>
+    <tr><td><strong>Namespace</strong></td><td>Optional</td><td>Required</td><td>None</td></tr>
+    <tr><td><strong>Subscriber can edit</strong></td><td>Yes (which is a risk — it causes drift)</td><td>No</td><td>Yes; it becomes their metadata entirely</td></tr>
+    <tr><td><strong>Upgradeable</strong></td><td>Yes, versioned</td><td>Yes, with strict rules</td><td>No</td></tr>
+    <tr><td><strong>Code visibility</strong></td><td>Visible</td><td>Hidden (IP protected)</td><td>Visible</td></tr>
+    <tr><td><strong>Key constraint</strong></td><td>Dependencies must be declared and acyclic</td><td><code>global</code> signatures are permanent; deprecation is a major-version event</td><td>No upgrade path at all</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout warn">
+  <span class="c-ico">🧩</span>
+  <div class="c-body"><span class="c-title">Dependency order and ancestry</span>
+    Packages form a dependency graph, and it must be acyclic — two packages that reference each other cannot be built.
+    Decomposing an org is mostly the work of <em>breaking cycles</em>, which usually means extracting a shared "common"
+    package. Managed packages additionally need an <strong>ancestry</strong> declaration so upgrades know their lineage;
+    getting ancestry wrong produces versions subscribers cannot install over what they already have.</div>
+</div>
+
+<h3>CI authentication</h3>
+<pre><code class="language-bash"># Never put a password or an interactive login in a pipeline.
+# JWT bearer flow: a certificate on a Connected App, a key in CI secrets.
+
+sf org login jwt \
+  --client-id "$CONSUMER_KEY" \
+  --jwt-key-file server.key \
+  --username "deployer@example.com.prod" \
+  --instance-url https://login.salesforce.com \
+  --alias prod
+
+# Alternatively, an auth URL stored as a single CI secret
+echo "$SFDX_AUTH_URL" > auth.txt
+sf org login sfdx-url --sfdx-url-file auth.txt --alias prod
+rm auth.txt</code></pre>
+<ul>
+  <li><strong>Use a dedicated deployment user</strong> with a permission set granting only what deployments need — not a named human's admin account, which breaks the day they leave.</li>
+  <li><strong>Rotate the certificate</strong> on a schedule and put the expiry in a calendar. An expired CI cert on release night is a self-inflicted outage.</li>
+  <li><strong>Restrict the Connected App</strong> by IP range where your runners have stable egress, and keep OAuth scopes minimal.</li>
+  <li><strong>Secrets never in the repo.</strong> Including in a <code>.env</code> you meant to delete — git remembers.</li>
+</ul>
+
+<h3>Deployment mechanics worth knowing</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Mechanism</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Validate then quick deploy</strong></td><td>A validation-only deployment with tests produces a build you can promote within a limited window (commonly 10 days) <em>without re-running tests</em>. Turns a 45-minute production window into minutes</td></tr>
+    <tr><td><strong>Destructive changes</strong></td><td>A separate <code>destructiveChanges.xml</code>, applied pre- or post-deployment. Never automatic — and never reversible, so it gets explicit review</td></tr>
+    <tr><td><strong>Metadata coverage gaps</strong></td><td>Not everything is deployable. Check the Metadata Coverage Report before promising automation; the gaps become documented manual steps in the runbook</td></tr>
+    <tr><td><strong>Post-deployment steps</strong></td><td>Scheduled jobs, custom setting rows, queue members, territory data, package config. Script them as idempotent Apex you can re-run — a manual checklist gets skipped</td></tr>
+    <tr><td><strong>Deployment of data</strong></td><td>CPQ and Field Service config, Custom Metadata rows that are really data, dashboards folders. Needs its own versioned migration — see <a href="branching-strategy.html#merge-hell">why git won't help</a></td></tr>
+    <tr><td><strong>Rollback</strong></td><td>There is no transactional rollback. "Rollback" = deploy the previous tag + manually reverse what cannot be redeployed. Maintain a per-release list of irreversible changes</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Sandbox strategy</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Type</th><th>Data</th><th>Refresh</th><th>Use for</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Developer</strong></td><td>Metadata only</td><td>Daily</td><td>Individual work when scratch orgs are not viable</td></tr>
+    <tr><td><strong>Developer Pro</strong></td><td>Metadata, more storage</td><td>Daily</td><td>Integration testing with seeded data</td></tr>
+    <tr><td><strong>Partial Copy</strong></td><td>A sampled subset via a template</td><td>5 days</td><td>UAT where realistic-but-not-complete data is enough</td></tr>
+    <tr><td><strong>Full Copy</strong></td><td>Everything</td><td>29 days</td><td>Performance testing, data migration rehearsal, final UAT</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout danger">
+  <span class="c-ico">📧</span>
+  <div class="c-body"><span class="c-title">Post-refresh checklist, or you will email real customers</span>
+    Every refresh: set email deliverability to System Email Only <em>first</em>, mask or scramble PII, repoint named
+    credentials and endpoints at test systems, deactivate or redirect scheduled jobs and integration users, disable
+    outbound messages, reset the users you need, and re-seed config data. Automate this as a post-refresh Apex class —
+    the one time someone forgets, production customers receive test emails.</div>
+</div>
+
+<h3>Metrics for a healthy pipeline</h3>
+<ul>
+  <li><strong>Lead time</strong> — commit to production. The single most honest measure of whether your process works.</li>
+  <li><strong>Deployment frequency</strong> and <strong>change failure rate</strong> — rising frequency with flat failure rate means the gates are doing their job.</li>
+  <li><strong>Mean time to restore</strong> — how fast a hotfix reaches production. If it is hours, people will bypass you.</li>
+  <li><strong>Validation duration</strong> — when PR feedback exceeds ten minutes, developers stop waiting for it and start batching changes.</li>
+  <li><strong>Drift events per month</strong> — undocumented production changes. The number should be trending down; if it is not, the sanctioned path is too slow.</li>
+</ul>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> Org development model vs package development model.<span class="q-diff easy">Easy</span></summary>

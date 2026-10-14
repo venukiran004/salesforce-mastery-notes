@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apex Core &amp; SOQL · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>Apex Core</span></div>
+  <h1>Apex Core &amp; SOQL — 100 Scenarios</h1>
+  <p class="lede">Collections, SOQL behaviour at volume, DML and partial success, locking, security modes, numbers and
+     dates — the situations that produce real defects rather than syntax questions.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on
+    <a href="apex-core.html">Apex Core &amp; SOQL/SOSL</a> and its <a href="apex-core.html#advanced">Advanced</a> section.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="collections">Collections &amp; data structures (1–12)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> A <code>Map&lt;Account, String&gt;</code> lookup returns null for an Account you just put in.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>sObject equality uses <em>all queried fields</em>, so two Account instances with the same Id but different selected
+fields are not equal — and the hash differs.</p>
+<p>Never key a map on an sObject. Key on <code>Id</code> or <code>String</code>, which is also cheaper and clearer. This is one of the
+most common silent bugs in Apex written by otherwise experienced developers.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> Removing items from a list inside a for loop skips records.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>List.remove(index)</code> shifts every subsequent element down, so your loop counter skips the next one.</p>
+<p>Fix: iterate backwards, or build a new list of the items you want to keep. Building a new collection is usually clearer and avoids the
+class of bug entirely.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> You need to sort a list of wrapper objects by two fields.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Implement <code>Comparable</code> on the wrapper for its natural ordering, or pass a <code>Comparator</code> to
+<code>sort()</code> when you need more than one ordering of the same type.</p>
+<p><code>Comparator</code> is the better choice when different screens need different sorts — otherwise you end up with a
+<code>compareTo</code> containing a mode flag, which nobody can read.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Sorting a <code>List&lt;Account&gt;</code> gives an order you did not expect.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>List&lt;SObject&gt;.sort()</code> sorts on the <strong>first field in the SELECT clause</strong>, which is
+rarely what you intended, and nulls sort first ascending.</p>
+<p>Sort in SOQL with an explicit <code>ORDER BY</code> instead — it is also cheaper, because the database does it. Reserve Apex sorting for
+wrappers and computed values.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> <code>clone()</code> on a list of records did not give you independent copies.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>clone()</code> on a list copies the <em>references</em>, so both lists point at the same sObject instances —
+mutating one mutates the other.</p>
+<p>Use <code>deepClone()</code> on each sObject (with the appropriate flags for Id, timestamps and autonumbers) when you need genuinely
+independent records.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> You need to group child records by parent Id.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A <code>Map&lt;Id, List&lt;Child__c&gt;&gt;</code> built in one pass over the query results — the single most useful
+pattern in bulk Apex.</p>
+<p>Build it with the <code>containsKey</code> / <code>put(new List...)</code> idiom, or query with a parent-child subquery if you are starting
+from the parent side and need both in one query.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> A set of 50,000 Ids causes a heap error.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Collections count against heap (6MB synchronous, 12MB async), and Ids plus the records behind them add up fast.</p>
+<p>Fix by not holding it all: use <code>Database.getQueryLocator</code> in Batch Apex so the platform streams the rows, query only the fields
+you need, and null out large collections once finished with them.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> <code>Map.get()</code> returns null and you cannot tell whether the key was absent.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A null return is ambiguous: the key may be missing, or present with a null value. Use <code>containsKey()</code> when
+the distinction matters.</p>
+<p>In practice this bites with maps of configuration values where "not configured" and "configured as blank" mean different things.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> You need the records in a list that are not in another list.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Build a <code>Set</code> of Ids from the second list, then iterate the first checking <code>!set.contains(id)</code>. Set
+membership is a hash lookup; a nested loop is quadratic and will blow CPU on a few thousand records.</p>
+<p><code>Set.removeAll()</code> and <code>retainAll()</code> also exist and are worth using for clarity.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> A string built in a loop causes a heap failure.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Each concatenation creates a new immutable string, so a loop over thousands of records creates thousands of
+intermediate strings.</p>
+<p>Collect the pieces into a <code>List&lt;String&gt;</code> and use <code>String.join()</code> once. Same principle for building CSV or
+JSON — never accumulate with <code>+=</code> in a loop.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> You need a list of unique records preserving insertion order.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A <code>Set</code> does not guarantee order you can rely on for business logic. Use a <code>Map&lt;Id,
+SObject&gt;</code> if you need dedupe plus lookup, or track a <code>Set&lt;Id&gt;</code> of seen keys while appending to a
+<code>List</code> to preserve order explicitly.</p>
+<p>Do not depend on iteration order of sets or maps for anything the business sees — make the ordering explicit.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> An untyped <code>List&lt;SObject&gt;</code> makes your code fragile.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It compiles but you lose type safety and field access requires <code>get('Field__c')</code>, so typos become runtime
+errors.</p>
+<p>Use it only where genuinely generic (a framework method handling any object), and cast to the concrete type as early as possible.
+Generic Apex is powerful and should be a deliberate boundary, not the default style.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="soql-volume">SOQL at volume (13–30)</h2>
+
+<details class="acc"><summary><span class="q-num">13</span> A query that ran in 200ms now takes 40 seconds. No code changed.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Data growth pushed the filter past the selectivity threshold, so the optimiser abandoned the index for a table
+scan. The same SQL legitimately changes plan as the data changes.</p>
+<p>Run the Query Plan tool against the <em>production</em> org: cost above roughly 1 means a scan. Then lead with an indexed selective filter,
+or request a custom index for the field you filter on constantly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> Which fields are indexed without you doing anything?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Id, Name, OwnerId, CreatedDate, SystemModstamp, RecordTypeId, master-detail and lookup relationship fields, and anything
+marked External Id or Unique.</p>
+<p>That last one is the free lever: marking a field External Id gives you an index and upsert-by-key in one move.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> Your <code>WHERE Status__c != 'Closed'</code> filter is slow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Negative operators (<code>!=</code>, <code>NOT</code>) generally cannot use an index, and "not closed" is usually not
+selective anyway.</p>
+<p>Rewrite as a positive <code>IN</code> list of the statuses you want, and add a selective filter (a date range, an owner, a record type) to
+lead the query.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> <code>LIKE '%urgent%'</code> is slow and you cannot change the requirement.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A leading wildcard cannot use an index. If the requirement is genuinely free-text search, use <strong>SOSL</strong>,
+which hits the search index rather than scanning.</p>
+<p>If it is really "flag records containing a keyword", have automation set a checkbox or category field at save time and filter on that
+instead.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">17</span> You need to page through 100,000 records in a UI.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><code>OFFSET</code> is capped at 2,000 and degrades badly, so it is not the answer.</p>
+<p>Use <strong>keyset pagination</strong>: <code>WHERE Id &gt; :lastSeenId ORDER BY Id LIMIT 200</code>, carrying the last Id forward. It stays
+fast at any depth because it is always an indexed range scan.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> A query returns 50,001 rows and throws.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>You hit the total query rows limit (50,000 per transaction, and it does <em>not</em> increase in async context — a common
+misconception).</p>
+<p>Use Batch Apex with a <code>QueryLocator</code>, which streams rows outside that limit, or narrow the query. Moving to async buys CPU, heap
+and query <em>count</em>, not rows.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">19</span> Aggregate query hits a limit on a large object.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Aggregate queries still process the underlying rows, so an unselective aggregate over millions of records is expensive
+and the grouped result set is itself capped.</p>
+<p>Add a selective filter (a period, a segment), pre-aggregate with a scheduled batch into a summary object, or do the aggregation in CRM
+Analytics where it belongs.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> You need data from a grandparent and a grandchild in one query.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>SOQL allows five levels up (child to parent) in the SELECT, and one level down (parent to child subquery) — so a
+grandchild subquery is not possible in a single query.</p>
+<p>Query twice and join in Apex with a map, which is usually cheaper than contorting one query. That relationship limit is a genuine shape
+constraint on your query design.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">21</span> A relationship query returns parents with empty child lists.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>That is correct behaviour — a parent-child subquery returns the parent regardless, with an empty (or null) child
+collection.</p>
+<p>Always null-check the subquery result before iterating; assuming children exist is a reliable source of null pointer exceptions in
+production where test data always had children.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> You need "Accounts with no Opportunities".<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>An anti-join: <code>WHERE Id NOT IN (SELECT AccountId FROM Opportunity)</code>. Be aware these are limited in number
+per query and are rarely selective, so they get slow at volume.</p>
+<p>At scale, a maintained roll-up count field on Account (filterable and indexable) outperforms the anti-join substantially — and it also
+makes the requirement reportable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> A <code>Task.WhatId</code> could point at several objects.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Polymorphic field. Use <code>TYPEOF WhatId WHEN Account THEN Name WHEN Opportunity THEN StageName ELSE Id END</code> to
+select different fields per type in one query.</p>
+<p>In Apex, <code>((Id) task.WhatId).getSObjectType()</code> tells you the type at runtime. Never assume the parent type from context — it
+will be a Case one day.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> <code>FIELDS(ALL)</code> seems convenient. When is it a bad idea?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>In any bulk path. It selects every field, inflating heap and query cost, and it is row-bounded so it cannot be used
+freely in Batch Apex.</p>
+<p>Use it for exploration and for genuinely dynamic UI needs; name your fields explicitly in production code paths. Querying only what you
+render is also the cheapest performance habit available.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> How do you check whether an index is being used?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The Query Plan tool in the Developer Console — it shows the cost and which index (if any) each plan option uses.</p>
+<p>Also read <code>SOQL_EXECUTE_BEGIN/END</code> in a debug log, which gives rows returned <em>and</em> elapsed time. Three rows returned in
+4,000ms is a selectivity problem, not a code problem.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> When would you ask Salesforce for a skinny table?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>When a heavy, repeated read pattern on a large object needs fields from both the base and custom field sets, and
+indexing alone has not fixed it — typically reports and list views on tens of millions of rows.</p>
+<p>Caveats: Support creates them, they are limited in field count, they contain no joins, and they do <strong>not</strong> automatically
+include fields you add later. They are a tuning step, not an architecture.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> Your query filters on a formula field and is slow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Cross-object or non-deterministic formulas cannot be indexed, and they are evaluated per row.</p>
+<p>Materialise the value: have automation write it to a plain indexable field and backfill, then filter on that. Deterministic single-object
+formulas <em>can</em> be indexed, so sometimes flattening the formula is enough.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> You need the most recent child record for each of 5,000 parents.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>SOQL has no per-group limit, so you cannot ask for "latest per parent" directly. Options: query children ordered by
+parent and date and take the first per parent in Apex; or maintain a "latest child" lookup on the parent via automation.</p>
+<p>At volume the maintained lookup wins decisively — it turns an expensive query into an indexed field, and it is reportable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> Should you use SOQL or SOSL?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>SOQL when you know the object and are filtering on field values. SOSL when you are doing <em>text search</em>, especially
+across multiple objects — it hits the search index rather than scanning.</p>
+<p>SOSL also has its own limits (queries per transaction, rows returned) and does not return everything a scan would, since indexing is
+eventually consistent.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> A newly created record is not found by a SOSL search in the same transaction.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Search indexing is asynchronous, so a just-inserted record may not be searchable yet.</p>
+<p>Do not build logic that depends on it. In tests, <code>Test.setFixedSearchResults()</code> gives deterministic SOSL results — relying on
+real indexing in a test produces an intermittently failing build.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="dml">DML, partial success &amp; transactions (31–45)</h2>
+
+<details class="acc"><summary><span class="q-num">31</span> One bad record in a batch of 200 fails the whole insert.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Default DML is all-or-none. Use <code>Database.insert(records, false)</code> to allow partial success, then inspect
+each <code>SaveResult</code> and log the failures with their status codes and fields.</p>
+<p>Choose deliberately: all-or-none for anything that must be atomic (financial postings), partial for integration and bulk loads where the
+good 199 should succeed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> You need to know <em>which</em> records failed and why.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Iterate the results by index — <code>results[i]</code> corresponds to <code>records[i]</code> — and for each failure read
+<code>getErrors()</code> for the status code, message and affected fields.</p>
+<p>Write those to an error log object or platform event with the record Id. A count of failures without causes is almost useless at 3am.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">33</span> <code>UNABLE_TO_LOCK_ROW</code> appears intermittently in an integration.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Lock contention, almost always on a shared parent: inserting or updating a detail record locks its master-detail
+parent, and roll-up recalculation holds it longer.</p>
+<p>Fixes: sort your DML by parent Id so concurrent transactions lock in the same order, reduce batch size, switch Bulk API from parallel to
+serial, and look for ownership or lookup <strong>skew</strong> in the data shape. See <a href="data-management.html#advanced">skew</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> Two processes deadlock updating related records.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>They acquired locks in a different order. Deadlock is an ordering problem, not a volume problem.</p>
+<p>Make lock order deterministic: always <code>ORDER BY Id</code> when using <code>FOR UPDATE</code>, and sort collections by parent Id before
+DML. Then reduce how long locks are held by doing less inside the transaction.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> You need to prevent two users overwriting each other's changes.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>SELECT ... FOR UPDATE</code> takes a row lock for the rest of the transaction, so the second transaction waits.</p>
+<p>Use it for genuine read-modify-write sequences (incrementing a counter, allocating from a pool), lock in a deterministic order, and keep the
+locked window short. For UI edits, optimistic concurrency via a version field is often the better user experience.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> A savepoint rollback did not undo everything.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Rollback undoes database changes only. It does <strong>not</strong> reset static variables, un-send emails, un-publish
+platform events published immediately, or recall callouts already made.</p>
+<p>Savepoints also count against DML statement limits. Use them sparingly, and never rely on rollback to undo side effects outside the
+database.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> You get a mixed DML error inserting a User and an Account together.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Setup objects (User, Group, PermissionSetAssignment, Territory) cannot be modified in the same transaction as
+non-setup objects.</p>
+<p>Split them: do one in an async context (<code>@future</code>, Queueable) or use <code>System.runAs</code> in tests. A platform event
+subscriber is also a legitimate way to get a separate transaction.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> Upsert sometimes creates duplicates.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Upsert matches on Id or an External Id field. If the external id is blank on some rows, or not marked unique, upsert
+inserts instead of matching.</p>
+<p>Make the field <strong>unique</strong> (the database constraint is the real guarantee), ensure every incoming row carries it, and handle the
+duplicate-value error as "already processed" rather than a failure.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> A trigger throws and the user sees a stack trace.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>An unhandled exception surfaces internal class names, which is unhelpful and leaks implementation detail.</p>
+<p>Use <code>addError()</code> with a message written for the user — on the <em>field</em> where possible so it appears next to the input. For
+Aura/LWC entry points, throw <code>AuraHandledException</code> with a user-facing message and log the detail separately.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> Should you ever catch and swallow an exception in a trigger?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No. A bare <code>catch (Exception e) {}</code> turns a data-integrity failure into a silent one, which is strictly
+worse — the save succeeds with wrong data and nobody learns.</p>
+<p>Catch to <em>add context</em> and re-throw, or catch to log and <code>addError</code>. If a failure is genuinely tolerable, that is a
+business decision and the record should record that it was skipped.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">41</span> You hit 151 DML statements.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>DML inside a loop. The limit counts <em>statements</em>, not rows, so one update of 10,000 records is one statement.</p>
+<p>Collect into a list in the loop and perform one DML after it. If the DML must vary by type, build several lists and issue one statement
+each.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> You need to delete 5 million records.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Batch Apex or Bulk API, in chunks, and decide between delete (goes to the recycle bin, still consumes storage, recoverable)
+and <strong>hard delete</strong> (irreversible, frees storage immediately).</p>
+<p>Verify the selection with a count first, run it in a controlled window, and expect sharing and roll-up recalculation load. For anything
+irreversible, prove the data is right before you start.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> Deleting a parent deleted children you wanted to keep.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Master-detail relationships cascade delete, and the children's delete triggers fire too — which archiving logic
+frequently forgets.</p>
+<p>If children must survive the parent, the relationship must be a lookup (with the delete-constraint option set appropriately). Test archive
+and delete paths with real automation active.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> An <code>undelete</code> restores a record but automation did not run as expected.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>after undelete</code> is its own trigger context, and many handlers never implement it — so roll-ups and
+derived fields can be stale on restored records.</p>
+<p>Implement undelete explicitly where it matters, or run a reconciliation after restores. This also applies to restoring from the recycle bin
+through the UI.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> Your DML in a test does not seem to affect the database.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Test data is rolled back at the end of each test method and is invisible to the rest of the org, by design.</p>
+<p>If you cannot see <em>any</em> data, check whether you are relying on org data without <code>SeeAllData</code> (you cannot) or on Custom
+Metadata you tried to insert (you cannot). See <a href="testing.html#advanced">test data</a>.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="security-mode">Security in Apex (46–58)</h2>
+
+<details class="acc"><summary><span class="q-num">46</span> Your class is <code>with sharing</code> but exposes fields the user cannot see.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>with sharing</code> governs <em>record</em> visibility only. It never enforces field-level security or object
+permissions.</p>
+<p>Add <code>WITH USER_MODE</code> to queries, <code>as user</code> to DML, or run results through
+<code>Security.stripInaccessible</code>. This distinction is the most common finding in a Salesforce security review.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> When do you use <code>stripInaccessible</code> instead of <code>USER_MODE</code>?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>USER_MODE</code> enforces at the database level, which is cleaner for queries and DML you control.
+<code>stripInaccessible</code> is for collections that arrived from elsewhere — a deserialised payload, a method parameter — where you need to
+remove inaccessible fields before using or returning them.</p>
+<p>It also tells you what was removed, which is useful for logging and for deciding whether to fail rather than silently proceed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> An inner class behaves as if it were <code>without sharing</code>.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Inner classes do <strong>not</strong> inherit the outer class's sharing declaration — they default to the caller's mode,
+which from some entry points is system mode.</p>
+<p>Declare sharing explicitly on inner classes that do data access. This is a genuinely obscure rule that produces real exposure.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> What should a reusable utility class declare?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>inherited sharing</code> — it takes the mode of its caller, which is correct for a library and is the only
+safe-by-default option when it might be entered from a Visualforce page or REST endpoint.</p>
+<p>An unannotated class runs in system mode from those entry points, which is how libraries accidentally become elevation
+paths.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> Dynamic SOQL built from user input — what must you do?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Bind variables wherever possible; <code>String.escapeSingleQuotes()</code> on any fragment you must concatenate; and
+allow-list field and object names against a known set rather than accepting them from the client.</p>
+<p>Then add <code>WITH USER_MODE</code>, because dynamic queries bypass nothing automatically. Accepting a filter expression from a client is a
+data-exfiltration surface, not a feature.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">51</span> An <code>@AuraEnabled</code> method takes an object name as a parameter.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>That is a generic read endpoint for anyone who can load the component, including guests on a public page.</p>
+<p>Allow-list the permitted object names, enforce CRUD and FLS explicitly, bound the row count, and never return fields the caller did not ask
+for. Better still, write a purpose-specific method instead of a generic one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> Do you need to check CRUD if the user cannot see the button?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Yes. Hiding a button is presentation; the Apex method remains callable. Client-side checks are UX, server-side checks are
+security.</p>
+<p>Enforce it in the method itself, every time — and put the question "who can cause this to run, and in whose context?" in your PR
+checklist.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> How do you test that FLS is enforced?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>System.runAs</code> with a user built from a <strong>minimum-access profile</strong> plus only the permission set
+under test, then assert that restricted fields are absent or that the expected exception is thrown.</p>
+<p>Testing as an admin proves nothing — tests run in system mode by default, which is why access bugs reach production with full
+coverage.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> A query in user mode throws where system mode did not.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>That is it working: the user lacks access to an object or field in the query, so the query is rejected rather than silently
+returning data they should not see.</p>
+<p>Decide the behaviour deliberately — catch and degrade the feature, or let it fail. Silently stripping may be worse than failing if the caller
+then makes a decision on incomplete data.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> A flow calls your Apex and sees more than the user should.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Record-triggered flows run in system context without sharing by default, and your <code>inherited sharing</code> class
+then runs in system mode too.</p>
+<p>If the Apex must respect the user, declare <code>with sharing</code> and use <code>USER_MODE</code> explicitly rather than relying on the
+caller's context. See <a href="flows.html#advanced">running context</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> You need to grant access programmatically from Apex.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Insert share rows (<code>Object__Share</code>) with a <strong>custom RowCause</strong> created in Setup, so the grant
+survives ownership changes and is identifiable later.</p>
+<p>The class needs elevated context, so keep it small and reviewed, use partial-success DML, and build the corresponding revoke path — nothing
+cleans up stale shares for you.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> Should an integration endpoint run <code>without sharing</code> for performance?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>No — and the premise is usually wrong anyway; sharing enforcement is not typically the bottleneck.</p>
+<p>Prefer authenticating as a user whose access <em>is</em> the restriction and writing the class <code>with sharing</code>, so record access
+does the filtering. A <code>WHERE</code> clause on an elevated query means a bug in that clause becomes a breach, whereas sharing fails
+closed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> How do you audit an existing codebase for security gaps?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Grep for <code>without sharing</code>, every <code>@AuraEnabled</code> and <code>@RestResource</code>, and every dynamic
+SOQL construction. Cross-reference against which components are on guest-accessible pages.</p>
+<p>Then run the Salesforce Code Analyzer for the mechanical findings, and prioritise by <strong>reachability</strong> — anonymous or external
+first. Fix the pattern, not just the instance, and add the check to CI.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="numbers">Numbers, dates &amp; strings (59–72)</h2>
+
+<details class="acc"><summary><span class="q-num">59</span> A currency total is a penny out.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Rounding and scale. Intermediate results carry more precision than you display, so rounding once at the end differs from
+rounding per line.</p>
+<p>Use <code>Decimal</code> with explicit <code>setScale(2, RoundingMode.HALF_UP)</code> at the stage finance agreed, and write the convention in
+a test with expected figures to the penny.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> Why must you never use <code>Double</code> for money?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Binary floating point cannot represent 0.1 exactly, so sums drift — and the drift appears after thousands of
+operations, in production, in a finance report.</p>
+<p><code>Decimal</code> is exact for decimal arithmetic. The rule is absolute: money, quantities and anything reconciled is
+<code>Decimal</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> A date comparison is off by one day for some users.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Timezone. <code>Datetime</code> is stored in UTC and rendered in the user's timezone; <code>Date</code> has no timezone at
+all. Converting between them at a day boundary shifts the result.</p>
+<p>Be explicit: decide whose timezone the business rule means, use <code>Datetime.newInstance</code> / <code>dateGmt()</code> deliberately, and
+test with users in two zones.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> You need "three business days from now".<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Use <code>BusinessHours</code> methods with holidays attached — date arithmetic cannot know your holidays, and the business
+will notice on a bank holiday.</p>
+<p>Missing holidays is also the standard cause of "the SLA says we breached but we were closed". Same mechanism underlies entitlement
+milestones.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> A date field shows differently in a report and in Apex.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Locale and timezone: locale controls the <em>format</em>, the user's timezone controls which calendar day a
+<code>Datetime</code> falls in.</p>
+<p>Three separate user settings are involved — language (labels), locale (formats), timezone (datetime display). Most "wrong date" bugs are a
+confusion between locale and timezone.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> You need to parse a date from an external system.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Use <code>Date.valueOf()</code> / <code>Datetime.valueOfGmt()</code> with a known format, or parse the components
+explicitly — never <code>Date.parse()</code>, which is locale-dependent and will behave differently for different running users.</p>
+<p>Agree the wire format with the other system (ISO 8601 with an explicit offset) rather than inferring it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> Integer division gives 0 where you expected 0.5.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Integer arithmetic truncates. Cast one operand to <code>Decimal</code> or <code>Double</code> before dividing.</p>
+<p>This appears most often in percentage calculations, where the result then displays as 0% and somebody assumes the data is
+missing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> You need to compare two strings ignoring case and whitespace.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>String.equalsIgnoreCase()</code> after <code>trim()</code>, or normalise both sides through a single helper so the
+rule is in one place.</p>
+<p>For matching keys, normalise at <em>write</em> time into a dedicated field (lowercased, trimmed, punctuation removed) so you can index and
+unique-constrain it rather than normalising on every read.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> A long text field truncates when you write to it.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>You exceeded the field length. Apex does not truncate silently on all paths — it can throw
+<code>STRING_TOO_LONG</code>.</p>
+<p>Use <code>.left(n)</code> (or <code>abbreviate()</code>) deliberately when writing logs and stack traces, so the behaviour is intentional
+rather than an exception in an error handler — which is a particularly annoying failure.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> JSON deserialisation fails on a field name that is an Apex keyword.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>You cannot name a property <code>currency</code> or <code>date</code>. Use <code>JSON.deserializeUntyped</code> and read
+the map, or define the class with a different property name and map it manually.</p>
+<p>For a stable contract, write an explicit DTO class and a mapping method rather than relying on name matching — it also gives you a place to
+validate.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> <code>JSON.serialize</code> on a query result includes fields you did not want.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It serialises everything populated on the sObject, including attributes and related records — which can leak fields and
+inflate payloads.</p>
+<p>Serialise an explicit DTO instead. That also decouples your API contract from your schema, so renaming a field does not break a
+consumer.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> A null in an expression makes the whole result null.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Standard null propagation. Guard with explicit defaults, or use the safe navigation operator (<code>?.</code>) to avoid
+null pointer exceptions when traversing relationships.</p>
+<p>In SOQL results, parent relationships can be null (no parent) and subqueries can be empty — both need checking before use.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">71</span> An enum value from an integration does not match your Apex enum.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>valueOf</code> on an unknown value throws. Map through a known lookup with an explicit "unknown" branch instead, and
+log the unrecognised value.</p>
+<p>External systems add enum values without telling you, so an integration that throws on an unknown status is an integration that breaks on
+their next release.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> How do you make heavy string/collection code cheaper on CPU?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Measure first with the cumulative limits section of a debug log, then: avoid nested loops (use maps for lookups), avoid
+concatenation in loops (<code>String.join</code>), avoid repeated <code>getGlobalDescribe()</code>, avoid deserialising the same payload twice,
+and avoid re-sorting inside a loop.</p>
+<p>CPU time counts computation, not waiting — so optimise the loops, not the queries, when CPU is the limit you are hitting. See
+<a href="governor-limits.html#advanced">what counts as CPU</a>.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="oop">Classes, interfaces &amp; structure (73–86)</h2>
+
+<details class="acc"><summary><span class="q-num">73</span> Where should logic live if a trigger, an LWC and REST all need it?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A <strong>service class</strong> owning the transaction boundary, with all three as thin adapters. One implementation, one
+place to test, and a new entry point costs nothing.</p>
+<p>That is the highest-value structure in a growing codebase, and it is worth adopting long before a full enterprise-pattern layering. See
+<a href="apex-advanced.html#advanced">patterns</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> Why centralise SOQL in a selector class?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Consistent field lists and security enforcement in one place, no duplicated queries drifting apart, and a single place to fix
+a selectivity problem.</p>
+<p>It is also the pattern that makes services unit-testable: inject a stubbed selector and the test never touches the database. Adopt the
+selector first if you adopt nothing else.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> An interface would let you swap implementations. When is that over-engineering?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>When there is exactly one implementation and no test seam needed. An interface with one implementor adds indirection for
+nothing.</p>
+<p>It earns its place when there are genuinely multiple strategies, when you need a test double (the Stub API requires a seam), or when a
+package boundary requires loose coupling.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> You need to instantiate a class named in configuration.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>Type.forName(className).newInstance()</code>, cast to your interface — with a null check and a clear exception when the
+class does not exist.</p>
+<p>That is the basis of metadata-driven dispatch, which lets admins reorder or disable logic without a deployment. The trade-off is genuinely
+harder debugging, so log which implementation ran.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">77</span> A static variable keeps state between two DML statements unexpectedly.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Statics live for the whole <em>transaction</em>, not per DML — so a second batch of records in the same transaction sees state
+from the first.</p>
+<p>That is useful for caching and for recursion guards keyed by record Id, and harmful for a blunt <code>alreadyRan</code> boolean. Know which
+you are writing. See <a href="apex-triggers.html#advanced">recursion control</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> Static state leaks between test methods.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Each test method is its own transaction, so statics reset — but within a method, code under test may have already set
+them.</p>
+<p>Provide a reset hook (<code>@TestVisible static void reset()</code>) for caches and guards, and call it in setup. Tests that pass alone and
+fail in a suite are almost always static state or test data assumptions.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">79</span> How do you cache expensive describe calls?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A static map populated on first use. Describe results are cached per transaction by the platform, but building them is not
+free and <code>getGlobalDescribe()</code> in particular is expensive.</p>
+<p>Prefer targeted describes (<code>Account.SObjectType.getDescribe()</code>) over a global describe you index into, and never call either inside
+a loop.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> When would you use Platform Cache?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>For expensive, re-derivable, shared data: describe results, Custom Metadata lookups, aggregate results, external reference
+data with a known TTL.</p>
+<p>Every read must handle a miss and recompute, because entries can be evicted at any time — and an unallocated partition silently does nothing.
+Never cache anything you cannot recompute, and never cache user-specific data in the org cache.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">81</span> A wrapper class needs to go to an LWC.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Mark the class and its properties <code>@AuraEnabled</code> — properties as well as the class, which is the step people
+miss.</p>
+<p>Keep it a purpose-built DTO rather than exposing sObjects directly: smaller payloads, a stable contract, and no accidental field
+leakage.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> How do you make a class testable without touching the database?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Inject its dependencies — a selector interface for queries, a service for side effects — so a test can pass stubs via the
+Stub API.</p>
+<p>Requirements for stubbing: the class is public/global and not final, the methods are virtual or interface-defined, and the dependency is
+injectable. Designing for that is what makes a codebase unit-testable rather than integration-testable. See
+<a href="testing.html#advanced">Stub API</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">83</span> A custom exception should carry the record Id that failed.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Define a custom exception extending <code>Exception</code> and add properties for context (record Id, operation, correlation
+id). Apex custom exceptions can hold state like any class.</p>
+<p>That context is what makes a production error log useful — a message without the record Id tells you something broke, not what to
+fix.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> Should a method return null or throw when nothing is found?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Be consistent and document it. Returning an <em>empty collection</em> is almost always better than null for list returns —
+callers can iterate without a null check.</p>
+<p>For single-record lookups, throw when absence is a genuine error (a required configuration row), return null or an Optional-style wrapper when
+absence is normal. The failure mode to avoid is a method that sometimes does each.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> Why does the API version a class was saved against matter?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Each class keeps the semantics of its saved API version forever, which is the stability guarantee that stops platform
+upgrades breaking your code.</p>
+<p>The cost is slowly accumulating debt — old classes miss newer behaviour and can block features. Bump versions deliberately with regression
+tests, not silently while editing something else.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> You are writing Apex that will ship in a managed package.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Treat <code>global</code> as a permanent contract you can never break — default to <code>public</code> and expose global
+deliberately. Use <code>@namespaceAccessible</code> for cross-package internal reuse.</p>
+<p>Also: your tests run in subscriber orgs on upgrade, so they must not depend on org-specific data, and <code>SeeAllData</code> becomes actively
+dangerous. See <a href="apex-advanced.html#advanced">packaging</a>.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="judgement">Debugging &amp; judgement (87–100)</h2>
+
+<details class="acc"><summary><span class="q-num">87</span> A null pointer exception in production with no debug log.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>You need instrumentation you built in advance: a structured error log published as a <strong>platform event</strong> so it
+survives the rollback, carrying class, method, record Id, correlation id and the quiddity.</p>
+<p>A log row written with plain DML disappears when the failing transaction rolls back — which is the single most common logging mistake. See
+<a href="debugging.html#advanced">production debugging</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> A bug only happens from the mobile app.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>Request.getCurrent().getQuiddity()</code> tells you the invocation context — AURA, REST, BATCH_APEX, SYNCHRONOUS and
+so on — so "it only fails from X" becomes a provable statement rather than a theory.</p>
+<p>Log it on every error. Behaviour differing by entry point usually means a context assumption (sharing mode, available fields, timezone of the
+running user).</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> Your code works with 1 record and fails with 200.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Something is per-record that should be per-transaction: a SOQL or DML inside the loop, or logic assuming
+<code>Trigger.new[0]</code>.</p>
+<p>Write the bulk test first — 200 records is the standard shape — and it will catch this class of defect before review does.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> CPU time limit exceeded, but the queries look fine.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>CPU counts computation, not waiting. Query time, callout time and commit time do not count — so the cause is loops,
+collections, JSON, or formula evaluation during your DML.</p>
+<p>Read <code>CUMULATIVE_LIMIT_USAGE</code> in the debug log, which also attributes consumption <strong>per namespace</strong> — frequently
+revealing that a managed package is spending your budget.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> An intermittent failure you cannot reproduce.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Intermittent usually means concurrency, data shape, or ordering: lock contention, a record that is null only in old data, an
+async job arriving out of order, or a limit approached under load.</p>
+<p>Instrument rather than guess — log limit snapshots and correlation ids, then look for the pattern across occurrences (same user? same hour?
+same record type?). "Unreproducible" is often "not yet reproduced as the right user with the right data".</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> A query returns different results for different users and you expected it not to.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The class is <code>with sharing</code> (or <code>inherited sharing</code> from a user-context caller), so record access differs
+per user — which is usually correct.</p>
+<p>If the result must be consistent regardless of the caller, that is deliberate elevation: a small, reviewed <code>without sharing</code> class,
+with the reason documented.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> You need to prove a managed package is causing your CPU problem.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>CUMULATIVE_LIMIT_USAGE</code> and <code>LIMIT_USAGE_FOR_NS</code> in a debug log break consumption down by
+namespace.</p>
+<p>That log naming their namespace is the artefact that gets a vendor support case taken seriously. Also isolate by disabling your own logic and
+re-measuring, so your evidence is clean.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> Should you optimise before measuring?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No. The slow thing is rarely the thing you suspect, and on this platform the distinction between CPU and waiting changes the
+fix entirely.</p>
+<p>Measure with the cumulative limits section and the Query Plan tool, change one thing, re-measure. Optimising by intuition usually produces
+more complex code with the same performance.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> A query is selective but the transaction is still slow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Look at what the <em>save</em> triggers: validation rules, roll-up recalculation, other triggers, flows, sharing
+recalculation, and managed package logic — all inside your transaction.</p>
+<p>The <code>CODE_UNIT_STARTED/FINISHED</code> tree in a debug log shows the real execution order and usually reveals automation you did not know
+existed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> You inherit 400 lines in one method.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Add tests around the current behaviour <em>first</em> — you cannot refactor safely without them, and the tests also document
+what it actually does versus what the name claims.</p>
+<p>Then extract in small, separately-deployable steps. A big-bang rewrite of untested logic is how a refactor becomes an incident nobody can
+attribute.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> A reviewer asks you to remove a <code>LIMIT</code> because "we need all the records".<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Push back. An unbounded query works until the data grows, then fails — usually in production with no code change to blame.</p>
+<p>If all records genuinely must be processed, that is Batch Apex with a <code>QueryLocator</code>, not a bigger list in one transaction. Bound
+every collection with a limit you chose.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> When is it right to write Apex instead of a flow?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Bulk performance, complex data shapes, reuse across entry points, real error handling, and anything that must be unit-tested as
+part of a service.</p>
+<p>Flow wins on visibility and admin maintainability. The honest signal that logic has outgrown Flow: a loop inside a loop, a formula nobody can
+read, or a 200-element canvas nobody dares touch. See <a href="flows.html#advanced">Flow ⇄ Apex</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> What makes Apex code reviewable?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Small methods with names that say what they do, one DML and one query per logical operation, no magic numbers or hard-coded
+Ids, explicit security mode, and tests that assert behaviour rather than just executing lines.</p>
+<p>Plus the Salesforce-specific checklist: bulkified, sharing keyword deliberate, FLS enforced, no SOQL/DML in loops, destructive changes
+called out. See <a href="branching-strategy.html#pr">what to review</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit that most improves Apex quality?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Writing the <strong>bulk test and the failure test first</strong>. 200 records, plus a record that must fail — those two
+cases catch the overwhelming majority of real defects, and they are exactly the two that get skipped when coverage is the only target.</p>
+<p>Everything else (patterns, selectors, layering) is valuable but optional. Those two tests are not.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="apex-core.html">Apex Core</a>, the <a href="scenarios.html">full scenario index</a>, or
+    <a href="apex-triggers-scenarios.html">Triggers — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Apex Core — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

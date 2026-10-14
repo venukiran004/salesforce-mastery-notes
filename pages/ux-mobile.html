@@ -199,6 +199,111 @@
 </div>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>Page performance: measure, then fix the right thing</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Tool / metric</th><th>What it tells you</th></tr></thead>
+  <tbody>
+    <tr><td><strong>EPT (Experience Page Time)</strong></td><td>How long until the page is usable. The headline number — but it is an aggregate, so it names the page, not the cause</td></tr>
+    <tr><td><strong>Lightning Usage App</strong></td><td>EPT by page, browser, user and over time. Start here on "the org is slow" — it frequently reveals one browser or one user population, not a platform problem</td></tr>
+    <tr><td><strong>Component instrumentation</strong></td><td>Per-component timing in the page's performance view. The only way to attribute EPT to a culprit</td></tr>
+    <tr><td><strong>Browser network tab</strong></td><td>Aura/Apex call count and payload size. Five components each fetching data is five round trips — consolidation is usually the biggest single win</td></tr>
+    <tr><td><strong>Salesforce Optimizer</strong></td><td>Org-wide report on unused fields, too many layouts, excessive components per page</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout tip">
+  <span class="c-ico">⚡</span>
+  <div class="c-body"><span class="c-title">The usual suspects, in order</span>
+    <strong>①</strong> Too many components on one record page (particularly in the right sidebar and below the fold).
+    <strong>②</strong> Multiple components each calling Apex on load instead of one composite call.
+    <strong>③</strong> A report chart or related list over a large, unselective dataset.
+    <strong>④</strong> Custom components querying far more data than they render.
+    <strong>⑤</strong> A managed package component nobody audits. Fix in that order and most pages come back under
+    control without any clever engineering.</div>
+</div>
+
+<h3>Dynamic Forms, Actions and record page strategy</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Capability</th><th>Why it changes your design</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Dynamic Forms</strong></td><td>Fields placed individually with visibility rules, so one page replaces a matrix of layouts and record types. The single biggest reduction in admin maintenance available</td></tr>
+    <tr><td><strong>Dynamic Actions</strong></td><td>Buttons shown by criteria instead of one action bar for everyone — "Approve" only appears to approvers, on records that can be approved</td></tr>
+    <tr><td><strong>Dynamic Related Lists</strong></td><td>A filtered, sorted related list with chosen columns — no more "all 400 contacts" when you need the three primary ones</td></tr>
+    <tr><td><strong>Component visibility</strong></td><td>Filters on record fields, device type, user permissions and custom permissions. Note that <em>hiding is not security</em> — field-level security is</td></tr>
+    <tr><td><strong>Fewer record types</strong></td><td>Once fields are conditional, most layout-driven record types become unnecessary — see <a href="admin.html#advanced">record type strategy</a></td></tr>
+    <tr><td><strong>The caution</strong></td><td>Conditional visibility is still rendering work. Twenty conditional sections is a slow page <em>and</em> hard to reason about</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Accessibility, concretely</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Requirement</th><th>What it means in a component</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Keyboard operability</strong></td><td>Everything reachable and operable by Tab/Enter/Space/Escape, in a logical order, with no keyboard traps. A clickable <code>div</code> fails this by default</td></tr>
+    <tr><td><strong>Visible focus</strong></td><td>Never remove focus outlines. Restyle them if you must, but a keyboard user must always know where they are</td></tr>
+    <tr><td><strong>Accessible names</strong></td><td>Every control needs a label, <code>aria-label</code> or <code>aria-labelledby</code>. Icon-only buttons are the most common omission</td></tr>
+    <tr><td><strong>Colour contrast</strong></td><td>4.5:1 for body text, 3:1 for large text and UI boundaries. Check both themes if you support dark mode</td></tr>
+    <tr><td><strong>Not colour alone</strong></td><td>Status shown only by a red or green dot is invisible to many users. Add text or an icon shape</td></tr>
+    <tr><td><strong>Live regions</strong></td><td>Dynamic updates — toasts, inline save confirmations, validation errors — need an appropriate live region or screen-reader users never learn the action succeeded</td></tr>
+    <tr><td><strong>Headings and landmarks</strong></td><td>Real heading hierarchy, not styled divs. It is how screen-reader users navigate a page</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Test with the keyboard only, with a screen reader (NVDA or VoiceOver), at 200% zoom, and with an automated checker
+   like axe. Automated tools catch perhaps a third of real issues — the keyboard pass finds most of the rest, and it
+   takes two minutes per component.</p>
+
+<h3>Mobile: the three different products</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Option</th><th>What it is</th><th>Choose it when</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Salesforce mobile app</strong></td><td>The standard app, with your Lightning pages and components</td><td>Default. Free, instantly available, inherits your configuration</td></tr>
+    <tr><td><strong>Mobile Publisher</strong></td><td>Your branding, your app store listing, push notifications, still the Salesforce runtime</td><td>You need a branded app for customers or field staff without building one</td></tr>
+    <tr><td><strong>Mobile SDK</strong></td><td>A fully custom native or hybrid app against Salesforce APIs</td><td>Genuinely custom UX or device integration that the runtime cannot do. Highest cost by far</td></tr>
+    <tr><td><strong>Field Service mobile app</strong></td><td>A separate, offline-first app for technicians</td><td>Field work — see <a href="field-service-advanced.html#mobile">its offline architecture</a></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Offline with Briefcase Builder</h3>
+<ul>
+  <li><strong>Briefcases define what is primed</strong> to the device: objects, filters, related records and a record limit. Keep them tight — large briefcases mean slow sync and heavy storage.</li>
+  <li><strong>Offline is read-plus-limited-edit</strong>, not the full app. Validate what your users actually need to do with no signal before promising it.</li>
+  <li><strong>Validation fires at sync time.</strong> Any rule a user cannot satisfy offline produces a sync error they may not notice — the same trap as <a href="field-service-advanced.html#mobile">Field Service</a>, and it applies here too.</li>
+  <li><strong>Test in real aeroplane mode</strong> on a real device, with a day's work queued, then reconnect and inspect what failed. Emulators will not reproduce this.</li>
+</ul>
+
+<h3>Designing for the small screen deliberately</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Pattern</th><th>Guidance</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Compact layouts</strong></td><td>The first four fields are the mobile card and the highlights panel. Choose them as a design decision, not an afterthought</td></tr>
+    <tr><td><strong>Mobile-specific actions</strong></td><td>Separate action lists for mobile. A phone user wants Call, Log a Call and Navigate — not Clone and Change Owner</td></tr>
+    <tr><td><strong>Component visibility by form factor</strong></td><td>Hide dense desktop components on phone rather than squeezing them</td></tr>
+    <tr><td><strong>Touch targets</strong></td><td>Minimum ~44px. Dense tables are hostile on a phone — use a card layout instead</td></tr>
+    <tr><td><strong>Screen flows beat record pages</strong></td><td>For a task on a phone, a guided flow outperforms scrolling a record page every time</td></tr>
+    <tr><td><strong>Network reality</strong></td><td>Design for a slow, intermittent connection. Show progress, allow retry, never lose typed input on failure</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout exam">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">The UX answer that signals seniority</span>
+    "I start from the <strong>task</strong>, not the record. Who is doing what, how often, on what device, and what is the
+    fewest interactions that completes it? That usually means a guided flow rather than a crowded record page, Dynamic
+    Forms instead of a record-type matrix, a compact layout chosen deliberately, and an accessibility pass with the
+    keyboard before anyone calls it done — then I measure EPT and prove the page is actually usable."</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> Page Layout vs Dynamic Forms — what changed?<span class="q-diff easy">Easy</span></summary>

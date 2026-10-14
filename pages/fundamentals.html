@@ -432,6 +432,114 @@
 </div>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>How multitenancy shapes everything you build</h3>
+<p>Your data does not live in your own tables. It lives in shared, generic structures with a tenant discriminator — and
+   almost every platform behaviour that feels arbitrary follows from that.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Platform reality</th><th>Consequence you feel</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Shared tables with a tenant key</strong></td><td>Every query carries your org id implicitly. It is also why a "full table scan" is bigger than you think</td></tr>
+    <tr><td><strong>Metadata-driven runtime</strong></td><td>Your objects and fields are rows in a metadata dictionary, interpreted at runtime. This is why schema changes are instant and why there is no "rebuild"</td></tr>
+    <tr><td><strong>The multitenant query optimiser</strong></td><td>It maintains per-tenant statistics and decides on <em>your</em> data distribution. The same SOQL can use an index for one org and scan for another</td></tr>
+    <tr><td><strong>Governor limits</strong></td><td>Not arbitrary punishment — they are the mechanism preventing one tenant from consuming a shared resource. Which is why they are per-transaction and non-negotiable</td></tr>
+    <tr><td><strong>Upgrades apply to everyone</strong></td><td>You cannot defer a release. You can pin an <em>API version</em>, which is how your integrations stay stable while the platform moves</td></tr>
+    <tr><td><strong>No infrastructure access</strong></td><td>No OS, no database tuning, no custom indexes without Support. Your performance levers are selectivity, data shape and limits — not configuration</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>API versioning as an architectural decision</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Artefact</th><th>Versioning behaviour</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Apex classes and triggers</strong></td><td>Each is saved <em>against an API version</em> and keeps running under its old semantics forever. A class on v38 behaves per v38, which is both a stability guarantee and a slow accumulation of debt</td></tr>
+    <tr><td><strong>LWC and Aura</strong></td><td>Versioned in the component metadata; newer features require bumping it</td></tr>
+    <tr><td><strong>Integrations</strong></td><td>Call a pinned version in the URL. Salesforce retires old versions on a published schedule — keep an inventory per integration or a retirement notice becomes an emergency</td></tr>
+    <tr><td><strong>Managed packages</strong></td><td>Have their own version and their own API version. Subscriber upgrades are a separate axis again</td></tr>
+    <tr><td><strong>Practical rule</strong></td><td>Bump API versions deliberately as a maintenance task with regression testing — not silently on every class you happen to edit, which mixes behaviour changes into unrelated work</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>The release cycle, in practice</h3>
+<ul>
+  <li><strong>Three major releases a year</strong> (Spring, Summer, Winter), rolled out by instance over several weeks. Sandboxes are upgraded ahead of production — which gives you a genuine, free window to test.</li>
+  <li><strong>Pre-release and sandbox preview</strong>: find out which preview window your sandbox falls into, and whether you need a sandbox on a preview instance. Teams discover this too late and lose the testing window entirely.</li>
+  <li><strong>Critical updates and security advisories</strong> have enforcement dates. These are the ones that break things — track them in a backlog rather than reacting to an email.</li>
+  <li><strong>Release notes triage</strong>: read for your own stack only (the objects, APIs and features you actually use). An hour per release, with a named owner, prevents nearly every release-related surprise.</li>
+  <li><strong>Check <code>status.salesforce.com</code></strong> for your instance's maintenance window and release date before planning a go-live.</li>
+</ul>
+
+<h3>Org strategy and environment architecture</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Decision</th><th>Considerations</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Single org</strong></td><td>One view of the customer, shared automation, cheaper licensing of shared functionality. Costs: contention between business units, limit sharing, and a release process everyone must agree on</td></tr>
+    <tr><td><strong>Multi-org</strong></td><td>Autonomy, isolation of limits and release cycles. Costs: duplicated config, fragmented customer view, and cross-org integration to build and operate</td></tr>
+    <tr><td><strong>The honest test</strong></td><td>Do these business units share customers, processes or reporting? If yes, one org. If genuinely not — different regions, different regulators, different products with no overlap — separate orgs are defensible</td></tr>
+    <tr><td><strong>Data residency</strong></td><td>Hyperforce allows regional hosting. For regulated data this can force the multi-org decision regardless of your preference</td></tr>
+    <tr><td><strong>Environment hub</strong></td><td>Central management of connected orgs and sandbox creation — useful once you have more than a handful</td></tr>
+  </tbody>
+</table>
+</div>
+<p>More on this, including M&amp;A consolidation, on <a href="governance.html#advanced">Governance</a>.</p>
+
+<h3>Record Ids, decoded</h3>
+<pre><code class="language-apex">// 001D000000Iq0ktIAB
+// ^^^ key prefix: identifies the object (001 = Account, 003 = Contact,
+//                 006 = Opportunity, 500 = Case, 00Q = Lead, 005 = User)
+//    ^^^ instance/pod identifier (historical)
+//        ^^^^^^^^^ the unique part
+//                 ^^^ 18-char suffix: a CASE-SAFE checksum of the first 15
+
+// The 15 vs 18 character question, and why it matters:
+Id fifteen  = '001D000000Iq0kt';          // case-SENSITIVE
+Id eighteen = '001D000000Iq0ktIAB';       // case-INSENSITIVE, safe for Excel,
+                                          // safe for systems that uppercase
+
+// Apex treats both as equal when cast to Id:
+System.assertEquals((Id) fifteen, (Id) eighteen);   // true
+
+// But as STRINGS they are not equal — the classic integration bug:
+System.assertNotEquals(fifteen, eighteen);          // true, they differ
+
+// Discover an object from an unknown Id at runtime:
+SObjectType t = ((Id) someIdString).getSObjectType();</code></pre>
+<div class="callout warn">
+  <span class="c-ico">🔤</span>
+  <div class="c-body"><span class="c-title">Always exchange 18-character Ids with external systems</span>
+    Any system that uppercases, lowercases or case-insensitively compares identifiers will merge two different records if
+    you send 15-character Ids. Excel does it. Some databases do it by default. Use <code>CASESAFEID()</code> in formulas
+    and reports, and make 18 characters the rule on every interface.</div>
+</div>
+
+<h3>Licences: the three kinds, and the one that surprises people</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Kind</th><th>What it governs</th></tr></thead>
+  <tbody>
+    <tr><td><strong>User licence</strong></td><td>The baseline: what a user can access at all (Salesforce, Platform, Experience Cloud member, Chatter Free). Assigned once per user</td></tr>
+    <tr><td><strong>Permission set licence</strong></td><td>Grants <em>additional</em> capability on top (CRM Analytics, Field Service, Sales Console). The modern way features are sold — and the thing people forget to assign when a feature "doesn't appear"</td></tr>
+    <tr><td><strong>Feature licence</strong></td><td>Checkbox-style entitlements on the user record (Marketing User, Offline User, Knowledge User). Legacy, but still load-bearing</td></tr>
+    <tr><td><strong>The surprise</strong></td><td>A <strong>Platform</strong> licence cannot see standard CRM objects like Opportunity and Case. It is far cheaper, and it is the right answer for internal custom apps — but discovering the restriction after designing the app is a painful week</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout exam">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">Why interviewers ask about multitenancy</span>
+    Not for the definition. They want to hear you connect it to consequences: <em>limits exist because resources are
+    shared; query plans differ per org because statistics are per tenant; schema changes are instant because the model is
+    metadata; you cannot defer a release but you can pin an API version.</em> Candidates who can draw those lines reason
+    correctly about problems they have never seen before — which is the actual thing being tested.</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> Explain multitenancy and how Salesforce keeps one customer's data away from another's.<span class="q-diff easy">Easy</span></summary>

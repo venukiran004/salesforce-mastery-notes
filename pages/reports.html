@@ -284,6 +284,106 @@ for (AggregateResult ar : ars) {
 }</code></pre>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>Report type design — the decision that constrains everything after it</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Choice</th><th>Effect</th></tr></thead>
+  <tbody>
+    <tr><td><strong>"A with B"</strong></td><td>Inner join — only records <em>with</em> children appear. Accounts with Opportunities</td></tr>
+    <tr><td><strong>"A with or without B"</strong></td><td>Outer join — includes childless records. The only way to report on "Accounts with no activity", and the most commonly missed option</td></tr>
+    <tr><td><strong>Up to four objects</strong></td><td>A custom report type can chain A→B→C→D, but each level after the first narrows what you can do. Deep types get slow and confusing</td></tr>
+    <tr><td><strong>Field layout matters</strong></td><td>The report type controls which fields are available and how they are grouped in the field picker. A badly organised type with 400 fields is unusable even when technically correct</td></tr>
+    <tr><td><strong>Lookup fields bring their own fields</strong></td><td>Via the "related fields" sections — often removing the need for a deeper report type entirely</td></tr>
+    <tr><td><strong>Deployment</strong></td><td>Custom report types <em>are</em> metadata and deploy normally. Reports and dashboards are metadata too, but their folders and sharing are the fiddly part</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Formulas: row-level, summary, and the group functions</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Type</th><th>Evaluates</th><th>Use for</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Row-level formula</strong></td><td>Once per row</td><td>Per-record arithmetic without creating a formula field on the object — up to a small number per report</td></tr>
+    <tr><td><strong>Summary formula</strong></td><td>At group and grand-total level</td><td>Ratios and percentages that cannot be averaged from rows (win rate, margin %)</td></tr>
+    <tr><td><code>PARENTGROUPVAL</code></td><td>A value from a higher grouping</td><td>"This region as a percentage of the total" — the standard contribution calculation</td></tr>
+    <tr><td><code>PREVGROUPVAL</code></td><td>The previous group's value</td><td>Period-over-period change and running comparisons</td></tr>
+    <tr><td><code>RowCount</code></td><td>Records in the group</td><td>Denominator for nearly every conversion rate</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout warn">
+  <span class="c-ico">➗</span>
+  <div class="c-body"><span class="c-title">Never average an average</span>
+    A summary formula of <code>SUM(Won) / SUM(Total)</code> is a win rate. The <em>average</em> of each rep's win rate is
+    a different, usually wrong number — it weights a rep with 3 deals the same as one with 300. Compute ratios from
+    summed numerators and denominators at the level you are displaying, and guard against division by zero.</div>
+</div>
+
+<h3>Filters that do what people actually ask for</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Filter</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Cross filters</strong></td><td>"Accounts <em>with</em> / <em>without</em> Opportunities" plus sub-filters on the child. The declarative equivalent of a SOQL semi-join — and the answer to most "records missing something" requests</td></tr>
+    <tr><td><strong>Filter logic</strong></td><td>Explicit AND/OR with parentheses. Without it, mixed conditions silently AND together and the report quietly excludes rows</td></tr>
+    <tr><td><strong>Bucket fields</strong></td><td>Group picklist or numeric values into bands in-report, no schema change. Limited count per report, and they are not reusable across reports</td></tr>
+    <tr><td><strong>Relative dates</strong></td><td><code>LAST N DAYS</code>, <code>THIS FISCAL QUARTER</code> — always prefer these to hard-coded dates so subscriptions and dashboards stay correct</td></tr>
+    <tr><td><strong>Row limit + sort</strong></td><td>"Top 10" in a tabular report; also what lets a tabular report be used in a dashboard</td></tr>
+    <tr><td><strong>Field-to-field filters</strong></td><td>Compare two fields on the same record ("close date before created date") — invaluable for data-quality reports</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Historical data: three different tools</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Tool</th><th>Answers</th><th>Limits</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Historical Trending</strong></td><td>"What did the pipeline look like five snapshots ago?" Built-in, for a few selected objects and fields</td><td>Bounded number of objects/fields and a limited retention window. Zero setup effort</td></tr>
+    <tr><td><strong>Reporting Snapshots</strong></td><td>Runs a report on a schedule and writes the rows into a custom object you design</td><td>You own the schema, the volume and the cleanup. Fully flexible, and the rows count against storage</td></tr>
+    <tr><td><strong>Field History / Field Audit Trail</strong></td><td>"Who changed this field, when" at record level</td><td>Not a reporting-friendly shape — good for audit, poor for trending</td></tr>
+  </tbody>
+</table>
+</div>
+<p>For anything beyond this — multi-year trends, large volumes, blended sources — the answer is
+   <a href="analytics.html">CRM Analytics</a> or a warehouse, not a cleverer report.</p>
+
+<h3>Dashboards: dynamic, filtered and embedded</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Capability</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Running user</strong></td><td>A standard dashboard shows <em>one</em> user's data view to everyone. This is the number-one dashboard misunderstanding — a sales manager's dashboard showing the VP's numbers</td></tr>
+    <tr><td><strong>Dynamic dashboards</strong></td><td>Run as the viewer, so each person sees their own data. Limited count per org by edition, and they cannot be scheduled/subscribed in the same way</td></tr>
+    <tr><td><strong>Dashboard filters</strong></td><td>A small number of filters, each with a limited number of options, applied across components</td></tr>
+    <tr><td><strong>Component-level filters</strong></td><td>Let one dashboard show "my team" and "everyone" side by side from the same report</td></tr>
+    <tr><td><strong>Subscriptions &amp; conditional alerts</strong></td><td>Scheduled delivery, and alerts that only fire when a metric crosses a threshold — far more useful than a daily email nobody opens</td></tr>
+    <tr><td><strong>Embedding</strong></td><td>Reports and dashboards drop onto Lightning record and home pages, filtered by the record — usually better than a custom component</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Performance and the API</h3>
+<ul>
+  <li><strong>Report timeouts are selectivity problems.</strong> Filter on indexed fields, narrow the date range, and avoid formula fields that span objects in filters — see <a href="apex-core.html#advanced">selectivity</a>.</li>
+  <li><strong>Reduce the row count before grouping.</strong> A report returning 400,000 rows to display 12 summary numbers is doing all the work twice.</li>
+  <li><strong>Watch the row limits</strong> — reports cap at 2,000 rows in the UI view and more on export; a report quietly truncating is worse than one that fails.</li>
+  <li><strong>Analytics (Reports) REST API</strong> runs a report and returns results as JSON, with filters applied at runtime — the right way to feed an external dashboard or an LWC without re-implementing the query.</li>
+  <li><strong>Folder access is the sharing model.</strong> Report and dashboard visibility comes from folder sharing, not record sharing — and a dashboard's data still obeys the running user's record access.</li>
+</ul>
+
+<div class="callout exam">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">Reports or CRM Analytics?</span>
+    Reports: operational, single-object-with-children, live data, zero cost, everyone can build them. CRM Analytics:
+    blended data sources, multi-million-row datasets, time-series and trending, predictive, and complex derived metrics.
+    The honest decision point is <strong>"do I need to join data Salesforce reporting cannot join, or trend beyond what
+    snapshots can hold?"</strong> If not, a report is cheaper to build and far cheaper to maintain.</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> A field exists on the object but you can't add it to a report. Why?<span class="q-diff easy">Easy</span></summary>

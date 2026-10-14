@@ -815,6 +815,132 @@ System.runAs(new User(Id = UserInfo.getUserId())) {
 <p>The full 20-step sequence is on the <a href="apex-triggers.html#order-of-execution">Triggers page</a>.</p>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>Query selectivity — why your SOQL suddenly times out</h3>
+<p>At low volume every query is fast and nothing teaches you anything. At scale the optimiser either finds an index or
+   it scans, and the difference is seconds versus minutes.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Concept</th><th>What it means in practice</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Standard indexes</strong></td><td>Id, Name, OwnerId, CreatedDate, SystemModstamp, RecordTypeId, master-detail and lookup fields, and anything marked External Id or Unique</td></tr>
+    <tr><td><strong>Selectivity threshold</strong></td><td>A filter is only index-driven when it returns a small enough fraction of the object. Past that threshold the optimiser abandons the index and scans — so the <em>same query</em> changes plan as data grows</td></tr>
+    <tr><td><strong>Index killers</strong></td><td><code>!=</code>, <code>NOT</code>, leading wildcards (<code>LIKE '%x'</code>), <code>null</code> checks on some field types, and comparisons against formula fields that span objects</td></tr>
+    <tr><td><strong>Custom indexes</strong></td><td>Requested from Salesforce Support for fields you filter on constantly. External Id or Unique gives you one for free</td></tr>
+    <tr><td><strong>Query plan</strong></td><td>The Developer Console's Query Plan tool shows cost and which index (if any) is used. Cost above ~1 means a table scan</td></tr>
+    <tr><td><strong>Skinny tables</strong></td><td>A Salesforce-managed denormalised copy for heavy read patterns. Support-created; they do not include formula fields you later add</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout tip">
+  <span class="c-ico">🔎</span>
+  <div class="c-body"><span class="c-title">Always put a selective filter first</span>
+    Lead with an indexed, selective field, then narrow further. A query filtered only on a non-indexed checkbox over ten
+    million rows is a full scan no matter how you order the <code>WHERE</code> clause — but a query that leads with an
+    indexed date range and <em>then</em> checks the checkbox is cheap. See <a href="data-management.html#advanced">Data
+    Management</a> for the volume side of this.</div>
+</div>
+
+<h3>Record locking, FOR UPDATE and deadlocks</h3>
+<pre><code class="language-apex">// FOR UPDATE takes a row lock for the rest of the transaction.
+// It prevents lost updates — and causes deadlocks if two transactions
+// lock the same rows in a different ORDER.
+List&lt;Account&gt; accts = [
+    SELECT Id, Balance__c FROM Account
+    WHERE Id IN :accountIds
+    ORDER BY Id                 // always lock in a deterministic order
+    FOR UPDATE
+];
+
+// The classic production deadlock: parent records locked implicitly.
+// Inserting/updating a child takes a lock on its master-detail parent,
+// so two batches touching children of the same parent will contend.
+// Fix: sort your DML by parent Id so every transaction locks in the same sequence.</code></pre>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Situation</th><th>What locks</th></tr></thead>
+  <tbody>
+    <tr><td>Insert/update a detail record</td><td>The master-detail <strong>parent</strong> is locked — the root cause of most "UNABLE_TO_LOCK_ROW" errors</td></tr>
+    <tr><td>Roll-up summary recalculation</td><td>Parent locked while children change</td></tr>
+    <tr><td>Ownership change</td><td>Sharing recalculation, which can be substantial on skewed parents</td></tr>
+    <tr><td>Approval submission</td><td>The record is locked against edits for the duration</td></tr>
+    <tr><td>Parallel batch jobs on related data</td><td>Contention. Reduce batch size, serialise, or chunk by parent</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Querying with user context — the modern security model</h3>
+<pre><code class="language-apex">// Apex runs in system mode by default: sharing rules may be respected
+// (with sharing) but FLS and CRUD never are. These are the tools.
+
+// 1 · Enforce FLS/CRUD on a query at the database level
+List&lt;Contact&gt; cons = [SELECT Id, Email FROM Contact WITH USER_MODE];
+
+// 2 · Enforce it on DML too
+insert as user new Contact(LastName = 'Ash');
+
+// 3 · Strip fields the user cannot see from an existing collection
+SObjectAccessDecision decision =
+    Security.stripInaccessible(AccessType.READABLE, contactsFromSomewhere);
+List&lt;Contact&gt; safe = (List&lt;Contact&gt;) decision.getRecords();
+
+// 4 · Check explicitly when you need to branch rather than strip
+if (Schema.SObjectType.Contact.fields.Email.isAccessible()) { /* ... */ }</code></pre>
+<p><code>with sharing</code> controls <em>record</em> visibility only. Field-level security and object permissions are a
+   separate concern, and forgetting that is the single most common finding in a Salesforce security review. Full
+   treatment on <a href="security.html">Security &amp; Sharing</a>.</p>
+
+<h3>SOQL features worth knowing</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Feature</th><th>Use</th></tr></thead>
+  <tbody>
+    <tr><td><code>TYPEOF ... WHEN ... THEN</code></td><td>Polymorphic fields (<code>Task.WhatId</code>, <code>Owner</code>) — select different fields depending on the related object's type</td></tr>
+    <tr><td><code>GROUP BY ROLLUP / CUBE</code></td><td>Subtotals and grand totals in one aggregate query instead of several</td></tr>
+    <tr><td><code>GROUPING(field)</code></td><td>Tells you whether a row in a <code>ROLLUP</code> result is a subtotal or a detail row</td></tr>
+    <tr><td><code>FIELDS(STANDARD|CUSTOM|ALL)</code></td><td>Dynamic field selection — convenient, but <code>ALL</code> is bounded and inflates heap. Avoid in bulk paths</td></tr>
+    <tr><td><code>FOR VIEW / FOR REFERENCE</code></td><td>Updates "last viewed" and "last referenced" so the record appears in Recent Items</td></tr>
+    <tr><td><code>OFFSET</code></td><td>Paging — capped at 2,000 and poor practice at scale. Use a keyset filter (<code>WHERE Id &gt; :lastId ORDER BY Id</code>) instead</td></tr>
+    <tr><td><strong>Relationship depth</strong></td><td>Five levels up (child to parent), one level down (parent to child) per query — the hard shape of your query design</td></tr>
+    <tr><td><strong>Semi/anti-joins</strong></td><td><code>IN (SELECT ...)</code> and <code>NOT IN (SELECT ...)</code> — limited in number per query, and anti-joins are rarely selective</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Collections: the details that cause bugs</h3>
+<ul>
+  <li><strong>Sets and map keys use <code>equals</code>/<code>hashCode</code>.</strong> For sObjects, <em>all</em> queried fields participate — so two Accounts with the same Id but different selected fields are not equal. Key maps on <code>Id</code> or <code>String</code>, never on sObjects.</li>
+  <li><strong>Sorting custom objects needs <code>Comparable</code></strong> on the class, or a <code>Comparator</code> passed to <code>sort()</code> when you need more than one ordering.</li>
+  <li><strong>Sorting sObject lists</strong> sorts on the first field in the SELECT clause by default — surprising, and a reason to sort in SOQL instead.</li>
+  <li><strong>Null in sort</strong> orders first ascending. Reports and Apex can therefore disagree about "the top record".</li>
+  <li><strong>List.remove(index) in a loop</strong> shifts everything after it. Iterate backwards or build a new list.</li>
+  <li><strong>Deep vs shallow copy</strong> — <code>clone()</code> on a list copies references, not the records. Use <code>deepClone()</code> on sObjects when you need independent copies.</li>
+</ul>
+
+<h3>Numbers, dates and heap</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Trap</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Decimal scale</strong></td><td>Arithmetic preserves scale in ways that surprise. Use <code>setScale(2, RoundingMode.HALF_UP)</code> explicitly for currency rather than trusting the default</td></tr>
+    <tr><td><strong>Double vs Decimal</strong></td><td>Never use <code>Double</code> for money — binary floating point cannot represent 0.1 exactly</td></tr>
+    <tr><td><strong>Date vs Datetime</strong></td><td><code>Date</code> has no timezone; <code>Datetime</code> is stored in UTC and rendered in the user's zone. Comparing them across a timezone boundary is a classic off-by-one-day bug</td></tr>
+    <tr><td><strong>Business days</strong></td><td><code>BusinessHours</code> methods, not arithmetic — holidays exist</td></tr>
+    <tr><td><strong>String concatenation in loops</strong></td><td>Builds many intermediate strings and burns heap. Collect into a <code>List&lt;String&gt;</code> and <code>String.join()</code></td></tr>
+    <tr><td><strong>Heap management</strong></td><td>Query only the fields you need, null out large collections when finished, and prefer <code>Database.getQueryLocator</code> in Batch Apex over a list you hold in memory</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout exam">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">The interview version of this section</span>
+    If you can explain <strong>selectivity</strong> (why a query degrades as data grows), <strong>implicit parent
+    locking</strong> (why unrelated batches deadlock), and <strong>that <code>with sharing</code> does not enforce
+    FLS</strong>, you are already ahead of most candidates who can recite the limit numbers perfectly.</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> Why must you use Decimal rather than Double for currency?<span class="q-diff easy">Easy</span></summary>

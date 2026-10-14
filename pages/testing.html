@@ -514,6 +514,127 @@ public static Id fakeId(Schema.SObjectType sot) {
 </div>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>The Stub API — mocking your own classes</h3>
+<p><code>HttpCalloutMock</code> fakes HTTP. The <strong>Stub API</strong> fakes <em>any</em> class, which is how you unit
+   test a service without its dependencies touching the database.</p>
+<pre><code class="language-apex">@IsTest
+public class MockProvider implements System.StubProvider {
+
+    private final Map&lt;String, Object&gt; returns;
+    public MockProvider(Map&lt;String, Object&gt; returns) { this.returns = returns; }
+
+    public Object handleMethodCall(
+        Object stubbed, String methodName, Type returnType,
+        List&lt;Type&gt; paramTypes, List&lt;String&gt; paramNames, List&lt;Object&gt; args
+    ) {
+        return returns.get(methodName);          // canned answers per method
+    }
+}
+
+@IsTest
+static void serviceHandlesEmptySelectorResult() {
+    // The class under test depends on a selector; we never touch the database.
+    AccountSelector stub = (AccountSelector) Test.createStub(
+        AccountSelector.class,
+        new MockProvider(new Map&lt;String, Object&gt;{
+            'selectByIds' =&gt; new List&lt;Account&gt;()
+        })
+    );
+
+    Test.startTest();
+    String result = new AccountService(stub).summarise(new Set&lt;Id&gt;());
+    Test.stopTest();
+
+    Assert.areEqual('No accounts found', result);
+}</code></pre>
+<p>Requirements: the class must be <code>public</code> or <code>global</code> and <strong>not final</strong>, the methods
+   you stub must be <code>public</code>/<code>global</code> and <strong>virtual or interface-implemented</strong>, and the
+   dependency must be injectable (constructor or setter). Designing for the Stub API is what makes a codebase genuinely
+   unit-testable rather than integration-testable.</p>
+
+<h3>Testing the things people skip</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Thing</th><th>How</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Platform events</strong></td><td>Publish, then <code>Test.getEventBus().deliver()</code> to force synchronous delivery so you can assert the subscriber's effect</td></tr>
+    <tr><td><strong>Change Data Capture</strong></td><td><code>Test.enableChangeDataCapture()</code> before the DML, then deliver the event bus</td></tr>
+    <tr><td><strong>Queueable chains</strong></td><td>Tests allow one level of chaining. Assert the first job's work and that the next was enqueued; test subsequent links as their own unit</td></tr>
+    <tr><td><strong>Batch Apex</strong></td><td>Inside <code>startTest/stopTest</code>, one <code>execute()</code> runs per batch with the scope you pass. Assert <code>finish()</code> side effects separately</td></tr>
+    <tr><td><strong>Scheduled Apex</strong></td><td><code>System.schedule()</code> inside the test, then assert on <code>CronTrigger</code>; call the <code>execute()</code> method directly for the logic</td></tr>
+    <tr><td><strong>Multiple callouts</strong></td><td><code>Test.setMock</code> with a mock that returns different responses by endpoint or call count — a single canned response hides sequencing bugs</td></tr>
+    <tr><td><strong>Flows</strong></td><td>Flow Tests (declarative) for record-triggered flows; Apex tests cover invocable actions. Both belong in CI</td></tr>
+    <tr><td><strong>LWC</strong></td><td>Jest with <code>@salesforce/sfdx-lwc-jest</code> — mock wire adapters with <code>registerApexTestWireAdapter</code>/<code>registerLdsTestWireAdapter</code> and assert rendered DOM</td></tr>
+    <tr><td><strong>Permissions</strong></td><td><code>System.runAs</code> with a user created from a minimum-access profile plus the permission set under test — not an admin</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Why your coverage number is lying to you</h3>
+<div class="grid g2">
+  <div class="card accent-rose"><h4>Coverage theatre</h4>
+    <ul><li>Tests with no assertions — code runs, nothing is verified</li>
+        <li>One happy-path test per class and nothing else</li>
+        <li><code>@IsTest(SeeAllData=true)</code> so tests pass on org data that will change</li>
+        <li>Giant setup methods making tests slow and interdependent</li>
+        <li>Asserting implementation details, so refactoring breaks tests that found no bugs</li></ul></div>
+  <div class="card accent-green"><h4>Coverage that means something</h4>
+    <ul><li>One test per <em>behaviour</em>, named for the behaviour</li>
+        <li>Bulk tests at 200 records as standard</li>
+        <li>Negative tests: the validation fires, the exception is thrown</li>
+        <li>Boundary tests: null, empty collection, maximum length</li>
+        <li>A failing test written <em>before</em> each bug fix</li></ul></div>
+</div>
+<div class="callout exam">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">The honest test of your test suite</span>
+    Pick a method, break its logic deliberately — invert a condition, delete a line — and run the tests. If they still
+    pass, your coverage is decoration. This is mutation testing done by hand, and ten minutes of it tells you more than
+    any coverage percentage.</div>
+</div>
+
+<h3>Test data at scale</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Technique</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr><td><strong>@TestSetup</strong></td><td>Runs once per class; each test method gets a rolled-back copy. Big win on execution time — but records created here count against the class's limits and cannot be used with <code>SeeAllData</code></td></tr>
+    <tr><td><strong>Builder pattern</strong></td><td><code>new AccountBuilder().withIndustry('Retail').withContacts(3).build()</code> — readable tests and one place to fix when a required field is added</td></tr>
+    <tr><td><strong>Avoid DML where possible</strong></td><td>Many tests only need in-memory sObjects. You can even fake Ids for pure logic tests, which makes them dramatically faster</td></tr>
+    <tr><td><strong>Required-field drift</strong></td><td>A new required field breaks every factory at once. That is a feature — it is one fix in one place if your factories are centralised, and fifty if they are not</td></tr>
+    <tr><td><strong>Custom Metadata in tests</strong></td><td>Visible without <code>SeeAllData</code>, but you cannot insert it in a test. Design logic to accept injected configuration so tests do not depend on deployed rows</td></tr>
+    <tr><td><strong>Test parallelism</strong></td><td>Parallel execution causes <code>UNABLE_TO_LOCK_ROW</code> when tests contend on shared parents or on the same user records. Fix the contention rather than disabling parallelism</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Tests in the pipeline</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Test level</th><th>When to use it</th></tr></thead>
+  <tbody>
+    <tr><td><code>NoTestRun</code></td><td>Sandbox iteration only. Never for production</td></tr>
+    <tr><td><code>RunSpecifiedTests</code></td><td>Hotfixes and delta deployments — fast, but you must name every test covering the changed code or the deployment is rejected for coverage</td></tr>
+    <tr><td><code>RunLocalTests</code></td><td>The sensible production default: everything except managed-package tests</td></tr>
+    <tr><td><code>RunAllTestsInOrg</code></td><td>Before a major package upgrade, when you need to know the package's tests pass too</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Pair this with <strong>validate-then-quick-deploy</strong>: run the tests in a validation-only deployment, then promote
+   the validated build without re-running them. It turns a 45-minute production window into a two-minute one — see
+   <a href="branching-strategy.html#delta">delta deployments</a>.</p>
+
+<div class="callout warn">
+  <span class="c-ico">🧮</span>
+  <div class="c-body"><span class="c-title">Coverage is calculated org-wide, per class, and per trigger</span>
+    You need 75% org-wide <em>and</em> every trigger must have some coverage. A class at 40% can pass if the org average
+    carries it — until someone deletes the test that was carrying it. Set a per-class floor in CI (fail the build below
+    80% on changed classes) rather than relying on the org number, which hides exactly the regressions you care
+    about.</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> What exactly does the 75% rule require?<span class="q-diff easy">Easy</span></summary>

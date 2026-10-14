@@ -1228,6 +1228,129 @@ System.debug(resp.Code200.score);</code></pre>
 </div>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>Idempotency and retries — the contract nobody writes down</h3>
+<p>Every integration gets retried: by the caller, by a middleware, by a developer clicking twice. The only question is
+   whether the second delivery is harmless.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Direction</th><th>Make it safe by</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Inbound (they call you)</strong></td><td>Require an idempotency key or external id on every request. Upsert on an External Id field — the unique index is your real guard. Return the <em>same</em> response for a repeated key rather than erroring</td></tr>
+    <tr><td><strong>Outbound (you call them)</strong></td><td>Send your own correlation id and persist the fact that you sent it <em>before</em> the callout. On an unknown outcome (timeout), query before re-sending</td></tr>
+    <tr><td><strong>Timeouts are not failures</strong></td><td>A timeout means you do not know. The remote system may have succeeded. Treating it as a failure and retrying is how duplicate orders get created</td></tr>
+    <tr><td><strong>Retry with backoff and a cap</strong></td><td>Exponential backoff, a maximum attempt count, and a dead-letter destination for what never succeeds</td></tr>
+    <tr><td><strong>Record the attempt, not just the result</strong></td><td>An integration log with correlation id, direction, endpoint, status, duration and attempt number. It is the first thing you will want at 3am</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Named Credentials, properly</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Piece</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td><strong>External Credential</strong></td><td>How you authenticate: OAuth, JWT, basic, AWS SigV4, custom. Holds the protocol and the parameters</td></tr>
+    <tr><td><strong>Principal</strong></td><td><em>Named Principal</em> = one shared identity for the whole org. <em>Per-User Principal</em> = each user authenticates individually, so the remote system sees who acted</td></tr>
+    <tr><td><strong>Permission set mapping</strong></td><td>Access to the external credential is granted through permission sets — so you control which users or integration accounts can use it</td></tr>
+    <tr><td><strong>Named Credential</strong></td><td>The endpoint plus which external credential to use, plus options like generating an authorization header or allowing merge fields</td></tr>
+    <tr><td><strong>Why it matters</strong></td><td>No secrets in code or custom settings, token refresh handled for you, callouts become <code>callout:My_Service/path</code>, and rotating a credential is a config change rather than a deployment</td></tr>
+  </tbody>
+</table>
+</div>
+<pre><code class="language-apex">// With a Named Credential the auth header disappears from your code entirely
+HttpRequest req = new HttpRequest();
+req.setEndpoint('callout:ERP_Service/v2/orders');   // no URL, no token, no secret
+req.setMethod('POST');
+req.setHeader('Content-Type', 'application/json');
+req.setHeader('X-Correlation-Id', correlationId);   // YOUR idempotency key
+req.setTimeout(20000);                              // ALWAYS set it: default is 10s, max 120s
+req.setBody(JSON.serialize(payload));
+
+HttpResponse res = new Http().send(req);
+
+// Classify the outcome — do not treat everything non-200 the same way
+Integer code = res.getStatusCode();
+if (code &gt;= 200 &amp;&amp; code &lt; 300)      { markSent(correlationId); }
+else if (code == 409)                { markSent(correlationId); }   // already processed
+else if (code == 429 || code &gt;= 500) { scheduleRetry(correlationId); } // transient
+else                                 { deadLetter(correlationId, res.getBody()); } // our bug</code></pre>
+
+<div class="callout warn">
+  <span class="c-ico">⏱️</span>
+  <div class="c-body"><span class="c-title">Callout timeouts are a design parameter</span>
+    Total callout time per transaction is capped (120 seconds cumulative), and each callout defaults to 10 seconds. Three
+    sequential callouts at 40-second timeouts will exhaust the transaction before the third completes. Budget the total
+    deliberately, set every timeout explicitly, and if a remote system is genuinely slow, move to an asynchronous pattern
+    rather than hoping.</div>
+</div>
+
+<h3>Long-running and high-volume patterns</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Problem</th><th>Pattern</th></tr></thead>
+  <tbody>
+    <tr><td>A callout from a screen that takes 30 seconds</td><td><strong>Continuations</strong> — the request is parked server-side without holding a thread, and a callback resumes it. Up to three chained; the only way to do a long synchronous callout without burning the concurrent long-running request limit</td></tr>
+    <tr><td>A callout per record over 100,000 records</td><td>Batch Apex with <code>AllowsCallouts</code> and a small scope, or push the batch to middleware and let it call you back</td></tr>
+    <tr><td>Many small writes from an external system</td><td><strong>Composite</strong> or <strong>Composite Graph</strong> API — one round trip, up to 25 subrequests, with all-or-none semantics per graph</td></tr>
+    <tr><td>Millions of records inbound</td><td><strong>Bulk API 2.0</strong>: you upload a CSV, Salesforce chunks and processes it. Never loop single-record REST calls for a migration</td></tr>
+    <tr><td>Creating a parent and children in one call</td><td><strong>sObject Tree</strong> API, or Composite Graph with reference ids</td></tr>
+    <tr><td>Fire-and-forget with no response needed</td><td>Platform events — see <a href="integration-events.html#advanced">Events</a></td></tr>
+    <tr><td>Avoiding storage altogether</td><td><strong>Salesforce Connect</strong> external objects (OData) — query the remote system live, store nothing</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Which inbound API, concretely</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>API</th><th>Choose it when</th></tr></thead>
+  <tbody>
+    <tr><td><strong>REST / SOAP sObject API</strong></td><td>Generic CRUD; the caller knows your schema</td></tr>
+    <tr><td><strong>Composite / Graph</strong></td><td>Multiple dependent operations, one round trip, transactional per graph</td></tr>
+    <tr><td><strong>Bulk API 2.0</strong></td><td>Volume. Asynchronous, job-based, chunked for you</td></tr>
+    <tr><td><strong>Apex REST</strong></td><td>You want a <em>business</em> contract ("submit an order"), not table access — and you need custom logic, validation and a stable interface that survives schema change</td></tr>
+    <tr><td><strong>UI API</strong></td><td>Building a custom client that must respect layouts, FLS and picklist metadata without you re-implementing them</td></tr>
+    <tr><td><strong>GraphQL API</strong></td><td>A client that wants to shape its own read queries across objects</td></tr>
+    <tr><td><strong>Connect REST API</strong></td><td>Chatter, Communities, feeds, files</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout tip">
+  <span class="c-ico">🧱</span>
+  <div class="c-body"><span class="c-title">Prefer a business contract over table access</span>
+    Exposing <code>/sobjects/Account</code> couples your partner to your schema: rename a field and you have broken a
+    contract you did not know you had. An Apex REST endpoint called <code>/orders</code> that accepts a defined payload
+    lets you refactor freely, validate properly, version explicitly and log consistently. The extra day of work pays for
+    itself the first time the data model changes.</div>
+</div>
+
+<h3>Versioning, limits and observability</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Concern</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr><td><strong>API version pinning</strong></td><td>Every integration calls a specific version (<code>/v62.0/</code>). Salesforce supports versions for a long window then retires them — keep an inventory of which integrations use which version, or a retirement notice becomes an emergency</td></tr>
+    <tr><td><strong>Apex REST versioning</strong></td><td>Your <code>@RestResource</code> URL is your contract. Version it in the path (<code>/orders/v1</code>) from day one; adding it later means migrating every caller at once</td></tr>
+    <tr><td><strong>API request limits</strong></td><td>Daily limits scale with licences. A polling integration at one call per second will consume a surprising share — move it to events</td></tr>
+    <tr><td><strong>Concurrent long-running requests</strong></td><td>Ten synchronous requests over 5 seconds per org. An integration that blocks here degrades the <em>UI</em> for everyone</td></tr>
+    <tr><td><strong>Monitoring</strong></td><td>API usage via Event Monitoring and the Setup API usage page; set an alert at a percentage of the daily limit rather than discovering it at 100%</td></tr>
+    <tr><td><strong>Compression</strong></td><td>Accept and send gzip for large payloads — cheap, and often the easiest latency win available</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout danger">
+  <span class="c-ico">🔐</span>
+  <div class="c-body"><span class="c-title">Security review checklist for any endpoint you expose</span>
+    Is it running as a least-privilege integration user, not an admin? Does it enforce CRUD/FLS explicitly, since Apex
+    does not? Is the Connected App scoped to the minimum OAuth scopes with IP restrictions where possible? Are refresh
+    tokens rotated and revocable? Is the payload size bounded, so a 50MB POST cannot take the transaction down? Is every
+    request logged with a correlation id but <em>without</em> the sensitive payload? Each of these is a real finding in a
+    real review.</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> Explain inbound vs outbound and what changes in your design.<span class="q-diff easy">Easy</span></summary>

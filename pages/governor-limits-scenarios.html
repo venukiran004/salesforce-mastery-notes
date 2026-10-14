@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Governor Limits · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>Governor Limits</span></div>
+  <h1>Governor Limits — 100 Scenarios</h1>
+  <p class="lede">Which limit you actually hit, whether async helps, the org-wide ones that fail silently, how to measure
+     before you breach, and how to design work that degrades gracefully.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on <a href="governor-limits.html">Governor
+    Limits</a> and its <a href="governor-limits.html#advanced">Advanced</a> section.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="diagnose">Diagnosing which limit (1–16)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> "Too many SOQL queries: 101". Immediate cause?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A query inside a loop. The limit counts <em>queries</em>, not rows — one query returning 10,000 rows is fine.</p>
+<p>Collect Ids into a set, query once outside the loop, build a map. If the query is inside a called method, the method needs to accept a
+collection instead.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> "Too many query rows: 50001".<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Total rows retrieved across all queries in the transaction. Note it does <strong>not</strong> increase in async context — a common
+misconception.</p>
+<p>Fix with a selective filter, an explicit <code>LIMIT</code>, or Batch Apex with a <code>QueryLocator</code>, which streams outside this
+limit.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> "Too many DML statements: 151".<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>DML inside a loop. Statements, not rows — one update of 10,000 records is one statement.</p>
+<p>Accumulate and perform one DML per object after the loop. Savepoints also consume statements, which surprises
+people.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> "Apex CPU time limit exceeded" but queries are efficient.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>CPU counts your computation, not waiting. Query time, callout time and commit time are all excluded.</p>
+<p>So the cost is loops, collection work, JSON, string building, or formula evaluation during your DML. Read
+<code>CUMULATIVE_LIMIT_USAGE</code>, which also attributes CPU <strong>per namespace</strong>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> A transaction runs 40 seconds without breaching CPU.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It was mostly waiting — database time and callouts. Wall clock and CPU are different measurements, which is why timing with a stopwatch
+misleads you.</p>
+<p>Conversely a compute-heavy transaction can fail at 11 seconds of wall clock. Always read the cumulative limits
+section.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> "Apex heap size too large".<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>6MB synchronous, 12MB async — and 60 fields across several objects for a few thousand records reaches it quickly.</p>
+<p>Query fewer fields, avoid parallel copies of the same data, null out large collections when done, and prefer a query locator over holding a
+list.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> How do you tell whether the limit is yours or a package's?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>CUMULATIVE_LIMIT_USAGE</code> and <code>LIMIT_USAGE_FOR_NS</code> in the debug log break consumption down by namespace.</p>
+<p>That log naming their namespace is also the artefact that gets a vendor support case taken
+seriously.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> A previously-fine trigger starts failing after a package install.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The package's triggers run in your transaction and <strong>CPU is shared</strong>, even though some limits are namespace-scoped. Your
+budget shrank.</p>
+<p>Slim your logic, push heavy work async, and take the per-namespace evidence to the vendor if their consumption is
+unreasonable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> Your code works at 1 record and fails at 200.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Something is per-record that should be per-transaction — a query, a DML, a describe, or a callout.</p>
+<p>The bulk test at 200 records is the standard shape that catches this before
+review.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> A limit error appears only in production.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Data volume and shape: more related records per parent, more automation installed, more packages, and queries that have crossed the
+selectivity threshold.</p>
+<p>Reproduce with production-shaped data in a Full sandbox rather than tuning
+blind.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> The error names a limit you have never heard of.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Check whether it is per-transaction or org-wide — that single distinction determines whether code tuning can help at all.</p>
+<p>Org-wide limits (API calls, async executions, email, storage, scheduled jobs) need usage reduction or monitoring, not
+refactoring.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> You hit a limit inside a managed package you cannot see.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>You get the cumulative totals but not their internals. Isolate by disabling your own logic and re-measuring, so the evidence is
+clean.</p>
+<p>Then reduce what you contribute to the shared transaction, and raise it with the vendor with the
+log.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> "Too many callouts: 101" surprises you.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A callout in a loop. Batch the payload if the remote API supports it, or move to Batch Apex with a small
+scope.</p>
+<p>Also remember the cumulative 120-second callout time budget — three sequential 40-second timeouts exhaust the transaction before the third
+completes.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> A flow fails with a limit error.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Flows share the transaction's limits. Usual causes: an Apex action, subflow or callout inside a loop (the engine does not bulkify those),
+or a loop over a very large collection hitting the element-execution limit.</p>
+<p>Move the collection work outside the loop, or move the whole operation into Batch
+Apex.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> A limit error has no stack trace you can use.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Uncatchable limit exceptions terminate the transaction abruptly. For async work, attach a <strong>Finalizer</strong> — it runs even then
+and can record the failure.</p>
+<p>For synchronous work, you need limit snapshots logged <em>before</em> the breach, which is why instrumenting at 60% matters.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> What is the first thing you read in the debug log?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>CUMULATIVE_LIMIT_USAGE</code> — actual consumption of SOQL, DML, CPU and heap, per namespace.</p>
+<p>Then <code>CODE_UNIT_STARTED/FINISHED</code> for the execution tree, which usually reveals automation you did not know
+existed.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="async-limits">Does async help? (17–30)</h2>
+
+<details class="acc"><summary><span class="q-num">17</span> Which limits actually double in async?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>CPU (10s → 60s), heap (6MB → 12MB) and SOQL query count (100 → 200).</p>
+<p><strong>Not</strong> total query rows (50,000) or DML rows (10,000) — the two people most often assume increase. That is why "make it a batch"
+sometimes changes nothing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> You move a 200,000-row query into a Queueable. Does it work?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No — row limits are unchanged. Only Batch Apex with a <code>QueryLocator</code> escapes them, because it streams rather than
+loading.</p>
+<p>Queueable helps with computation over moderate data, not with volume.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">19</span> CPU-bound work on 10,000 records.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Async gives you 60 seconds, which may be enough — and Batch Apex gives you 60 seconds <em>per chunk</em>, which almost certainly
+is.</p>
+<p>Also reduce per-record cost: cache describes, avoid nested loops, avoid string concatenation in
+loops.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> Does moving to async reduce total platform load?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No — it moves it and consumes your daily async allocation. The benefit is per-transaction headroom and getting work off the user's
+request.</p>
+<p>If the total work is the problem, you need less work (incremental processing), not a different
+context.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">21</span> Async work exhausted your daily allocation.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Async executions per 24 hours are org-wide and licence-scaled. An uncapped retry loop consumes them quickly, and then <em>all</em> async
+work stops.</p>
+<p>Cap retries, back off, dead-letter, and alert on the allocation rather than discovering it when everything
+halts.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> Batch Apex still fails on DML rows.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The 10,000 DML-row limit applies per chunk, so scope 2,000 creating five children each exceeds it.</p>
+<p>Work backwards from DML rows to choose scope, then verify CPU and heap headroom and leave
+margin.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> Why does <code>finish()</code> have tight limits?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>It is a separate execution with its own modest allocation, intended for notification and chaining — not for processing.</p>
+<p>Put real work in <code>execute()</code>, and keep <code>finish()</code> to reporting and starting the next
+stage.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> Chaining Queueables indefinitely — any limit?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Depth is effectively unbounded in production (and tightly limited in tests), but every hop consumes async allocation.</p>
+<p>So the practical limit is your daily allocation and the risk of an accidental infinite chain. Carry a hop counter and cap
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> How many batch jobs can run at once?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A small number org-wide; the rest queue in the Flex Queue as Holding. You can reorder but not accelerate
+them.</p>
+<p>A growing Holding count is your early warning that the nightly window no longer fits.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> Platform events as a way around limits?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>They do give each subscriber a fresh transaction, which is genuinely useful — including for escaping mixed DML.</p>
+<p>But publishing and delivery consume event allocation, and several subscribers multiply it. It is a different budget, not an absence of
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> Continuations and the long-running request limit.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A Continuation parks the request server-side without holding a thread, so it does not consume a concurrent long-running request slot while
+waiting.</p>
+<p>That is the correct tool for a long synchronous callout from a UI, and the alternative is degrading the whole org's interactive
+performance.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> Does a trigger get its own limits per chunk of 200?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No — limits are per <em>transaction</em>. Two DML statements of 200 records in one transaction share one budget, and your trigger runs
+twice within it.</p>
+<p>A Data Loader job of 10,000 does arrive as separate transactions, which is why it behaves
+differently.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> You need 60 seconds of CPU in a synchronous user action.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>You cannot have it — 10 seconds is the synchronous ceiling. The UX must change: start async work, return a job Id, and show progress.</p>
+<p>Attempting to squeeze 60 seconds of computation into a user's save is a design problem, not a tuning
+problem.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> What does async genuinely buy you?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Per-transaction headroom (CPU, heap, queries), the ability to call out after DML, work off the user's request, and retry
+semantics.</p>
+<p>It does not buy more rows, less total work, or any timing guarantee — and assuming otherwise is the most common async design
+error.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="orgwide">Org-wide limits that fail silently (31–46)</h2>
+
+<details class="acc"><summary><span class="q-num">31</span> Users get errors whenever your integration runs.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The concurrent long-running request limit — ten synchronous requests over five seconds per org, shared with interactive users. Your
+background work is consuming the slots.</p>
+<p>The nastiest limit on the platform, because the symptom appears nowhere near the cause. Move the work
+async.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> Integrations fail every afternoon.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Daily API request limit exhaustion. Check <code>/limits</code>, then find the consumer — usually a polling job.</p>
+<p>Replace polling with events or CDC, batch requests via Composite, and alert at a percentage of the
+limit.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">33</span> Notification emails stopped and nothing errored.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Daily single-email or mass-email limit, which is org-wide and fails quietly rather than throwing in your code
+path.</p>
+<p>Batch into digests, or move to custom notifications and platform events which do not share that
+cap.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> You cannot schedule another job.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Org-wide scheduled Apex limit, usually reached by scheduling one job per region or entity.</p>
+<p>Use one scheduled job that iterates, and audit <code>CronTrigger</code> for abandoned
+schedules.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> Data loads start failing with a storage error.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Data storage is org-wide and bounded by licence count plus purchased capacity — and nobody monitors it until loads fail.</p>
+<p>Archive closed records, hard-delete what the recycle bin is holding, and put storage on your monthly platform health
+review.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> Your event-driven integration stopped receiving events.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Daily event delivery allocation, or the concurrent subscriber limit — zombie connections from crashed consumers consume
+slots.</p>
+<p>Consolidate subscribers, keep payloads thin, and monitor allocation. Also check whether the subscriber has been down past the retention window,
+in which case events are permanently gone.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> File storage filled up.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Separate from data storage and frequently consumed by email attachments and old documents.</p>
+<p>Audit large files, move archival content to external storage with links, and set retention expectations with the business before you run
+out.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> A report export is throttled.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Concurrent report and dashboard limits exist per org, and heavy exports also hit row limits.</p>
+<p>Schedule large extracts off-peak, use the Bulk API or Analytics API for programmatic extraction, and reconsider whether a 400,000-row export is
+really the requirement.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> How do you find your current org-wide usage?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>The Limits REST resource (<code>/limits</code>) or the Limits API — daily API calls, async executions, storage, events and
+more.</p>
+<p>Query it on a schedule and alert at a threshold. These limits fail silently, so polling is the only way to know in
+advance.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> A sandbox behaves differently from production on limits.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Org-wide allocations scale with licences, and sandboxes have different (often smaller) allocations and different data volumes.</p>
+<p>So a load that works in a Full sandbox can hit API limits in production, and vice versa. Test volume behaviour where the allocation matches as
+closely as possible.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">41</span> Who should own org-wide limit monitoring?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A named person, reviewing a dashboard monthly: storage, API, async, events, email, scheduled jobs — with alerts at a
+threshold.</p>
+<p>Unowned monitoring is no monitoring. See <a href="governance.html#advanced">platform health</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> A managed package consumes your API calls.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Some package integrations call out through your allocation. Identify consumers from API usage by user in Event Monitoring or the API
+usage page.</p>
+<p>Then negotiate with the vendor or restrict the integration's frequency. You cannot tune what you have not
+attributed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> Bulk API versus REST for a large load — limit impact?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Bulk API 2.0 consumes far fewer API calls per record and is designed for volume; per-record REST calls burn your daily allocation
+quickly.</p>
+<p>For a migration, per-record REST is close to always the wrong
+choice.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> You need a temporary increase for a migration.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Some limits can be raised temporarily via Salesforce Support with lead time — but plan on the assumption they cannot.</p>
+<p>Design the migration to fit: chunked, resumable, spread across a window. A plan that depends on an unconfirmed limit increase is not a
+plan.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> Why do org-wide limits matter more than per-transaction ones?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Per-transaction limits fail loudly at the point of the bug, with a stack trace, affecting one operation. Org-wide limits fail
+<em>silently</em>, affecting everything, with no stack trace and no obvious cause.</p>
+<p>Which is why monitoring matters more than tuning for this category.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> Your org is at 85% of several limits. What do you do?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Treat it as a capacity plan, not an incident: identify the top consumers, reduce the cheapest-to-fix, and forecast growth against the
+remaining headroom.</p>
+<p>Then set alerts lower than 85% so the next conversation happens earlier, with
+options.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="measure">Measuring &amp; instrumenting (47–62)</h2>
+
+<details class="acc"><summary><span class="q-num">47</span> How do you warn before breaching, not after?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Capture <code>Limits.getCpuTime()</code>, query and DML counts and heap at key points, compare against
+<code>Limits.getLimitX()</code>, and publish a platform event at about 60%.</p>
+<p>That turns a future incident into a ticket, and the event-based log is visible in production where debug logs are
+not.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> Where do you put limit snapshots?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>At stage boundaries in expensive operations — after the queries, after the computation, after the DML — so the deltas tell you which stage
+is costly.</p>
+<p>A single total tells you that it is expensive; the deltas tell you
+where.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> You want to assert limit usage in a test.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Assert SOQL or DML counts after <code>stopTest</code> for hot paths — it catches a query creeping into a loop, which is a genuine
+regression guard.</p>
+<p>Keep it to the few paths that matter; asserting exact counts everywhere makes every refactor a test
+rewrite.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> The debug log is truncated before the part you need.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Lower the log levels: set everything to NONE except the one category you need (<code>APEX_PROFILING=FINEST</code> for limits,
+<code>DATABASE=FINEST</code> for queries).</p>
+<p>Everything at FINEST produces a truncated log that answers nothing — and slows the transaction enough to change the behaviour you are
+investigating.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">51</span> How do you profile a slow save?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>CODE_UNIT_STARTED/FINISHED</code> gives you the full execution tree with timings — every trigger, flow, validation rule and
+package.</p>
+<p>It frequently shows your code is a small slice, and that the cost belongs to automation nobody
+documented.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> A query returns 3 rows in 4 seconds.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Selectivity, not volume — the optimiser scanned to find those three rows.</p>
+<p>Run the Query Plan tool: cost above roughly 1 means a table scan. Lead with an indexed selective filter, or request a custom
+index.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> How do you measure CPU attributable to a package?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>LIMIT_USAGE_FOR_NS</code> per namespace in the debug log, and by disabling your own logic to establish a clean
+baseline.</p>
+<p>Two measurements — with and without your code — make the attribution
+defensible.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> You need production evidence without debug logs.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Instrument in advance: structured logging published as platform events, with the correlation id (<code>Request.getCurrent().getRequestId()</code>),
+the quiddity, and limit snapshots.</p>
+<p>Platform events survive rollback; a log row written with DML does not — which is the most common logging
+mistake.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> How do you track whether limit usage is getting worse?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Log peak usage per operation to a record and report on the trend, alongside job durations and record volumes.</p>
+<p>"We are at 40% of CPU on this path and it was 25% last quarter" is actionable; a single breach is
+not.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> A limit is breached only for one user.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Their data shape or their permissions differ — more related records, a larger territory, sharing that returns far more rows, or a
+record-type-specific path.</p>
+<p>Reproduce as that user with their data. "Works for me" is almost always a data-shape
+difference.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> Should you log every transaction's limit usage?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No — the logging itself costs, and the volume is unusable. Log when crossing a threshold, plus sampling for trend data.</p>
+<p>Threshold-based logging gives you signal; comprehensive logging gives you noise and a storage
+problem.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> How do you find the most expensive transaction in your org?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Event Monitoring's Apex execution events include CPU time and run duration — aggregate them to find the worst
+offenders.</p>
+<p>Without Event Monitoring you are reduced to sampling debug logs, which means you will find what you happened to catch rather than what is
+worst.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> Your instrumentation itself is causing limit problems.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Logging with DML in a loop, or serialising large objects for every log line.</p>
+<p>Publish events instead of DML, keep payloads small, log at thresholds rather than everywhere, and never serialise a whole collection into a log
+message.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> How do you convince a team to instrument before optimising?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Show one case where the suspected cause was wrong — which is most cases. On this platform the CPU-versus-waiting distinction alone changes
+the fix entirely.</p>
+<p>An hour of instrumentation routinely saves days of speculative
+refactoring.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> A limit error happens once a week at random.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Look for a volume or concurrency trigger: a weekly integration, a particular record with unusually many children, a batch overlapping with
+interactive usage.</p>
+<p>Correlate occurrences by user, hour and record. Intermittent is usually "a specific condition we have not characterised" rather than
+random.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> What should every production error log capture?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Class, method, message, stack, record Id, correlation id, quiddity, running user and the limit snapshot at failure.</p>
+<p>That set answers most incident questions without a debug log, which is exactly when you need
+it.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="design-limits">Designing within limits (63–82)</h2>
+
+<details class="acc"><summary><span class="q-num">63</span> How do you make a long job resumable?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Persist a high-water mark ("processed up to this Id/date") and start from it. Then a failure resumes rather than restarting.</p>
+<p>Combine with mid-loop limit checks that re-enqueue the remainder, so the job completes in passes instead of failing at
+95%.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> What does "graceful degradation" mean here?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The feature reduces rather than the save failing: if an enrichment callout fails, save the record and queue the enrichment.</p>
+<p>Users forgive missing decoration; they do not forgive losing their work. That trade should be an explicit design
+decision.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> A reviewer asks you to remove a <code>LIMIT</code>.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Push back. An unbounded query works until the data grows, then fails in production with no code change to blame.</p>
+<p>If every record genuinely must be processed, that is Batch Apex, not a larger list in one
+transaction.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> How do you choose a batch scope?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Work backwards from the tightest limit per chunk — usually DML rows — then verify CPU and heap headroom and leave margin for data
+growth.</p>
+<p>A chunk running at 90% of CPU today will fail when the records get slightly
+heavier.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> Incremental or full processing?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Incremental (filter on <code>SystemModstamp</code> since a persisted watermark) with a periodic full reconciliation.</p>
+<p>That shape keeps the window viable as data grows, and the reconciliation catches whatever the incremental path
+missed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> You need to process related records for 10,000 parents.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Batch over the <em>parents</em> with a scope small enough that the children fit in the row and DML limits — and query children per chunk,
+not per record.</p>
+<p>Chunking by parent also groups locks, reducing contention.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> How do you avoid lock contention at volume?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Sort DML by parent Id so concurrent transactions lock in the same order, chunk by parent, reduce batch size, and prefer serial to parallel
+where contention is high.</p>
+<p>And check the data shape — persistent contention usually means ownership or lookup
+skew.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> Your design needs 300 queries.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Restructure: one query per object with an <code>IN</code> clause and maps for lookups, rather than per-record or per-branch
+queries.</p>
+<p>If 300 is genuinely irreducible, the operation needs splitting across transactions — which is a design change, not a tuning
+exercise.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">71</span> How do you keep heap under control with large payloads?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Parse once and discard, process in slices, avoid holding both the raw string and the parsed object, and never keep parallel
+collections.</p>
+<p>For genuinely large payloads, transform in middleware and send Salesforce a smaller
+shape.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> Should you cache to save queries?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Within a transaction, yes — a static map avoids re-querying reference data. Across transactions, Platform Cache for expensive
+re-derivable data.</p>
+<p>Every cache read must handle a miss, and never cache anything you cannot recompute or anything user-specific in the org
+cache.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> How do you design for 10× data growth?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Selective, indexed queries; incremental processing; bounded collections; resumable jobs; and archiving so the working set stays
+bounded.</p>
+<p>Then measure usage trends so you see the wall before you hit it. Most limit incidents are predictable six months
+ahead.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> Middleware or Apex for heavy transformation?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Middleware, usually — better memory, retry and observability, and it does not consume your org's limits.</p>
+<p>Keep Apex for logic that genuinely needs Salesforce context. "We did it in Apex because that is where the data is" is how orgs hit limit walls at
+scale.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> A requirement cannot be met within limits.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Say so early, with the specific limit and the number, and offer alternatives: async with a progress indicator, nightly batch, middleware,
+or a reduced scope.</p>
+<p>Limits are a design constraint like a memory budget. The failure is discovering it in UAT, not having the constraint.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> How do you stop automation cascades consuming limits?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Guard entry conditions tightly, never react to fields the platform or the engine writes, converge on one automation per object per timing,
+and build the filtered working set first.</p>
+<p>A cascade across async hops is invisible in a single debug log, so add a durable counter you can alert
+on.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">77</span> Does more code mean more limit risk?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Not directly — shape matters more than size. One query in a loop is worse than a thousand lines of straight-line logic.</p>
+<p>What <em>does</em> scale with size is the number of places a query or DML can hide, which is the argument for selectors and single DML
+points.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> How do you bound a recursive data structure traversal?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Query level by level with a visited set and a depth cap, rather than recursing per record — which produces a query per
+node.</p>
+<p>Hierarchies of unknown depth are a classic limit trap; the depth cap also protects you from a data cycle somebody
+created.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">79</span> You need an audit trail of every change at volume.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Writing a log record per change doubles your DML and storage. Consider Field Audit Trail, CDC streamed to an external store, or sampling if
+the requirement allows.</p>
+<p>Push back on "log everything forever" — it is itself a limits and cost decision, and usually unexamined.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> Two teams each build within limits and together they breach.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Limits are per transaction and shared by everything on the save. Each team's code is fine in isolation and the sum is not.</p>
+<p>That is a governance problem: one owner per object's automation, a budget per save, and a review when anything is added. See
+<a href="governance.html#advanced">governance</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">81</span> Is it ever right to design close to a limit?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Only with headroom and monitoring. At 90% of CPU you are one data-growth increment or one package install from
+failing.</p>
+<p>Target well under, and treat consumption trends as a leading
+indicator.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> How do you document limit-related design decisions?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>In the code, next to the decision: why the scope is 50, why the query has this limit, what the measured consumption was and when.</p>
+<p>Future maintainers otherwise "optimise" the scope upward and reintroduce the failure you
+solved.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="judgement">Judgement (83–100)</h2>
+
+<details class="acc"><summary><span class="q-num">83</span> A stakeholder says limits are "Salesforce being awkward".<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Reframe: they are the mechanism preventing one tenant consuming shared compute. That is why they are per-transaction and
+non-negotiable.</p>
+<p>Then move the conversation to design: hitting a limit means the shape needs to change, not that the platform needs
+persuading.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> Someone proposes buying a limit increase.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Per-transaction limits are not purchasable. Some org-wide allocations can be increased commercially or temporarily via
+Support.</p>
+<p>So distinguish the two before promising anything, and design on the assumption the per-transaction ones are
+fixed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> You are asked to estimate whether a design will fit.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Do the arithmetic: records per transaction × queries and DML per record, and the row counts. Most limit problems are visible on
+paper.</p>
+<p>Then spike the uncertain part — usually CPU per record — with a realistic volume in a sandbox.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> A vendor says their package "has no limit impact".<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Verify it. Install in a sandbox and measure CPU, queries and DML on a representative save, with and without their logic.</p>
+<p>CPU is shared regardless of namespace scoping, so "no impact" is rarely literally
+true.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> Which limit do you worry about most in a new design?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>CPU for synchronous user-facing work, row counts for data processing, and the concurrent long-running request limit for
+integrations.</p>
+<p>Those three cause the most incidents — the first visibly, the second predictably, the third
+mysteriously.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> You inherit code that fails on limits weekly.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Instrument first so you know which limit and which path, then fix the worst. Rewriting before measuring usually solves the wrong
+thing.</p>
+<p>Add graceful degradation and resumability as you go, so the next failure is a ticket rather than an
+incident.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> A fix would take two days; a workaround takes an hour.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Take the workaround if it is safe and reversible, and schedule the fix with the reason recorded — a smaller batch scope buys time
+legitimately.</p>
+<p>What you must avoid is the undocumented workaround that becomes permanent and surprises someone in a
+year.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> How do you prevent limit problems rather than fix them?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Bulk tests at 200 as standard, static analysis blocking SOQL and DML in loops, bounded queries as a review item, and consumption trends
+reviewed monthly.</p>
+<p>Prevention is mostly process, not
+cleverness.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> An integration partner wants to call you 50 times a second.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>That is roughly four million calls a day and will exhaust any allocation. Negotiate a different pattern: batch payloads, Bulk API, or
+events in the other direction.</p>
+<p>Also rate-limit at the gateway and give each consumer its own integration user so you can attribute and cap them
+individually.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> Users say the system is slow but no limits are breached.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Limits and performance are different problems. Start with the Lightning Usage App for EPT, then component instrumentation and the network
+tab.</p>
+<p>Frequently the cause is too many components each fetching their own data, which no limit error will ever tell
+you.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> How do you explain a limit breach to a business owner?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Plainly: a shared-platform cap was reached, here is what triggered it, here is the fix and the timescale, here is the interim
+mitigation.</p>
+<p>Avoid blaming the platform — it invites "why did we choose this platform" rather than a conversation about the
+fix.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> Should you build a limits dashboard?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Yes, for the org-wide ones — storage, API, async, events, email, scheduled jobs — with alerts at a threshold and a named
+owner.</p>
+<p>Those are the limits that fail silently, and a dashboard nobody owns is decoration.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> A limit forces a worse user experience.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Make the constraint visible in the design rather than hiding it: a progress indicator, a pending state, a "results as of" timestamp.</p>
+<p>Users tolerate honest asynchrony. They do not tolerate an action that appears to work and
+silently did not.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> You suspect a limit will be hit in six months.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Raise it now with the trend data, and propose the work while it is cheap. "We are at 45% and growing 5% monthly" is a conversation;
+"everything stopped" is an incident.</p>
+<p>Capacity planning is the most under-used governance activity on this
+platform.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> An architect proposes a design that only just fits.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Ask what happens at 2× volume, after a package install, and with the automation another team will add next quarter.</p>
+<p>"It fits today" is not a design property. Headroom is.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> What is the most misunderstood limit?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>CPU time — because people assume it is wall clock, and it excludes exactly the slow parts (queries and callouts).</p>
+<p>Closely followed by the belief that async doubles row limits, and by the concurrent long-running request limit, whose symptom appears nowhere near
+its cause.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> How do limits change how you design compared to other platforms?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>You design in terms of <em>batches and budgets</em> from the start: bulk-safe by default, bounded collections, work split across transactions,
+and asynchronous paths for anything heavy.</p>
+<p>Elsewhere you can often add capacity. Here the capacity is fixed, so the shape has to be right.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> Four questions that solve most limit problems?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Is it per-transaction or org-wide?</strong> (If org-wide, code tuning will not help.)
+<strong>Is it CPU or waiting?</strong> (Read the cumulative limits, do not guess from the clock.)
+<strong>Does async actually fix this one?</strong> (CPU, heap and query count yes; rows no.)
+<strong>Is the collection bounded?</strong> (An unbounded query works until the day it does not.)</p>
+<p>Those four, asked in order, resolve the overwhelming majority of limit
+investigations.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="governor-limits.html">Governor Limits</a>, the <a href="scenarios.html">scenario index</a>, or
+    <a href="flows-scenarios.html">Flow — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Governor Limits — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

@@ -418,6 +418,131 @@ if (Schema.sObjectType.Account.isUpdateable()) { /* ... */ }</code></pre>
 </ul>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>How sharing is actually stored and recalculated</h3>
+<p>Sharing is not evaluated at query time from your rules — it is <strong>materialised into share tables</strong>. That
+   single fact explains most sharing performance problems.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Mechanism</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Share objects</strong></td><td><code>AccountShare</code>, <code>CustomObject__Share</code> — one row per record per grant, with a <code>RowCause</code> saying why. Querying these is how you answer "why can this user see it?"</td></tr>
+    <tr><td><strong>Implicit sharing</strong></td><td>Parent/child grants that exist automatically: access to an Account grants access to its Contacts, Cases and Opportunities per the org's settings. Invisible in the UI, and often the real answer</td></tr>
+    <tr><td><strong>Group membership tables</strong></td><td>Roles, territories and public groups are flattened into membership rows. Changing a role re-computes a lot of them</td></tr>
+    <tr><td><strong>Recalculation</strong></td><td>Changing OWD, a role hierarchy, a sharing rule or an owner triggers recalculation — asynchronous, potentially hours on a large org, and it locks groups while it runs</td></tr>
+    <tr><td><strong>Deferred sharing maintenance</strong></td><td>Lets you suspend recalculation during a large reorganisation and resume once. Requires Salesforce to enable it; indispensable for a role-hierarchy overhaul</td></tr>
+    <tr><td><strong>Parallel recalculation</strong></td><td>Modern orgs recalculate in parallel, but a single skewed parent still serialises</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout danger">
+  <span class="c-ico">⚠️</span>
+  <div class="c-body"><span class="c-title">Ownership skew: the number to remember</span>
+    When one user or queue owns a very large share of one object's records (the commonly cited threshold is around
+    10,000+), every ownership or role change involving them triggers a huge recalculation, and record locking becomes a
+    daily event. Mitigations: spread ownership, keep the skewed owner <strong>out of the role hierarchy</strong> (or at
+    the top with no peers), and never put them in a role with many subordinates. The same shape applies to
+    <strong>lookup skew</strong> — thousands of children pointing at one parent — which causes DML contention instead.</div>
+</div>
+
+<h3>Apex managed sharing</h3>
+<pre><code class="language-apex">/* Programmatic sharing with a custom RowCause so your grants are
+   identifiable, reportable, and not wiped by a recalculation. */
+public with sharing class ProjectSharingService {
+
+    public static void grantReadWrite(Map&lt;Id, Id&gt; projectIdToUserId) {
+        List&lt;Project__Share&gt; shares = new List&lt;Project__Share&gt;();
+
+        for (Id projectId : projectIdToUserId.keySet()) {
+            shares.add(new Project__Share(
+                ParentId          = projectId,
+                UserOrGroupId     = projectIdToUserId.get(projectId),
+                AccessLevel       = 'Edit',
+                // A custom Apex sharing reason — created in Setup on the object.
+                // Standard 'Manual' shares are removed when ownership changes;
+                // custom-reason shares survive, and you can find them later.
+                RowCause          = Schema.Project__Share.RowCause.Team_Member__c
+            ));
+        }
+        // Partial success: one bad row should not lose the rest
+        Database.insert(shares, false);
+    }
+}</code></pre>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Rule</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td>Always use a <strong>custom RowCause</strong></td><td>Manual shares are deleted on owner change; custom reasons persist and are attributable</td></tr>
+    <tr><td>Apex sharing needs <code>without sharing</code> context</td><td>Inserting shares requires elevated access — keep that class small and reviewed</td></tr>
+    <tr><td>You cannot share above the OWD</td><td>If OWD is Public Read/Write, share rows are pointless. Sharing only ever grants <em>more</em></td></tr>
+    <tr><td>Master-detail children have no share object</td><td>Access is inherited from the master, full stop. If you need independent sharing, it must be a lookup</td></tr>
+    <tr><td>Delete shares when access ends</td><td>Nothing cleans them up for you. Stale shares are a common audit finding</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Restriction rules and scoping rules</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>Restriction rule</th><th>Scoping rule</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Effect</strong></td><td><em>Removes</em> access — a true filter on what the user can see</td><td>Changes the <em>default view</em> only; the user can still reach the records</td></tr>
+    <tr><td><strong>Security value</strong></td><td>Real. It can tighten access that sharing granted</td><td>None — it is a usability feature</td></tr>
+    <tr><td><strong>Typical use</strong></td><td>"Support agents see only cases for their region", "contractors see only non-confidential files"</td><td>"Sales reps' list views default to their own territory"</td></tr>
+    <tr><td><strong>Watch out</strong></td><td>It applies to reports and API too, which is the point — but it can break integrations running as a restricted user</td><td>Do not present it to an auditor as a control. It is not one</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Shield Platform Encryption — the tradeoffs</h3>
+<p>Encrypting a field is not free, and the costs land on functionality rather than performance:</p>
+<ul>
+  <li><strong>Filtering and sorting</strong> on an encrypted field is restricted — reports, list views and SOQL <code>WHERE</code> clauses behave differently or stop working.</li>
+  <li><strong>Formula fields, roll-ups and some matching rules</strong> cannot use encrypted fields.</li>
+  <li><strong>External ids and unique fields</strong> have constraints, which affects integration upserts.</li>
+  <li><strong>Key management is your responsibility</strong> — bring-your-own-key, rotation, and the catastrophic consequences of destroying a key.</li>
+  <li><strong>It protects data at rest from infrastructure-level access.</strong> It does <em>not</em> protect against a user who has permission to view the field. Confusing the two is the single most common misunderstanding in a Shield conversation.</li>
+</ul>
+<p>Ask first whether <strong>field-level security, Classic Encryption, or simply not storing the data</strong> solves the
+   actual requirement — the answer is often yes, at a fraction of the complexity.</p>
+
+<h3>Monitoring and detection</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Tool</th><th>What it gives you</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Event Monitoring</strong></td><td>Login, report export, API usage, Apex execution and more as event log files. The only way to answer "who downloaded that report" after the fact</td></tr>
+    <tr><td><strong>Real-Time Event Monitoring</strong></td><td>Streaming events plus storage, so you can alert within minutes instead of a day later</td></tr>
+    <tr><td><strong>Transaction Security Policies</strong></td><td>Block or require MFA on a condition in-flight — a large report export, a login from an unexpected region</td></tr>
+    <tr><td><strong>Security Health Check</strong></td><td>Scores your settings against a baseline. Run it quarterly; it catches the slow drift of "temporary" relaxations</td></tr>
+    <tr><td><strong>Setup Audit Trail</strong></td><td>Configuration changes. Review weekly — see <a href="branching-strategy.html#drift">config drift</a></td></tr>
+    <tr><td><strong>Field Audit Trail</strong></td><td>Long-retention field history for regulated data</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Migrating from profiles to permission sets</h3>
+<ul class="steps">
+  <li><b>Freeze profile editing.</b> All new permissions go into permission sets from today — otherwise you are chasing a moving target forever.</li>
+  <li><b>Group by job, not by person.</b> Build permission sets around functional capabilities ("Approve Discounts", "Manage Knowledge"), then compose them into <strong>permission set groups</strong> per role.</li>
+  <li><b>Use muting permission sets</b> inside a group to subtract a permission for one population instead of cloning the whole group.</li>
+  <li><b>Strip profiles down to the minimum</b> — login hours, IP ranges, defaults, record type and layout assignments.</li>
+  <li><b>Verify with a permission comparison</b> before and after, per user, and keep the evidence. "We think it's equivalent" is not a migration plan.</li>
+  <li><b>Remove profiles from version control</b> once they are minimal — see <a href="branching-strategy.html#merge-hell">why</a>.</li>
+</ul>
+
+<div class="callout exam">
+  <span class="c-ico">🔍</span>
+  <div class="c-body"><span class="c-title">The "why can they see this?" method</span>
+    In order: ① object permissions (profile + permission sets), ② field-level security, ③ OWD, ④ role hierarchy,
+    ⑤ sharing rules, ⑥ manual and Apex shares (query the share object and read the <code>RowCause</code>), ⑦ implicit
+    parent sharing, ⑧ team membership, ⑨ territory, ⑩ a restriction rule narrowing it back down, ⑪ <code>without
+    sharing</code> Apex or a system-context flow bypassing all of the above. That last one is the answer more often than
+    anybody expects.</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> Explain the Salesforce security model to a new admin in under two minutes.<span class="q-diff easy">Easy</span></summary>

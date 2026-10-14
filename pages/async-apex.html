@@ -550,6 +550,134 @@ private class OpportunityCleanupBatchTest {
 </div>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>Transaction finalizers — the missing piece of Queueable</h3>
+<p>Before finalizers, a Queueable that breached a limit vanished: no log, no retry, no alert. A finalizer runs
+   <strong>after</strong> the job, including after an uncatchable failure.</p>
+<pre><code class="language-apex">public class ImportJob implements Queueable, Finalizer {
+
+    private final List&lt;Id&gt; recordIds;
+    private final Integer attempt;
+
+    public ImportJob(List&lt;Id&gt; recordIds, Integer attempt) {
+        this.recordIds = recordIds;
+        this.attempt   = attempt;
+    }
+
+    public void execute(QueueableContext ctx) {
+        System.attachFinalizer(this);
+        ImportService.process(recordIds);          // may blow CPU or heap
+    }
+
+    public void execute(FinalizerContext ctx) {
+        if (ctx.getResult() == ParentJobResult.UNHANDLED_EXCEPTION) {
+            ErrorLog.capture('ImportJob', ctx.getException(), ctx.getAsyncApexJobId());
+
+            // Retry with a smaller scope — but cap it, or you build an infinite loop
+            if (attempt &lt; 3 &amp;&amp; recordIds.size() &gt; 1) {
+                Integer half = recordIds.size() / 2;
+                System.enqueueJob(new ImportJob(
+                    new List&lt;Id&gt;(new Set&lt;Id&gt;(recordIds).clone()), attempt + 1
+                ));
+            }
+        }
+    }
+}</code></pre>
+<div class="callout tip">
+  <span class="c-ico">🪝</span>
+  <div class="c-body"><span class="c-title">One finalizer per job, and it gets its own limits</span>
+    The finalizer runs in a fresh execution context with its own (small) limit allocation, so it can do a DML to log the
+    failure even though the parent job exhausted everything. Keep it tiny: log, alert, maybe re-enqueue. Never put
+    business logic in it.</div>
+</div>
+
+<h3>The limits that actually bite in production</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Limit</th><th>Consequence when you hit it</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Flex queue depth</strong></td><td>Batch jobs beyond the concurrent limit sit in the Flex Queue as Holding. You can reorder them; you cannot make them run sooner</td></tr>
+    <tr><td><strong>Concurrent batch jobs</strong></td><td>A small number run at once per org. A nightly window that enqueues twenty batches serialises whether you planned it or not</td></tr>
+    <tr><td><strong>Scheduled Apex count</strong></td><td>A capped number of scheduled jobs org-wide. Teams hit this by scheduling per-territory or per-region jobs — use one job that iterates instead</td></tr>
+    <tr><td><strong>Queueable chain depth</strong></td><td>Effectively unlimited in production but tightly capped in tests (one level). Design chains so tests can assert the first hop only</td></tr>
+    <tr><td><strong>Async requests per 24h</strong></td><td>Shared across future, queueable, batch executions and scheduled jobs; scales with licence count. A chatty retry loop can consume it</td></tr>
+    <tr><td><strong>Concurrent long-running requests</strong></td><td>Synchronous requests over 5 seconds are capped (10 per org). Exceeded, <em>users</em> start seeing failures caused by your background work</td></tr>
+    <tr><td><strong>Batch retry behaviour</strong></td><td>A failed <code>execute()</code> chunk does not stop the job — the rest continue. Your <code>finish()</code> must report partial failure or nobody learns about it</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Choosing a chunking strategy for large volumes</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Shape</th><th>Approach</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Millions of rows, simple per-row work</strong></td><td>Batch Apex with <code>QueryLocator</code>, scope 200. Reduce scope if each row does callouts or heavy CPU</td></tr>
+    <tr><td><strong>Needs a callout per record</strong></td><td>Batch with <code>Database.AllowsCallouts</code> and a small scope (1–10) — callout limits are per execution, not per job</td></tr>
+    <tr><td><strong>Sequential dependency between steps</strong></td><td>Queueable chain: each link does one stage and enqueues the next. Keep state small and in fields, not statics</td></tr>
+    <tr><td><strong>Fan-out of independent work</strong></td><td>Publish platform events and let subscribers process in parallel. Beware ordering assumptions</td></tr>
+    <tr><td><strong>Non-queryable source (an API, a parsed file)</strong></td><td><code>Iterable&lt;SObject&gt;</code> batch — but it loads into heap, so cap the size</td></tr>
+    <tr><td><strong>Must finish inside a window</strong></td><td>Parallel batches partitioned by a hash of the Id, co-ordinated by a controller job. Watch record contention on shared parents</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Idempotency and the retry problem</h3>
+<pre><code class="language-apex">/* Async work gets retried — by finalizers, by platform event redelivery,
+   by an integration that fired twice. Make the second run a no-op. */
+public with sharing class PaymentPoster {
+
+    public static void post(List&lt;Payment__c&gt; payments) {
+        // 1 · A natural idempotency key, unique-indexed on the object
+        Set&lt;String&gt; keys = new Set&lt;String&gt;();
+        for (Payment__c p : payments) keys.add(p.External_Txn_Id__c);
+
+        Set&lt;String&gt; alreadyPosted = new Set&lt;String&gt;();
+        for (Posting__c existing : [
+            SELECT External_Txn_Id__c FROM Posting__c
+            WHERE External_Txn_Id__c IN :keys
+        ]) {
+            alreadyPosted.add(existing.External_Txn_Id__c);
+        }
+
+        List&lt;Posting__c&gt; toInsert = new List&lt;Posting__c&gt;();
+        for (Payment__c p : payments) {
+            if (!alreadyPosted.contains(p.External_Txn_Id__c)) {
+                toInsert.add(new Posting__c(External_Txn_Id__c = p.External_Txn_Id__c));
+            }
+        }
+        // 2 · The unique index is the real guard — the query above is just an optimisation
+        Database.insert(toInsert, false);
+    }
+}</code></pre>
+<p>The pattern: a <strong>unique external id</strong> plus <code>allOrNone = false</code> means a duplicate run fails
+   only on the duplicates, which you then ignore. Querying first is a performance nicety; the database constraint is what
+   makes it correct under concurrency.</p>
+
+<h3>Monitoring async work</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Signal</th><th>Where</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Job status and failures</strong></td><td><code>AsyncApexJob</code> — query it on a schedule for Failed/Aborted and alert. Apex Jobs in Setup is fine for humans, useless for automation</td></tr>
+    <tr><td><strong>Flex queue backlog</strong></td><td>Jobs in Holding status growing is your early warning of a nightly window that no longer fits</td></tr>
+    <tr><td><strong>Per-batch errors</strong></td><td>Your own error-log object, written from <code>execute()</code>; <code>AsyncApexJob.NumberOfErrors</code> tells you a count, never a cause</td></tr>
+    <tr><td><strong>Scheduled job drift</strong></td><td><code>CronTrigger</code> — check <code>NextFireTime</code> and <code>State</code>; jobs do get left in a broken state after a failed deployment</td></tr>
+    <tr><td><strong>Apex exception emails</strong></td><td>Route them to a monitored distribution list, not to the developer who left in 2023</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout danger">
+  <span class="c-ico">⏰</span>
+  <div class="c-body"><span class="c-title">Deployment breaks scheduled jobs</span>
+    You cannot deploy a change to a class that is referenced by an active scheduled job in some situations, and some
+    deployments leave the schedule intact but pointing at changed logic. Build an <strong>idempotent scheduler setup
+    method</strong> you can re-run post-deployment to abort and recreate your schedules, and include it in the release
+    runbook. See <a href="branching-strategy.html#release">release steps</a>.</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> Why does async Apex exist when you could just write synchronous code?<span class="q-diff easy">Easy</span></summary>

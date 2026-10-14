@@ -412,6 +412,140 @@ Object out = flow.getVariableValue('resultMessage');</code></pre>
 </ul>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>Entry conditions, re-entry and the "only when changed" problem</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Setting</th><th>What it really does</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Entry condition requirements</strong></td><td>Evaluated against the record being saved. "Only when a record is updated to meet the condition" is the key option — it fires on the <em>transition</em> rather than every save that still matches</td></tr>
+    <tr><td><strong>Without the transition option</strong></td><td>Your flow runs on every update while the condition remains true — a common cause of duplicate tasks and repeated emails</td></tr>
+    <tr><td><strong>ISCHANGED / PRIORVALUE</strong></td><td>Available in formula entry conditions for finer control than the picker allows</td></tr>
+    <tr><td><strong>Re-entry from other automation</strong></td><td>A workflow field update, roll-up recalculation or another flow's DML re-saves the record and can re-trigger you. Guard with transition conditions, not hope</td></tr>
+    <tr><td><strong>Trigger order</strong></td><td>Multiple flows on the same object and timing run in an order you can set explicitly (trigger order 1–2000). Unset, the order is not guaranteed</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout danger">
+  <span class="c-ico">🔄</span>
+  <div class="c-body"><span class="c-title">The recursion that looks like a platform bug</span>
+    An after-save flow that updates its own record triggers the save path again. Two flows updating each other's objects
+    do the same thing across objects, and neither looks wrong in isolation. Symptoms are intermittent
+    <code>CANNOT_INSERT_UPDATE_ACTIVATE_ENTITY</code> or limit errors under bulk load. Prevention: <strong>before-save
+    flows for same-record field updates</strong>, transition-based entry conditions, and one flow per object per
+    timing.</div>
+</div>
+
+<h3>Bulkification: what the engine does and does not do for you</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Construct</th><th>Bulk behaviour</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Get Records, Create, Update, Delete outside a loop</strong></td><td>Batched automatically across all records in the transaction — this is the engine working for you</td></tr>
+    <tr><td><strong>The same elements inside a loop</strong></td><td>Still batched by the engine where it can, but <em>Apex actions, subflows and external callouts inside a loop are not</em>. This is where limits die</td></tr>
+    <tr><td><strong>Assignment into a collection, then one DML after the loop</strong></td><td>The correct pattern — build the collection in the loop, act once outside it</td></tr>
+    <tr><td><strong>Invocable Apex</strong></td><td>Receives a <code>List</code> of requests. If your Apex action is not written to handle the list in bulk, the flow is bulkified and your Apex is not</td></tr>
+    <tr><td><strong>Loops over large collections</strong></td><td>Flow has an element-execution limit per transaction. A loop over 50,000 records will hit it — that work belongs in Batch Apex</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Flow and Apex: the clean boundary</h3>
+<pre><code class="language-apex">/* An invocable action designed properly: bulk-safe, with a typed
+   request/response and no assumption of a single record. */
+public with sharing class CalculateRiskScore {
+
+    public class Request {
+        @InvocableVariable(required=true label='Account Id')
+        public Id accountId;
+        @InvocableVariable(label='Include subsidiaries')
+        public Boolean includeChildren;
+    }
+
+    public class Result {
+        @InvocableVariable(label='Risk score') public Decimal score;
+        @InvocableVariable(label='Band')       public String band;
+    }
+
+    @InvocableMethod(
+        label='Calculate Risk Score'
+        description='Returns a 0-100 risk score for each account'
+        category='Risk'
+    )
+    public static List&lt;Result&gt; run(List&lt;Request&gt; requests) {
+        // ONE query for all requests — the whole point of the List signature
+        Set&lt;Id&gt; ids = new Set&lt;Id&gt;();
+        for (Request r : requests) ids.add(r.accountId);
+
+        Map&lt;Id, Account&gt; accounts = new Map&lt;Id, Account&gt;([
+            SELECT Id, AnnualRevenue, Industry FROM Account WHERE Id IN :ids
+        ]);
+
+        List&lt;Result&gt; out = new List&lt;Result&gt;();
+        for (Request r : requests) {            // results must align 1:1 with requests
+            Result res = new Result();
+            res.score = RiskEngine.score(accounts.get(r.accountId));
+            res.band  = RiskEngine.band(res.score);
+            out.add(res);
+        }
+        return out;
+    }
+}</code></pre>
+<div class="callout warn">
+  <span class="c-ico">↔️</span>
+  <div class="c-body"><span class="c-title">Results must match requests, in order and in count</span>
+    The flow engine maps your returned list back to the input interviews positionally. Return a different size, or
+    reorder, and values land on the wrong records — silently. Always build the output inside a loop over the input, even
+    when it feels redundant.</div>
+</div>
+
+<h3>Transaction boundaries, Pause and Orchestrator</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Construct</th><th>Effect on the transaction</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Pause element</strong></td><td>Commits everything so far and <strong>ends the transaction</strong>. Resumes later in a new one with fresh limits — the sanctioned way to do a callout after DML, or to wait for a time or an event</td></tr>
+    <tr><td><strong>Scheduled paths</strong></td><td>Separate asynchronous transactions, run as the triggering user's context but later. Records may have changed by then — re-check, never assume</td></tr>
+    <tr><td><strong>Asynchronous path</strong></td><td>Runs immediately after the transaction commits. The right place for callouts and for work that must not block the save</td></tr>
+    <tr><td><strong>Flow Orchestrator</strong></td><td>Multi-step, multi-user, long-running processes: stages, steps, assignments to queues or users, each step its own interview. The declarative answer to approvals that are too complex for an approval process</td></tr>
+    <tr><td><strong>Platform event-triggered flow</strong></td><td>Runs as the Automated Process user in its own transaction after the event is published. No access to the publisher's state</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Running context, and why a flow "works for admins only"</h3>
+<ul>
+  <li><strong>Record-triggered flows</strong> run in <em>system context without sharing</em> by default — they can see and change records the triggering user cannot. Powerful, and a security review item.</li>
+  <li><strong>Screen flows</strong> run in the <em>user's</em> context, so a Get Records returning nothing for one user is almost always sharing or FLS, not the flow.</li>
+  <li><strong>Autolaunched flows</strong> let you choose: system context with or without sharing, or user context. Choose deliberately and write the choice in the description.</li>
+  <li><strong>Invoked Apex keeps its own sharing declaration</strong> — an <code>inherited sharing</code> class called from a system-context flow runs in system mode. Easy to miss.</li>
+  <li><strong>Experience Cloud guest users</strong> amplify all of this. A flow running without sharing, exposed to a guest-accessible page, is an exfiltration path — see <a href="experience-cloud.html#advanced">Experience Cloud</a>.</li>
+</ul>
+
+<h3>Error handling that gets noticed</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Pattern</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Fault path on every DML and Apex element</strong></td><td>Without one, a record-triggered flow failure rolls back the user's save with an unhelpful error; a screen flow shows an untranslated technical message</td></tr>
+    <tr><td><strong>Write to an error-log object</strong></td><td>The fault path creates a log record with <code>$Flow.FaultMessage</code>, the record Id and the interview context. Reportable, alertable, and available in production where debug logs are not</td></tr>
+    <tr><td><strong>Screen flows: show a friendly message</strong></td><td>Fault path → a screen explaining what to do next, plus the log record for support</td></tr>
+    <tr><td><strong>Do not email the error to one developer</strong></td><td>The default behaviour emails the flow owner. That person leaves. Route to a monitored address or an alerting integration</td></tr>
+    <tr><td><strong>Flow Tests</strong></td><td>Declarative tests for record-triggered flows — assert the outcome for a given input record. Put them in CI alongside Apex tests</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout tip">
+  <span class="c-ico">📊</span>
+  <div class="c-body"><span class="c-title">Flow versus Apex: the honest line</span>
+    Flow wins on visibility, admin maintainability and speed of change. Apex wins on bulk performance, testability,
+    complex data shapes, reuse and error handling. The failure mode is a 200-element flow nobody dares touch — if a flow
+    needs a loop inside a loop, a formula nobody can read, or a comment to explain it, the logic has outgrown the tool.
+    Move that piece into an invocable action and keep the flow as orchestration.</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> Name the flow types and give a use case for each.<span class="q-diff easy">Easy</span></summary>

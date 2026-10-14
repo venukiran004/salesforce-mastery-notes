@@ -680,6 +680,131 @@ export default class LightDomCmp extends LightningElement {
 </ul>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>Reactivity: what actually triggers a re-render</h3>
+<p>LWC tracks reassignment, not mutation. Almost every "my UI didn't update" bug is this one rule.</p>
+<pre><code class="language-js">// ❌ Mutating in place — the framework sees no change
+this.items.push(newItem);
+this.record.Name = 'New name';
+this.settings.filters.status = 'Open';
+
+// ✅ Reassign so the reference changes
+this.items = [...this.items, newItem];
+this.record = { ...this.record, Name: 'New name' };
+this.settings = {
+    ...this.settings,
+    filters: { ...this.settings.filters, status: 'Open' }
+};
+
+// Primitives and top-level fields are tracked automatically in modern LWC —
+// @track is only needed for deep mutation of objects/arrays, and the
+// reassignment pattern above is better than relying on it.</code></pre>
+<div class="callout tip">
+  <span class="c-ico">🔬</span>
+  <div class="c-body"><span class="c-title">Getters re-run on every render</span>
+    A getter referenced in the template is evaluated on each render pass. Keep them cheap — no loops over large arrays,
+    no <code>JSON.parse</code>, no date formatting of a thousand rows. If a getter is expensive, compute the value once
+    when the data changes and store it in a tracked field instead.</div>
+</div>
+
+<h3>Shadow DOM, Light DOM and Lightning Web Security</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Concept</th><th>What it means for you</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Synthetic vs native shadow DOM</strong></td><td>The platform has historically polyfilled shadow DOM. Styles and query behaviour differ subtly between synthetic and native — never rely on piercing selectors</td></tr>
+    <tr><td><strong>Light DOM</strong></td><td><code>static renderMode = 'light'</code> renders without a shadow root, so global CSS and third-party libraries can reach inside. Essential for some analytics and accessibility tools; it also gives up encapsulation</td></tr>
+    <tr><td><strong>Lightning Web Security (LWS)</strong></td><td>Replaced Locker Service. Fewer restrictions on JavaScript, different sandboxing model. Third-party libraries that failed under Locker often work under LWS — re-test rather than assuming</td></tr>
+    <tr><td><strong>querySelector scope</strong></td><td><code>this.template.querySelector</code> only sees your own shadow tree; <code>this.refs</code> is the cleaner modern alternative for elements you have marked with <code>lwc:ref</code></td></tr>
+    <tr><td><strong>Slotted content</strong></td><td>Lives in the <em>parent's</em> scope, not the child's. Styling and querying it from the child does not work the way people expect</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Styling that survives a theme change</h3>
+<pre><code class="language-css">/* ❌ Hard-coded values break in dark mode, in Experience Cloud,
+   and when the brand changes. */
+.my-card { background: #ffffff; color: #16325c; border: 1px solid #dddbda; }
+
+/* ✅ SLDS styling hooks — themeable, and supported across contexts */
+.my-card {
+    background: var(--slds-g-color-surface-1, #fff);
+    color: var(--slds-g-color-on-surface-1, #181818);
+    border: 1px solid var(--slds-g-color-border-base-1, #e5e5e5);
+    padding: var(--slds-g-spacing-4, 1rem);
+}
+
+/* Expose your own hooks so consumers can theme your component
+   without reaching into its internals */
+:host {
+    --my-card-accent: var(--slds-g-color-accent-base-3, #0176d3);
+}</code></pre>
+<p>Prefer composing <strong>base components</strong> (<code>lightning-card</code>, <code>lightning-datatable</code>,
+   <code>lightning-input</code>) over re-implementing them: you inherit accessibility, keyboard behaviour, mobile layout
+   and every future design-system update for free.</p>
+
+<h3>Dynamic components and conditional rendering</h3>
+<pre><code class="language-html">&lt;!-- lwc:if / elseif / else — the modern directives.
+     if:true is deprecated and evaluates differently with falsy values. --&gt;
+&lt;template&gt;
+    &lt;template lwc:if={isLoading}&gt;
+        &lt;lightning-spinner alternative-text="Loading"&gt;&lt;/lightning-spinner&gt;
+    &lt;/template&gt;
+    &lt;template lwc:elseif={hasError}&gt;
+        &lt;p class="slds-text-color_error"&gt;{errorMessage}&lt;/p&gt;
+    &lt;/template&gt;
+    &lt;template lwc:else&gt;
+        &lt;!-- Dynamic component: the constructor is resolved at runtime --&gt;
+        &lt;lwc:component lwc:is={chosenComponent} record-id={recordId}&gt;&lt;/lwc:component&gt;
+    &lt;/template&gt;
+
+    &lt;!-- Iteration: key must be stable and unique, never the index --&gt;
+    &lt;template for:each={rows} for:item="row"&gt;
+        &lt;c-row key={row.id} row={row}&gt;&lt;/c-row&gt;
+    &lt;/template&gt;
+&lt;/template&gt;</code></pre>
+<div class="callout warn">
+  <span class="c-ico">🔑</span>
+  <div class="c-body"><span class="c-title">Using the index as a key causes real bugs</span>
+    Keys let the engine match existing DOM to new data. Index keys mean deleting row 2 makes every later row's key shift,
+    so the engine reuses the wrong elements — input values jump to different rows and component state attaches to the
+    wrong record. Always key on a stable business identifier.</div>
+</div>
+
+<h3>Lifecycle edge cases</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Hook</th><th>The subtlety</th></tr></thead>
+  <tbody>
+    <tr><td><code>constructor</code></td><td>No access to <code>this.template</code> and no public properties set yet. Do not touch the DOM or read <code>@api</code> values here</td></tr>
+    <tr><td><code>connectedCallback</code></td><td>Can fire more than once if the component is moved in the DOM. Make it idempotent, and tear down subscriptions in <code>disconnectedCallback</code></td></tr>
+    <tr><td><code>renderedCallback</code></td><td>Fires after <em>every</em> render. Mutating tracked state here causes an infinite loop — guard with a boolean flag for one-time DOM work</td></tr>
+    <tr><td><code>errorCallback</code></td><td>Catches errors from children only, not from itself or from async callbacks. It is your error boundary — a component tree without one shows users a blank panel</td></tr>
+    <tr><td><strong>Setter ordering</strong></td><td>Public setters fire before <code>connectedCallback</code>, in no guaranteed order between properties. Logic needing two properties belongs in <code>connectedCallback</code>, not in one setter</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Performance and memory</h3>
+<ul>
+  <li><strong>Measure with EPT</strong> (Experience Page Time) and the Lightning Usage App before optimising — the slow component is rarely the one you suspect.</li>
+  <li><strong>Lazy-load heavy work</strong>: do not query in <code>connectedCallback</code> for a component inside a closed accordion or an inactive tab.</li>
+  <li><strong>Virtualise long lists</strong> — <code>lightning-datatable</code> handles thousands of rows; a hand-rolled <code>for:each</code> over 5,000 records will not.</li>
+  <li><strong>Remove listeners you add.</strong> <code>window</code>/<code>document</code> listeners, <code>setInterval</code>, and <code>empApi</code> subscriptions all leak unless cleaned up in <code>disconnectedCallback</code>.</li>
+  <li><strong>Avoid deep clones of large payloads</strong> — <code>JSON.parse(JSON.stringify(x))</code> on a big wire result is a common silent cost.</li>
+  <li><strong>Debounce user input</strong> before firing Apex, or a search box becomes a denial-of-service on your own org.</li>
+</ul>
+
+<div class="callout note">
+  <span class="c-ico">♿</span>
+  <div class="c-body"><span class="c-title">Accessibility is part of "done"</span>
+    Every interactive element needs an accessible name, keyboard operability and a visible focus state. Custom
+    click-handling <code>div</code>s are the most common failure — if it behaves like a button, make it a
+    <code>button</code>. Toasts and dynamic content need an appropriate live region, or screen-reader users never learn
+    the save succeeded. More on <a href="ux-mobile.html#advanced">App Builder, UX &amp; Mobile</a>.</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> Why is LWC faster than Aura?<span class="q-diff easy">Easy</span></summary>

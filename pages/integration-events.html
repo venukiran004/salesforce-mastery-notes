@@ -507,6 +507,128 @@ global class ErpDataSourceConnection extends DataSource.Connection {
 </div>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>Delivery semantics — what the event bus actually promises</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Guarantee</th><th>Reality</th></tr></thead>
+  <tbody>
+    <tr><td><strong>At-least-once delivery</strong></td><td>A subscriber can receive the same event twice. <strong>Consumers must be idempotent</strong> — this is not optional, it is the contract</td></tr>
+    <tr><td><strong>Ordering</strong></td><td>Events are ordered by <code>ReplayId</code> within a channel, but a retried or re-published event arrives later than its logical position. Never derive state from event order alone</td></tr>
+    <tr><td><strong>Retention</strong></td><td>High-volume events are retained for a limited window (commonly 72 hours; 24 hours for some channels). A subscriber down longer than that has <em>permanently</em> missed events</td></tr>
+    <tr><td><strong>No delivery receipt</strong></td><td>Publishing succeeds when the bus accepts the event. It says nothing about whether anyone consumed it</td></tr>
+    <tr><td><strong>Replay is positional, not transactional</strong></td><td><code>ReplayId</code> lets you resume from a point. It does not let you ask "what did I miss?" semantically</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout danger">
+  <span class="c-ico">🕳️</span>
+  <div class="c-body"><span class="c-title">The gap nobody plans for</span>
+    Your subscriber is down for four days — a holiday weekend plus a failed deployment. The retention window has passed
+    and those events are gone, with no error anywhere. <strong>Every event-driven integration needs a reconciliation
+    path</strong>: a scheduled job that compares state and repairs differences, independent of the event stream. Events
+    are an optimisation for freshness; reconciliation is what makes the design correct.</div>
+</div>
+
+<h3>Publish behaviour and transaction semantics</h3>
+<pre><code class="language-apex">/* Publish After Commit vs Publish Immediately — set on the event definition,
+   and it changes correctness, not just timing. */
+
+// PUBLISH AFTER COMMIT (default for most cases):
+// the event is only published if the transaction commits.
+// Use when the event announces a state change that must be real.
+Database.SaveResult sr = EventBus.publish(new Order_Placed__e(
+    Order_Id__c      = order.Id,
+    Correlation_Id__c = correlationId
+));
+
+// PUBLISH IMMEDIATELY:
+// published even if the transaction later rolls back.
+// Use ONLY for logging/telemetry where you want the record of the attempt.
+
+// Always inspect the result — publishing can fail
+if (!sr.isSuccess()) {
+    for (Database.Error e : sr.getErrors()) {
+        ErrorLog.capture('Order_Placed__e', e.getStatusCode(), e.getMessage());
+    }
+}</code></pre>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Context</th><th>Behaviour</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Apex trigger on the event</strong></td><td>After-insert only, runs as the <em>Automated Process</em> user in a <strong>separate transaction</strong> with fresh limits. No access to the publisher's static state</td></tr>
+    <tr><td><strong>Event-triggered flow</strong></td><td>Same separation. Runs per event or in batches; design for both</td></tr>
+    <tr><td><strong>Retries in Apex event triggers</strong></td><td><code>EventBus.RetryableException</code> asks the bus to redeliver, up to a limited number of attempts. Beyond that the event is discarded — so count your retries via <code>EventBus.TriggerContext.currentContext().retries</code></td></tr>
+    <tr><td><strong>Errors in a subscriber</strong></td><td>An uncaught exception means the event is <em>not</em> redelivered automatically for all channel types. Catch, log, and decide explicitly</td></tr>
+    <tr><td><strong>Mixed DML</strong></td><td>The separate transaction is actually useful here — it is a legitimate way to escape mixed-DML restrictions</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Pub/Sub API versus CometD</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>Pub/Sub API (gRPC)</th><th>Streaming API (CometD)</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Status</strong></td><td>The current, recommended interface for external subscribers</td><td>Long-standing, still used by <code>empApi</code> in the browser</td></tr>
+    <tr><td><strong>Flow control</strong></td><td>The client requests <em>n</em> events — real backpressure, so a slow consumer does not drown</td><td>Push-based; the client must keep up</td></tr>
+    <tr><td><strong>Schema</strong></td><td>Avro, with a schema id per event — explicit schema evolution</td><td>JSON, schema implied</td></tr>
+    <tr><td><strong>Publishing</strong></td><td>Supported, with batching</td><td>Subscribe only</td></tr>
+    <tr><td><strong>Best for</strong></td><td>Server-to-server, high volume, Kafka-style consumers</td><td>Browser subscriptions via <code>lightning/empApi</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Schema evolution without breaking consumers</h3>
+<ul>
+  <li><strong>Additive changes only.</strong> Adding a field to a platform event is safe; removing or retyping one breaks every deployed consumer.</li>
+  <li><strong>Never reuse a field name</strong> for a different meaning — a consumer you forgot about is still reading it.</li>
+  <li><strong>Version in the event name</strong> for breaking changes (<code>Order_Placed_v2__e</code>) and run both channels until consumers migrate. There is no in-place versioning.</li>
+  <li><strong>Keep payloads thin</strong>: ids plus the few fields a consumer needs to decide what to do. Fat events become a de facto API you cannot change, and they consume your event allocation faster.</li>
+  <li><strong>Include a correlation id and a published timestamp</strong> in every event. Debugging a distributed flow without them is guesswork.</li>
+</ul>
+
+<h3>Change Data Capture: the fine print</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Detail</th><th>Consequence</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Only changed fields are in the payload</strong></td><td>Plus a header with the change type, the changed-field list and the transaction key. Consumers needing full state must query</td></tr>
+    <tr><td><strong>Transaction key groups related changes</strong></td><td>Use it to reassemble "these ten records changed together" — essential for consistent downstream updates</td></tr>
+    <tr><td><strong>Gap events</strong></td><td>When CDC cannot produce a full change event (very large transactions, some operations), it emits a gap event. If you ignore gap events, you silently lose changes</td></tr>
+    <tr><td><strong>No ordering across objects</strong></td><td>A child's change event can arrive before its parent's. Design consumers to tolerate it or to query for the current state</td></tr>
+    <tr><td><strong>Not an audit log</strong></td><td>Retention is short and delivery is at-least-once. For audit use Field Audit Trail; for replication use CDC <em>plus</em> reconciliation</td></tr>
+    <tr><td><strong>Selected entities only</strong></td><td>CDC is enabled per object, and the number of objects is bounded by licence. Choose deliberately</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Allocations and monitoring</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>What to watch</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Daily event publish/delivery allocation</strong></td><td>Both publishing and <em>delivery to each subscriber</em> consume allocation. Ten subscribers on one event multiply your consumption tenfold</td></tr>
+    <tr><td><strong>Concurrent subscriber limit</strong></td><td>A bounded number of active CometD clients per org. Zombie connections from crashed consumers consume them</td></tr>
+    <tr><td><strong>Replay id persistence</strong></td><td>Your consumer must durably store its last processed <code>ReplayId</code>. Storing it in memory means a restart replays or skips</td></tr>
+    <tr><td><strong>Dead-letter handling</strong></td><td>Events a consumer cannot process must go somewhere inspectable, not into a log line</td></tr>
+    <tr><td><strong>End-to-end latency</strong></td><td>Measure publish-to-processed with your own timestamps. The platform will not tell you</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout exam">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">The senior answer on event-driven design</span>
+    "Events give me decoupling and freshness, at the cost of ordering guarantees, delivery guarantees and easy
+    debugging. So I make consumers <strong>idempotent</strong>, I carry a <strong>correlation id</strong>, I persist the
+    <strong>replay id</strong> durably, I handle <strong>gap events</strong>, and I always build a
+    <strong>reconciliation job</strong> — because the event stream will have a hole in it eventually and the business
+    will not accept 'the event was lost' as an explanation."</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> Platform Events vs Change Data Capture — the core distinction.<span class="q-diff easy">Easy</span></summary>

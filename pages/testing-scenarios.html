@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test Classes · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>Testing</span></div>
+  <h1>Test Classes — 100 Scenarios</h1>
+  <p class="lede">Test data strategy, mocking, async and event testing, permissions, coverage that means something, and
+     the failures that reach production with 90% coverage.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on <a href="testing.html">Test Classes</a> and its
+    <a href="testing.html#advanced">Advanced</a> section.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="data">Test data (1–16)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> A new required field breaks 80 test classes at once.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>That is actually the good outcome if your test data is centralised — one fix in the factory. If it is 80 separate fixes, the
+lesson is the factory.</p>
+<p>Build a <code>TestDataFactory</code> (or builder classes) so required-field changes, picklist changes and new validation rules are absorbed in
+one place.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> Tests are slow — 400 tests take 50 minutes.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually DML volume. Use <code>@TestSetup</code> so data is created once per class and each method gets a rolled-back copy, and avoid
+inserting records for tests that only need in-memory objects.</p>
+<p>For pure logic, fake Ids and never touch the database — those tests run in milliseconds.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> How do you fake a record Id without inserting?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Generate one from the object's key prefix plus a padded counter, which is enough for logic that only compares or maps by Id.</p>
+<p>It lets you test mapping, grouping and decision logic with zero DML. Reserve real inserts for tests that genuinely exercise the
+database.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> <code>@TestSetup</code> data is not visible in a test method.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It is visible, but you must query for it — the method does not return anything, and Ids assigned there are not in scope.</p>
+<p>Also note <code>@TestSetup</code> cannot be used with <code>SeeAllData=true</code>, and its records count against the class's
+limits.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> A test passes alone and fails in the suite.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Almost always static state or an assumption about data another test created. Each method is its own transaction, but statics set by
+code under test can persist within a method, and parallel execution adds contention.</p>
+<p>Provide a <code>@TestVisible</code> reset for caches and guards, and make every test create exactly the data it
+needs.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> Why is <code>SeeAllData=true</code> dangerous?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>The test depends on org data that will change, so it passes today and fails later for reasons unrelated to the code. In a managed
+package it is worse — subscriber orgs have different data entirely.</p>
+<p>Use it only where genuinely unavoidable (some standard objects and settings cannot be created in a test), and document
+why.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> You need Custom Metadata in a test but cannot insert it.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Custom Metadata is visible without <code>SeeAllData</code> but not insertable. Design for injection: the class accepts configuration (a
+constructor parameter or a <code>@TestVisible</code> static) with the metadata lookup as the default.</p>
+<p>That makes the logic unit-testable and removes the dependency on deployed rows.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> You need a user with a specific profile for a test.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Create one in the test, querying the profile by name — but beware: profile names vary by org and language, which breaks packaged
+tests.</p>
+<p>Prefer a minimum-access profile plus the permission set under test, and handle the case where the profile query returns
+nothing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> A test needs 200 records with variation, not 200 identical ones.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Build the variation deliberately: some meeting the criteria, some not, some with nulls, several sharing a parent, one at a boundary
+value.</p>
+<p>200 identical records passes trivially and proves almost nothing. The variation is what finds index-alignment bugs and "acted on all 200"
+bugs.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> Test data violates a validation rule added by another team.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Your factory must produce valid records, so update it — that is the factory earning its keep.</p>
+<p>If the rule makes valid data impossible to construct in a test, that is a signal the rule may be too strict for integration paths
+too.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> A test fails because a record-triggered flow fires.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Tests run your org's automation, so flows and triggers fire on your test inserts. That is realistic and usually
+desirable.</p>
+<p>If the automation is irrelevant and expensive, use your bypass switch for the test context — but do not routinely disable automation, or your
+tests stop reflecting production.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> You cannot create a record because of a required lookup chain.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>The factory should build the whole chain — account, then contact, then case — with sensible defaults and overrides for the fields the
+test cares about.</p>
+<p>A builder pattern makes this readable: <code>new CaseBuilder().withAccount(acct).withPriority('High').build()</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> Tests hit DML row limits creating data.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Create the minimum needed to prove the behaviour. A bulk test needs 200 records, not 10,000 — the trigger behaves the same and the test
+runs in a fraction of the time.</p>
+<p>If you genuinely need volume, that is a scenario test in a sandbox, not a unit
+test.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> How do you test something that depends on today's date?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Inject the clock: a <code>@TestVisible static Date today</code> the production code reads, which tests can set.</p>
+<p>Hard-coded dates in tests break at year boundaries and fiscal period changes, and <code>Date.today()</code> in logic makes behaviour
+untestable at the edges.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> A test depends on a queue or group existing.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Queues and groups are setup objects — mixed DML restrictions apply, and creating them in a test needs
+<code>System.runAs</code>.</p>
+<p>Alternatively query for one by developer name and skip gracefully if absent, which is safer for packaged
+tests.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> Your factory has 40 methods and nobody knows which to use.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Switch to builders: one entry point per object with fluent overrides, rather than a method per permutation.</p>
+<p>It reads better in the test, it does not grow combinatorially, and a new required field is still one
+change.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="assertions">Assertions &amp; structure (17–32)</h2>
+
+<details class="acc"><summary><span class="q-num">17</span> A test has no assertions but gives 100% coverage.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>It verifies nothing — it only proves the lines execute without throwing. Coverage without assertions is decoration.</p>
+<p>The honest check: break a line deliberately and re-run. If the test still passes, it was never testing
+anything.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> How many assertions should a test have?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Enough to pin the behaviour the test is named for — usually a small number, all about one outcome.</p>
+<p>One test per behaviour, named for the behaviour, beats one giant test asserting twenty things where the first failure hides the
+rest.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">19</span> An assertion failure message says "Assertion Failed".<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Always pass a message: <code>Assert.areEqual(expected, actual, 'Discount should be 10% for gold tier')</code>.</p>
+<p>The person reading the failed build is often not you, and a message turns a five-minute investigation into a five-second
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> You need to assert that an exception was thrown.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Try the operation, call <code>Assert.fail()</code> immediately after it, and catch the specific exception type — asserting on its message
+or type.</p>
+<p>Without the <code>fail()</code>, a test that throws nothing passes silently, which is the most common form of a broken negative
+test.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">21</span> Where do <code>startTest</code> and <code>stopTest</code> go?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Around the code under test only — setup before, assertions after. They reset governor limits so your setup DML does not count against the
+code you are measuring, and they force async work to complete.</p>
+<p>Putting setup inside them is the usual mistake, and it makes limit assertions
+meaningless.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> A test asserts on implementation details and breaks on every refactor.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It is testing how rather than what. Assert on observable outcomes — the record state, the returned value, the error raised — not on which
+private method ran or how many queries were used.</p>
+<p>Tests that break on refactoring without finding bugs get deleted, which costs you the coverage
+entirely.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> How do you name a test method?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>After the behaviour and the condition: <code>discountIsTenPercentForGoldTier</code>,
+<code>insertFailsWhenAmountIsNull</code>.</p>
+<p><code>testMethod1</code> tells the next person nothing, and a failing build full of such names is impossible to triage
+quickly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> Which cases should every unit have?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Happy path, bulk (200), a negative case that must fail, and a boundary (null, empty collection, maximum length).</p>
+<p>For triggers add a recursion case. Those five shapes catch the overwhelming majority of real
+defects.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> Should tests share a helper that asserts everything?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Shared <em>setup</em> helpers are good; shared mega-assertions are not — they obscure which expectation failed and encourage asserting
+irrelevant things.</p>
+<p>Keep assertions in the test, close to the behaviour being
+verified.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> You need to test a private method.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually test it through the public behaviour it supports. If it is genuinely complex and independent, that is a signal it belongs in its
+own class with a public interface.</p>
+<p><code>@TestVisible</code> exists for the pragmatic middle ground, but reaching for it often means the design wants
+splitting.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> How do you test a method that returns void and only does DML?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Query the records afterwards and assert their state. The side effect <em>is</em> the behaviour.</p>
+<p>Assert the specific fields you expect to have changed, not just the record count — a count assertion passes even when every value is
+wrong.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> A reviewer wants a test for a getter.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Push back politely — a trivial accessor has no behaviour to verify, and testing it only inflates coverage.</p>
+<p>Spend the effort on the branch logic and error paths. Coverage targets that force this produce worse test suites, not
+better.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> How do you verify behaviour under 200 records specifically?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Insert 200 in one DML and assert per-record outcomes — ideally that exactly the right subset was affected, by seeding records that should
+and should not qualify.</p>
+<p>Asserting only an aggregate count hides the case where the right number of wrong records was
+updated.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> A test asserts a limit was not exceeded. Is that useful?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Occasionally — asserting SOQL count after <code>stopTest</code> catches a query creeping into a loop, which is a genuine regression
+guard.</p>
+<p>Keep it to the few hot paths where it matters; asserting exact query counts everywhere makes every refactor a test
+rewrite.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> Should a test ever have no DML at all?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Yes, and the best ones often do — pure logic tested with in-memory objects runs in milliseconds and is completely
+deterministic.</p>
+<p>A suite where every test inserts data is a slow suite, and slow suites get run less often, which defeats the
+purpose.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> How do you structure a test class for readability?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Arrange–Act–Assert, visually separated, with <code>@TestSetup</code> for shared data and one behaviour per method.</p>
+<p>A test is also documentation of intended usage, so it should read as an example someone could copy.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="mocking">Mocking (33–50)</h2>
+
+<details class="acc"><summary><span class="q-num">33</span> A method makes a callout. How do you test it?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>Test.setMock(HttpCalloutMock.class, new MyMock())</code> before <code>startTest</code>, returning a canned
+<code>HttpResponse</code>.</p>
+<p>Also test the failure paths — a 500, a timeout, a malformed body — because those are the cases that actually break in
+production.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> Your code makes three different callouts in sequence.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A mock that inspects the request endpoint (or counts invocations) and returns a different response for each.</p>
+<p>A single canned response hides sequencing bugs — you want to prove the second call uses data from the
+first.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> You need to test retry behaviour on a 429.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A mock that returns 429 on the first call and 200 on the second, then assert the operation ultimately succeeded and that the attempt
+count is what you expect.</p>
+<p>Testing the retry path is how you discover your backoff logic never actually
+retries.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> How do you test a class without touching its dependencies?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The <strong>Stub API</strong>: <code>Test.createStub(MyDependency.class, new MockProvider(...))</code> returning canned answers per
+method.</p>
+<p>Requirements: the class is public/global and not final, the methods are virtual or interface-defined, and the dependency is injectable. Designing
+for that is what makes a codebase unit-testable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> <code>Test.createStub</code> fails on your class.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It is final, or the methods you want to stub are not virtual and not from an interface, or it is an inner class in an unsupported
+position.</p>
+<p>Extract an interface — which is the better design anyway, because it documents the seam
+explicitly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> You need to simulate a DML failure.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Make the data genuinely invalid (a required field missing, a validation rule tripped) so the platform produces a real failure, or stub
+the layer that performs the DML.</p>
+<p>Stubbing is cleaner for unit tests of error handling; real invalid data is better for proving the end-to-end behaviour users will
+see.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> How do you test code that calls a managed package?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Wrap the package call in a thin adapter class of your own, then stub the adapter. You cannot stub the package's classes
+directly.</p>
+<p>That wrapper also insulates you from their signature changes on upgrade, which is worth having
+regardless.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> You need to test a SOSL-dependent path.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>Test.setFixedSearchResults()</code> with the Ids you want returned — search indexing is asynchronous, so real SOSL in a test is
+non-deterministic.</p>
+<p>Relying on actual indexing produces a build that fails
+intermittently.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">41</span> Mocking makes your test pass while production breaks.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Your mock does not reflect reality — it returns a shape the real service never produces, or always succeeds.</p>
+<p>Base mock responses on <em>captured real payloads</em>, and supplement unit tests with an integration smoke test against a sandbox endpoint. See
+<a href="postman.html#advanced">Newman in CI</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> Should you mock your own database layer?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>For unit tests of business logic, yes — a stubbed selector makes them fast and deterministic.</p>
+<p>But keep some tests that use real DML to verify the queries themselves work and that automation behaves. Mocked-only suites miss real integration
+problems.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> How do you test an <code>@AuraEnabled</code> method?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Call it directly as a static method, asserting the returned DTO and the thrown <code>AuraHandledException</code> for error
+cases.</p>
+<p>Also test it under <code>System.runAs</code> with a restricted user, since these methods are callable endpoints and FLS enforcement is exactly
+what you want to verify.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> You need to test a REST resource.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Construct a <code>RestRequest</code> and <code>RestResponse</code>, assign them to <code>RestContext</code>, then call your handler method
+directly.</p>
+<p>Test the error responses and status codes as carefully as the success path — an API's error contract is part of its
+contract.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> Testing an invocable action for a flow.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Call the <code>@InvocableMethod</code> with a <code>List</code> of requests — including a list of several, to prove it is bulk-safe and that
+results align positionally with inputs.</p>
+<p>That alignment is where invocable actions most often go wrong, and a single-item test never finds
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> How do you test email sending without sending email?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>In a test context, emails are not actually delivered, and you can assert on <code>Limits.getEmailInvocations()</code> or capture the
+messages via your own wrapper.</p>
+<p>Wrapping <code>Messaging.sendEmail</code> in your own class makes it stubbable, which is cleaner than asserting on
+limits.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> A mock needs to assert what it was called with.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Record the arguments in the mock (or the stub provider) and assert on them afterwards — that is how you verify the right payload was
+sent.</p>
+<p>Verifying interactions matters for integration code, where the outgoing request <em>is</em> the behaviour under
+test.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> Your stub provider is 200 lines of switch statement.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Pass a map of method name to canned return value into a generic provider, so each test configures only what it needs.</p>
+<p>A reusable provider plus per-test configuration keeps the mocking infrastructure small and the tests
+readable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> Should you mock platform events?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No need — publish them and use <code>Test.getEventBus().deliver()</code> to force synchronous delivery, then assert the subscriber's
+effect.</p>
+<p>That tests the real path including the trigger, which is better than mocking it
+away.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> How much mocking is too much?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>When the test only verifies that your mocks were called in the order you configured — at that point it tests the test.</p>
+<p>Keep a layer of tests that exercise real DML and real automation, so the suite proves the system works and not just that the wiring matches your
+assumptions.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="async-test">Async, events &amp; integration (51–66)</h2>
+
+<details class="acc"><summary><span class="q-num">51</span> Async work does not complete in your test.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Async jobs run at <code>Test.stopTest()</code>. Assert after it, not before.</p>
+<p>If you assert inside the start/stop block, the job has not run and your test will fail for the wrong
+reason.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> Queueable chaining fails in a test.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Tests allow one chaining level. Assert the first job's work and that the next was enqueued; test later links
+separately.</p>
+<p>Design chains so each link is independently testable — a chain you can only test end-to-end is one you cannot
+debug.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> How do you test a batch job's <code>finish()</code>?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Run the batch inside start/stop and assert the side effects of <code>finish()</code> afterwards, or call it directly with a constructed
+context for unit-level checks.</p>
+<p>Its error reporting is the part most worth testing, since that is what tells you about partial
+failure.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> Testing a scheduled job.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>System.schedule()</code> inside the test and assert on <code>CronTrigger</code>; separately call the <code>execute</code> method to test
+the logic.</p>
+<p>Keeping the schedulable trivial — it just starts a batch — makes this almost
+free.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> How do you test CDC-driven logic?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><code>Test.enableChangeDataCapture()</code> before the DML, then deliver the event bus, then assert the subscriber's
+effect.</p>
+<p>Also test the gap-event path if your consumer must handle it — ignoring gap events silently loses
+changes.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> You need to test a platform event retry.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Make the handler throw <code>EventBus.RetryableException</code> under a test condition and assert your retry counting and dead-letter
+behaviour.</p>
+<p>The retry limit is small, so what matters is proving you stop and record rather than loop
+forever.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> A test asserts idempotency. How?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Run the operation twice and assert the state after the second run is identical to after the first — same counts, same values.</p>
+<p>That one test prevents most duplicate-side-effect incidents caused by retries and
+redelivery.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> Your async test passes but production fails under load.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Unit tests are single-threaded with clean data. Production has concurrency, lock contention, partial failures and real volumes.</p>
+<p>Scenario-test in a sandbox: two simultaneous Bulk API loads against related data, and watch for lock errors and
+duplicates.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> How do you test a Continuation?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><code>Test.setContinuationResponse()</code> with a mocked response and invoke the callback method, asserting the result it
+produces.</p>
+<p>It is fiddly, which is one reason to keep continuation logic thin and push the real work into a testable
+service.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> Testing code that reads a Named Credential.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The callout is mocked, so the credential is never used — which is good, because tests must never make real callouts.</p>
+<p>Assert on the request endpoint and headers your code constructs, so a misconfigured <code>callout:</code> reference is still caught at the shape
+level.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> How do you test an integration end to end?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Not in Apex unit tests. Use a post-deployment smoke suite (Postman collection run by Newman, or a scripted call) against a sandbox,
+asserting the real contract.</p>
+<p>Unit tests prove your logic; smoke tests prove the deployed system works. Both belong in CI at different
+stages.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> You need to test behaviour when the remote system is down.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A mock that throws <code>CalloutException</code>, and another that returns a 503 — then assert you retried appropriately, logged, and did
+not corrupt local state.</p>
+<p>A timeout in particular should be treated as "unknown outcome", not failure, which is a behaviour worth asserting
+explicitly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> Testing an LWC that calls Apex.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Jest with a registered Apex wire adapter mock, emitting three cases: data, error and empty — then assert the rendered DOM for
+each.</p>
+<p>Those three cases catch most real component defects and run in milliseconds with no org
+involved.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> How do you test a flow?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Flow Tests for record-triggered flows — declarative, asserting the outcome for a given input record — and Apex tests for invocable
+actions.</p>
+<p>Put both in CI. An org where flows carry significant logic and have no tests has an untested
+application.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> You need to verify a trigger's bulk behaviour with related records.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Insert 200 records across several parents, with some qualifying and some not, then assert per-parent outcomes.</p>
+<p>Using one parent for all 200 hides both the grouping bugs and the lock contention you would see in
+production.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> Your test suite has no failure-path coverage at all.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Then the error handling has never run. Add, per integration: a failure response, a timeout, a malformed payload, and a partial-success
+DML.</p>
+<p>Error paths are where production incidents live and where coverage is almost always
+thinnest.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="permissions-test">Permissions &amp; context (67–80)</h2>
+
+<details class="acc"><summary><span class="q-num">67</span> Your code passes tests and fails for real users.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Tests run in system mode, so they never exercise sharing or FLS.</p>
+<p>Use <code>System.runAs</code> with a user built from a minimum-access profile plus only the permission set under test. Testing as an admin proves
+nothing about access.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> <code>System.runAs</code> does not seem to enforce FLS.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><code>runAs</code> changes the user context for sharing, but your Apex still has to <em>enforce</em> FLS — with
+<code>WITH USER_MODE</code>, <code>as user</code>, or <code>stripInaccessible</code>.</p>
+<p>So the test proves enforcement only if the code attempts enforcement. That combination is exactly what you want to
+verify.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> Mixed DML error when creating a test user.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>User is a setup object. Wrap its creation (and permission set assignment) in <code>System.runAs</code>, which gives you a separate
+context.</p>
+<p>That is the standard idiom for test setup involving users, groups or permission set
+assignments.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> You need to test a guest user context.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>You cannot fully simulate a guest user in Apex tests. Test with a minimum-access user for the code path, then verify the real guest
+behaviour manually in an incognito window.</p>
+<p>Given guest exposure is the most common cause of Salesforce data leaks, the manual verification is not
+optional.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">71</span> A test needs a user with a permission set licence.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Assign it in the test within <code>runAs</code>, but be aware licence availability differs by org — which makes such tests fragile,
+especially in packages.</p>
+<p>Where possible, test the logic independently of the licence and verify the licence requirement in a documented manual
+check.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> How do you test that a restriction rule applies?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Create data that should and should not be visible, then query under <code>System.runAs</code> as an affected user and assert the row
+count.</p>
+<p>Restriction rules apply to Apex queries too, which is exactly why this test is worth having — and why an integration user may be narrowed
+unexpectedly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> Tests pass in one org and fail in another.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Org-dependent assumptions: profile names, picklist values, record types, Custom Metadata rows, installed packages, or
+<code>SeeAllData</code>.</p>
+<p>Make tests self-sufficient — create what they need, inject configuration, and query by developer name rather than
+label.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> A packaged test fails in a subscriber org.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>It depends on something only your org has, or the subscriber's automation interferes with your inserts.</p>
+<p>Build all data in the test, never use <code>SeeAllData</code>, tolerate their validation rules and triggers firing, and avoid assumptions about
+profiles and picklists.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> How do you test logic that branches on a custom permission?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Create a user with and without it (via a permission set assigned inside <code>runAs</code>) and assert both branches.</p>
+<p>Testing only the permitted branch means the deny path — usually the security-relevant one — has never
+executed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> Your test asserts an admin can do something. Is that enough?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No — admins can do nearly everything, so the test proves little. The valuable assertions are about restricted users: what they can and
+cannot see or do.</p>
+<p>Every access-sensitive feature deserves at least one test as a least-privileged
+user.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">77</span> You need to test timezone-sensitive behaviour.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Create users in two timezones and assert under each with <code>runAs</code>, or inject the timezone so the logic is testable
+directly.</p>
+<p>Timezone bugs are reliably invisible to a developer in the same zone as the test data, which is why they reach production so
+often.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> How do you test that an integration user cannot overreach?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Run the endpoint's logic under <code>runAs</code> as that user and assert it cannot read or write what it should not.</p>
+<p>That converts a permission review into an automated regression test, which is far more durable than a
+checklist.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">79</span> A test relies on the running user being the record owner.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Set ownership explicitly in the test data rather than depending on who created it — the creating user is the owner by default, and that
+changes under <code>runAs</code>.</p>
+<p>Implicit ownership assumptions are a common cause of tests that behave differently in a packaged
+context.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> How do you keep permission tests from being brittle?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Assert on <em>capability</em> rather than configuration: "this user cannot read the field" rather than "this user has profile X".</p>
+<p>Then reorganising permission sets does not break the suite, while a genuine access regression still
+does.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="pipeline">Coverage, CI &amp; judgement (81–100)</h2>
+
+<details class="acc"><summary><span class="q-num">81</span> Org coverage is 78% and a deployment fails on coverage.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>You need 75% org-wide <em>and</em> every trigger covered. A deployment can also fail because the specific classes being deployed lack
+coverage when using <code>RunSpecifiedTests</code>.</p>
+<p>Set a per-class floor in CI on changed classes rather than relying on the org number, which hides exactly the regressions you care
+about.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> A class sits at 40% but the org average carries it.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It passes until someone deletes the test that was inflating the average, and then an unrelated deployment fails.</p>
+<p>Per-class gates on changed code catch this at the point of change, which is also when it is cheapest to
+fix.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">83</span> Which test level for a hotfix deployment?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>RunSpecifiedTests</code> naming the tests that cover the changed code — fast, but the deployment is rejected if coverage of the changed
+classes is insufficient.</p>
+<p>For a normal release, <code>RunLocalTests</code> is the sensible default: everything except managed-package
+tests.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> Validation takes 40 minutes and developers stop waiting.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Tier the pipeline: static analysis and Jest on every PR (two minutes), delta validation for <code>develop</code>, full validation for release
+branches.</p>
+<p>Then use validate-then-quick-deploy so production windows are minutes. Feedback slower than ten minutes gets batched around, which defeats
+CI.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> How do you speed up a slow test suite?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Reduce DML (in-memory tests, <code>@TestSetup</code>, fake Ids), remove redundant tests that cover the same branch, and stop creating 200
+records where 5 prove the logic.</p>
+<p>Measure first — the Tests tab shows per-method duration, and a handful of tests usually account for most of the
+time.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> Parallel test execution causes lock errors.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Tests are contending on shared records — often the same parent account or the same user.</p>
+<p>Fix the contention (unique data per test) rather than disabling parallelism, because the contention usually mirrors a real production
+hotspot.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> Should tests run on every commit or every PR?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Fast checks on every commit, the full validation on PR into a protected branch. The gate should match the blast radius of the
+target.</p>
+<p>A PR into <code>main</code> should be slow, thorough and boring; a feature push should answer in
+minutes.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> How do you test a data migration?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Rehearse it in a Full sandbox with production-shaped data, timed, with row counts and checksums compared before and after — and the
+rollback rehearsed too.</p>
+<p>Unit tests cannot cover this; the risk is volume, duration and data shape, none of which a test org
+reproduces.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> A bug reaches production. What is the first thing you write?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A failing test that reproduces it. Then fix it and watch the test pass.</p>
+<p>That guarantees the defect cannot return silently, and it grows the suite in exactly the places where it has proven
+weak.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> How do you know whether your suite is actually good?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Break things deliberately. Invert a condition, delete a line, change a constant — then run the tests. The proportion that fail tells you
+far more than any coverage number.</p>
+<p>Ten minutes of this is the most informative test-quality exercise
+available.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> A reviewer demands 90% coverage on a trivial class.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Argue for verified behaviour over a percentage, and propose a per-class floor that applies to logic rather than accessors and
+DTOs.</p>
+<p>Blanket targets produce assertion-free tests, which is worse than lower coverage with meaningful
+tests.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> You inherit 2,000 tests, many meaningless.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Do not delete in bulk — you lose the deployment coverage you depend on. Instead add meaningful tests alongside, and retire the worthless
+ones as you touch the code they cover.</p>
+<p>Prioritise adding assertions to existing tests for critical paths; that is cheaper than rewriting and immediately
+valuable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> Tests fail intermittently in CI.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Usual causes: dependence on real SOSL indexing, on today's date, on record order from an unsorted query, on static state, or on parallel
+contention.</p>
+<p>Flaky tests get ignored and then disabled, so fix them as high priority — a suite people distrust provides no
+protection.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> Should CI block a deployment on a single failing test?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Yes. A tolerated failure becomes a permanent one, and then the next real failure is invisible among the noise.</p>
+<p>If a test is genuinely wrong, fix or delete it deliberately — never leave it red.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> How do you test declarative automation nobody wrote tests for?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Flow Tests for record-triggered flows, and Apex tests that insert records and assert the automation's effect — treating the whole save as
+the unit under test.</p>
+<p>In orgs where flows carry most of the logic, this is the application's test suite, and its absence is a bigger risk than low Apex
+coverage.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> Who should write the tests?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>The person writing the code, as they go — tests written later by someone else encode the implementation rather than the
+intent.</p>
+<p>Review the tests as carefully as the code; a PR with good code and decorative tests is not
+done.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> A test documents behaviour everyone agrees is wrong.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Change the test and the code together, in one reviewed change, with the reason in the commit message.</p>
+<p>Silently changing behaviour without updating the test (or vice versa) is how a codebase loses the ability to explain
+itself.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> You have one hour to improve a test suite. What do you do?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Add assertions to the tests covering the most critical path, and add a bulk test and a failure test to the busiest trigger.</p>
+<p>That is a bigger improvement than ten new tests on trivial classes, because it targets where production incidents actually
+originate.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> How do you argue for test investment to a sceptical manager?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>In their terms: deployment failures, hotfix frequency, and time spent diagnosing production issues — with your own numbers from the last
+quarter.</p>
+<p>"Tests are good practice" loses the argument. "Three of our last five incidents would have been caught by a bulk test" wins
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit that most improves test quality?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Writing the <strong>bulk test and the negative test first</strong> — 200 records with variation, and a record that must fail.</p>
+<p>They catch most real defects, they shape the code toward being bulk-safe, and they are exactly the two that get skipped when coverage is the
+target.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="testing.html">Test Classes</a>, the <a href="scenarios.html">scenario index</a>, or
+    <a href="governor-limits-scenarios.html">Governor Limits — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Testing — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

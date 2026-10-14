@@ -224,6 +224,100 @@ WHERE  o.EventDate &gt; DATEADD(day, -30, GETDATE())
 </ul>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>The Account Engagement connector: sync behaviour that surprises people</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Behaviour</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Sync is bidirectional but not symmetric</strong></td><td>Field sync behaviour is configured <em>per field</em>: Salesforce wins, Account Engagement wins, or most-recently-updated wins. Leaving this at the default and then debugging "my value keeps reverting" is a rite of passage</td></tr>
+    <tr><td><strong>Prospects vs Leads/Contacts</strong></td><td>A prospect syncs to a Lead or Contact matched by email. Duplicate emails in CRM make the matching ambiguous — and duplicate management is therefore a marketing prerequisite, not a hygiene nicety</td></tr>
+    <tr><td><strong>Sync queue latency</strong></td><td>Changes queue rather than applying instantly. A time-sensitive automation that assumes immediate sync will misfire</td></tr>
+    <tr><td><strong>Deleting is not deleting</strong></td><td>Prospects go to a recycle bin; deletion behaviour differs between the two systems and affects consent records</td></tr>
+    <tr><td><strong>Connected Campaigns</strong></td><td>Unifies Account Engagement campaigns with Salesforce Campaigns — a prerequisite for sensible attribution reporting. Enabling it is one-way; plan it</td></tr>
+    <tr><td><strong>Scoring vs grading</strong></td><td><strong>Score</strong> = engagement (behavioural, accumulates). <strong>Grade</strong> = fit (profile-based, letter). "Highly engaged but a poor fit" is the distinction sales actually needs, and conflating them wastes sales time</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Marketing Cloud Engagement: the data model reality</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Concept</th><th>What matters</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Contact Key</strong></td><td>The immutable identifier for a contact across the whole platform. Choosing it badly — using an email address, say — is close to unrecoverable at scale. Use a stable system id</td></tr>
+    <tr><td><strong>Data Extensions</strong></td><td>Tables, not objects. Sendable DEs need a relationship to the subscriber; relationships in Contact Builder are how attributes become available in journeys and content</td></tr>
+    <tr><td><strong>Primary keys on DEs</strong></td><td>Without one, imports append rather than update and you accumulate duplicates silently</td></tr>
+    <tr><td><strong>Retention policies</strong></td><td>Set them per DE. Unmanaged DEs grow forever, slow every query and eventually cost real money</td></tr>
+    <tr><td><strong>All Contacts vs All Subscribers</strong></td><td>Two overlapping populations with different deletion semantics. Contact deletion is a long-running, partially irreversible process — understand it before you need it</td></tr>
+    <tr><td><strong>AMPscript / SSJS / GTL</strong></td><td>AMPscript for personalisation and lookups; SSJS for logic and API calls; GTL for performance-critical templated content. Lookups inside a send are per-recipient work — they are the usual cause of slow sends</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout warn">
+  <span class="c-ico">🔑</span>
+  <div class="c-body"><span class="c-title">Contact Key is a one-way decision</span>
+    Every journey, data extension relationship, suppression list and send log keys off it. Changing it later means
+    re-keying the entire estate, and in practice means rebuilding. Decide it with the CRM team on day one: a stable,
+    never-reused system identifier, never an email address or a phone number.</div>
+</div>
+
+<h3>Journey Builder: entry, re-entry and version traps</h3>
+<ul>
+  <li><strong>Re-entry mode</strong> — no re-entry, re-entry anytime, or re-entry after exit. This is the setting behind "the customer got the welcome series three times".</li>
+  <li><strong>Running journeys cannot be meaningfully edited.</strong> You create a new version, and contacts already in flight stay in the old one. Plan for two versions running concurrently and for how you will report across both.</li>
+  <li><strong>Entry source timing</strong>: event-driven entry evaluates on the event; scheduled entry runs on a cadence. A journey that must react within minutes needs the former.</li>
+  <li><strong>Wait activities hold contacts</strong> — a 30-day wait means contacts sit in the journey for a month, and your edit cannot reach them.</li>
+  <li><strong>Exit criteria are not automatic.</strong> Define them, or someone who has already purchased keeps receiving the nurture.</li>
+  <li><strong>Test with real data shapes</strong>, including nulls and odd characters. Personalisation that renders "Hi ," erodes trust faster than sending nothing.</li>
+</ul>
+
+<h3>Deliverability: the technical foundation</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Control</th><th>What it proves</th><th>Failure mode</th></tr></thead>
+  <tbody>
+    <tr><td><strong>SPF</strong></td><td>This IP is authorised to send for the domain</td><td>Missing or exceeding the DNS lookup limit means soft failures</td></tr>
+    <tr><td><strong>DKIM</strong></td><td>The message was signed by the domain and not altered</td><td>Unsigned mail is treated with suspicion by every major provider</td></tr>
+    <tr><td><strong>DMARC</strong></td><td>A policy telling receivers what to do when SPF/DKIM fail, with reporting</td><td><strong>Alignment</strong> is the subtlety: SPF or DKIM must align with the From domain. People configure all three and still fail DMARC on alignment</td></tr>
+    <tr><td><strong>Dedicated IP &amp; warming</strong></td><td>Your own sending reputation</td><td>Blasting a cold IP with a large send gets you throttled or blocked. Warm gradually with your most engaged recipients</td></tr>
+    <tr><td><strong>List hygiene</strong></td><td>Engagement is the dominant reputation signal now</td><td>Sending to years-old unengaged addresses damages deliverability for everyone on the IP — suppress them</td></tr>
+    <tr><td><strong>Feedback loops &amp; bounces</strong></td><td>Hard bounces and complaints must suppress immediately</td><td>Continuing to send to hard bounces is the fastest route to a blocklist</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Consent and preference architecture</h3>
+<ul>
+  <li><strong>Consent lives in more than one place.</strong> Salesforce has the <code>Individual</code> object and consent fields; Account Engagement and Marketing Cloud have their own opt-out states. Nominate <strong>one system of record per channel</strong> and sync outward from it.</li>
+  <li><strong>Opt-out must be honoured everywhere, immediately.</strong> A preference centre that updates one system and not the others is a regulatory finding waiting to be found.</li>
+  <li><strong>Granular preferences</strong> (newsletter, product updates, events) retain more subscribers than a single global unsubscribe — and they are what regulators expect.</li>
+  <li><strong>Record proof of consent</strong>: timestamp, source, IP, and the exact wording shown. "They ticked a box in 2021" without the wording is not evidence.</li>
+  <li><strong>Double opt-in</strong> costs list size and buys deliverability and defensibility. For B2C in strict jurisdictions it is usually the right trade.</li>
+</ul>
+
+<h3>Attribution that survives scrutiny</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Model</th><th>Credits</th><th>Honest use</th></tr></thead>
+  <tbody>
+    <tr><td><strong>First touch</strong></td><td>The campaign that created the lead</td><td>Judging top-of-funnel demand generation</td></tr>
+    <tr><td><strong>Last touch</strong></td><td>The campaign before the opportunity closed</td><td>Judging closing content and sales enablement</td></tr>
+    <tr><td><strong>Even distribution</strong></td><td>Equal share to all campaigns in the window</td><td>A defensible default when nobody can agree</td></tr>
+    <tr><td><strong>Custom model</strong></td><td>Whatever weighting the business agrees</td><td>Only with the weights <em>written down</em> and the influence window stated</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout exam">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">The attribution conversation to have early</span>
+    Campaign Influence requires campaign members, an influence time window, and agreement on the model — before anyone
+    builds a dashboard. Without those three, every marketing-ROI report becomes a debate about the numbers rather than a
+    decision. Set the window and the model in writing, report consistently, and revisit quarterly rather than per
+    meeting.</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> Account Engagement or Marketing Cloud — how do you advise a client?<span class="q-diff med">Medium</span></summary>

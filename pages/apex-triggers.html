@@ -651,6 +651,138 @@ public static Boolean isDisabled(String triggerName) {
 </details>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>The re-entry cases the simple diagram hides</h3>
+<p>The order-of-execution list is a single save. What catches people out is that several mechanisms cause the
+   <strong>whole sequence to run again</strong> on the same record.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Mechanism</th><th>What actually happens</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Workflow field update</strong></td><td>Re-fires before and after triggers on that record — <em>once</em>. Validation rules do not re-run by default. This is the classic "my trigger ran twice" discovery</td></tr>
+    <tr><td><strong>Roll-up summary recalculation</strong></td><td>Updating a child causes the parent to be saved, which runs the parent's triggers. Cross-object trigger storms usually start here</td></tr>
+    <tr><td><strong>Assignment / escalation rules</strong></td><td>Change the owner after your trigger has run, so logic keyed on OwnerId may see the pre-assignment value</td></tr>
+    <tr><td><strong>Entitlement &amp; auto-response rules</strong></td><td>Fire inside the same save, after triggers</td></tr>
+    <tr><td><strong>Flows calling DML on the same record</strong></td><td>An after-save flow updating its own record is a second save. Use <em>before-save</em> flows for same-record field updates</td></tr>
+    <tr><td><strong>CDC and platform events</strong></td><td>Published after commit, so subscribers run in a <strong>separate transaction</strong> with fresh limits and no access to your static state</td></tr>
+    <tr><td><strong>Cascade delete</strong></td><td>Deleting a parent deletes details and runs <em>their</em> delete triggers — commonly forgotten in archiving logic</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Recursion control that survives real workloads</h3>
+<pre><code class="language-apex">/* A static Boolean is the textbook answer and it is too blunt:
+   it blocks the SECOND batch of 200 in the same transaction too. */
+public class AccountTriggerGuard {
+
+    // Track which records have been processed, not whether we ran at all.
+    private static Set&lt;Id&gt; processed = new Set&lt;Id&gt;();
+
+    public static List&lt;Account&gt; firstPassOnly(List&lt;Account&gt; records) {
+        List&lt;Account&gt; fresh = new List&lt;Account&gt;();
+        for (Account a : records) {
+            if (!processed.contains(a.Id)) {
+                processed.add(a.Id);
+                fresh.add(a);
+            }
+        }
+        return fresh;   // may be empty — that is correct, not a bug
+    }
+}
+
+/* Depth guarding, when you genuinely need N passes but not infinite ones. */
+public class RecursionDepth {
+    private static Integer depth = 0;
+    public static Boolean enter(Integer max) {
+        if (depth &gt;= max) return false;
+        depth++;
+        return true;
+    }
+    public static void exit() { if (depth &gt; 0) depth--; }
+}</code></pre>
+<div class="callout warn">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Why the static Boolean is a bug in disguise</span>
+    A Data Loader job of 10,000 records arrives as 50 chunks of 200 <em>in separate transactions</em> — fine. But one
+    transaction updating 400 records through two DML statements hits your trigger twice legitimately, and a plain
+    <code>alreadyRan</code> flag silently skips the second 200. Guard by <strong>record Id</strong>, or by depth, and your
+    logic stays correct under both shapes.</div>
+</div>
+
+<h3>Partial success and error handling in bulk</h3>
+<pre><code class="language-apex">// addError on a RECORD rolls back that record only when the DML
+// was partial-success (Database.insert with allOrNone = false).
+// In an all-or-none DML, one addError kills the whole transaction.
+
+for (Opportunity o : Trigger.new) {
+    if (o.Amount == null) {
+        o.addError('Amount is required before closing.');            // record-level
+        o.Amount.addError('Enter an amount.');                        // field-level: better UX
+    }
+}
+
+// Processing a mixed batch where SOME records may legitimately fail:
+Database.SaveResult[] results = Database.update(toUpdate, false);     // allOrNone = false
+for (Integer i = 0; i &lt; results.size(); i++) {
+    if (!results[i].isSuccess()) {
+        for (Database.Error e : results[i].getErrors()) {
+            ErrorLog.capture(toUpdate[i].Id, e.getStatusCode(), e.getMessage(), e.getFields());
+        }
+    }
+}</code></pre>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Decision</th><th>Guidance</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Field-level vs record-level error</strong></td><td>Field-level puts the message next to the input — always preferable in a UI context. Record-level for cross-field rules</td></tr>
+    <tr><td><strong>allOrNone true vs false</strong></td><td>True for anything that must be atomic (financial postings). False for integration and bulk loads, where you want the good 199 to succeed</td></tr>
+    <tr><td><strong>Savepoints</strong></td><td>Use sparingly — they count against DML statements, and rolling back does not reset static state or already-sent emails</td></tr>
+    <tr><td><strong>Errors in after triggers</strong></td><td><code>addError</code> in an after trigger still rolls back the save, but the user sees it attributed oddly. Validate in before triggers where you can</td></tr>
+    <tr><td><strong>Never swallow exceptions</strong></td><td>A bare <code>catch (Exception e) {}</code> in a trigger turns a data-integrity failure into a silent one, which is strictly worse</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Framework choices and bypass design</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Approach</th><th>Fit</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Hand-rolled handler class</strong></td><td>Small orgs, few objects. One trigger per object delegating to a handler with explicit context methods</td></tr>
+    <tr><td><strong>Virtual base-class framework</strong></td><td>The common middle ground: a base class dispatching <code>beforeInsert</code>/<code>afterUpdate</code> etc., with built-in recursion and bypass support</td></tr>
+    <tr><td><strong>Metadata-driven dispatch</strong></td><td>Handlers registered in Custom Metadata and instantiated via <code>Type.forName</code>. Lets admins reorder and disable logic without a deployment — powerful, and genuinely harder to debug</td></tr>
+    <tr><td><strong>Enterprise patterns (domain/selector/service)</strong></td><td>Large teams with layered architecture. Real discipline payoff, real onboarding cost — see <a href="apex-advanced.html#advanced">Advanced Apex</a></td></tr>
+  </tbody>
+</table>
+</div>
+<p>Whatever you choose, build a <strong>bypass switch</strong>: a hierarchy custom setting or custom permission checked at
+   the top of every handler. During a data migration or an incident you will need to disable automation for one user
+   without deploying anything, and "we commented out the trigger in production" is not a plan.</p>
+
+<h3>Triggers on special objects</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Object</th><th>What is different</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Platform events</strong></td><td>After-insert only, run as the Automated Process user, in their own transaction with fresh limits. Set a <code>ReplayId</code>-based checkpoint if you need resumability</td></tr>
+    <tr><td><strong>Change Data Capture events</strong></td><td>After-insert only; the payload contains changed fields plus a header. Events can be batched and are not ordered across objects</td></tr>
+    <tr><td><strong>Task / Event</strong></td><td><code>WhatId</code>/<code>WhoId</code> are polymorphic — use <code>TYPEOF</code> or check the key prefix before assuming the parent type</td></tr>
+    <tr><td><strong>User</strong></td><td>Mixed DML restrictions: setup and non-setup objects cannot be changed in one transaction. Split with an async call</td></tr>
+    <tr><td><strong>FeedItem / ContentDocumentLink</strong></td><td>Sharing and delete behaviour is unusual; test with real user contexts, not just as an admin</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout tip">
+  <span class="c-ico">🧪</span>
+  <div class="c-body"><span class="c-title">Test the shapes, not just the happy path</span>
+    Every trigger deserves four tests: <strong>one record</strong>, <strong>200 records</strong> (bulk), <strong>a mixed
+    batch where some records must fail</strong>, and <strong>a recursion scenario</strong> (an update that causes the
+    trigger to fire again). The second and third find almost every real defect, and they are exactly the two that get
+    skipped when coverage is the only target.</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 <p>The ten scenarios above are coding exercises. These are the conceptual questions that come before them.</p>
 

@@ -386,6 +386,123 @@
 </div>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>Consistency: what you give up the moment you integrate</h3>
+<p>One org, one transaction, one rollback. Two systems, and atomicity is gone. The architecture question is not "how do
+   we avoid that" — it is "which inconsistency are we choosing".</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Model</th><th>How it works</th><th>Accept it when</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Strong (single transaction)</strong></td><td>Only possible <em>inside</em> Salesforce, or via a Composite Graph call that is all-or-none</td><td>The data genuinely cannot be allowed to diverge even momentarily</td></tr>
+    <tr><td><strong>Eventual consistency</strong></td><td>Both systems converge after a short delay; a reconciliation job repairs divergence</td><td>The default for almost all real integrations. Make the delay explicit and visible to users</td></tr>
+    <tr><td><strong>Compensating transaction (saga)</strong></td><td>Each step has an undo. If step three fails, you run the reverses of two and one</td><td>Multi-system business processes — order → payment → fulfilment — where a partial state is unacceptable but a distributed lock is impossible</td></tr>
+    <tr><td><strong>Read-your-writes only</strong></td><td>The initiating user sees their change immediately; others see it later</td><td>UI-driven changes where the user's confidence matters more than global freshness</td></tr>
+    <tr><td><strong>Best effort</strong></td><td>Fire and forget, no guarantee</td><td>Telemetry and notifications. Never for money or inventory</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout warn">
+  <span class="c-ico">↩️</span>
+  <div class="c-body"><span class="c-title">Design the compensation before you build the happy path</span>
+    "What do we do when step three fails after step two succeeded?" asked at design time takes an hour. Asked in
+    production it is a data-repair project. Write the reversal for every step that has external side effects, and make
+    each reversal idempotent too — because the compensation will itself be retried.</div>
+</div>
+
+<h3>Latency and SLA budgeting</h3>
+<p>A requirement of "real-time" is never a requirement. Decompose it into a budget you can verify:</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Stated need</th><th>What it usually means</th><th>Right pattern</th></tr></thead>
+  <tbody>
+    <tr><td>"Real-time"</td><td>The user must see it before they finish the task — under ~2 seconds</td><td>Synchronous request-reply, or data virtualisation</td></tr>
+    <tr><td>"Immediate"</td><td>Within seconds, but the user is not waiting</td><td>Platform events, fire-and-forget</td></tr>
+    <tr><td>"Up to date"</td><td>Within minutes</td><td>Events plus a short-cycle reconciliation</td></tr>
+    <tr><td>"Daily"</td><td>Overnight is fine</td><td>Batch — cheapest to build, operate and debug</td></tr>
+    <tr><td>"Always consistent"</td><td>Usually: "I don't want to explain stale data to my director"</td><td>Show the <em>last synced</em> timestamp in the UI. This solves the actual problem more often than any architecture</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>API-led layering</h3>
+<div class="dgm">
+  <div class="dgm-title">Three layers, and why the middle one earns its keep</div>
+  <svg viewBox="0 0 780 240" role="img" aria-label="API-led connectivity: experience, process and system API layers between consumers and systems of record">
+    <rect class="s-box-b" x="30" y="20" width="200" height="54" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="130" y="42">Experience APIs</text>
+    <text class="s-t-sm anchor-mid" x="130" y="60">shaped per consumer</text>
+    <path class="s-line-b" d="M230 47 H300" marker-end="url(#ip1)"/>
+    <rect class="s-box-v" x="300" y="20" width="200" height="54" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="400" y="42">Process APIs</text>
+    <text class="s-t-sm anchor-mid" x="400" y="60">orchestration, business rules</text>
+    <path class="s-line-v" d="M500 47 H570" marker-end="url(#ip1)"/>
+    <rect class="s-box-t" x="570" y="20" width="180" height="54" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="660" y="42">System APIs</text>
+    <text class="s-t-sm anchor-mid" x="660" y="60">one per system of record</text>
+
+    <rect class="s-box" x="30" y="104" width="200" height="50" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="130" y="134">Salesforce · mobile · portal</text>
+    <rect class="s-box-g" x="570" y="104" width="180" height="50" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="660" y="134">ERP · billing · warehouse</text>
+    <path class="s-line s-dash" d="M130 104 V74"/>
+    <path class="s-line-g s-dash" d="M660 104 V74"/>
+
+    <rect class="s-box-a" x="140" y="180" width="500" height="46" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="390" y="208">Change a system of record → only its System API changes. That is the whole payoff.</text>
+    <defs><marker id="ip1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+<p>The cost is an extra hop and more moving parts. It is worth it when you have <strong>more than two consumers of the
+   same data</strong>, or a system of record you expect to replace. For a single point-to-point feed it is ceremony.</p>
+
+<h3>Throttling, backpressure and the noisy neighbour</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Risk</th><th>Control</th></tr></thead>
+  <tbody>
+    <tr><td><strong>An external system floods your API limits</strong></td><td>Rate-limit at the gateway, not in Apex. Give each consumer its own integration user so you can see and cap them individually</td></tr>
+    <tr><td><strong>Your integration degrades the UI</strong></td><td>The concurrent long-running request limit is shared with interactive users. Keep integration work asynchronous and off the synchronous path</td></tr>
+    <tr><td><strong>A slow remote system</strong></td><td>Circuit breaker: after <em>n</em> consecutive failures, stop calling for a cooling period and fail fast. Store the breaker state where all transactions can see it</td></tr>
+    <tr><td><strong>Retry storms</strong></td><td>Exponential backoff with jitter. Synchronised retries from many records are how a brief outage becomes a long one</td></tr>
+    <tr><td><strong>Unbounded payloads</strong></td><td>Cap request size and page large responses. A 60MB response is a heap failure, not an integration</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Data ownership and master data</h3>
+<ul>
+  <li><strong>Name the system of record for every field</strong>, not every object. Salesforce may own the contact's preferences while the ERP owns their billing address — and that is fine if it is written down.</li>
+  <li><strong>One-way by default.</strong> Bidirectional sync doubles the complexity and introduces conflict resolution. Only build it when both sides genuinely originate changes.</li>
+  <li><strong>Conflict rules must be explicit</strong>: last-write-wins, source-of-truth-wins, or raise for human review. Undecided means "whichever job ran last", which nobody can defend.</li>
+  <li><strong>Keep the external id on both sides.</strong> Integration without stable cross-system keys turns into fuzzy matching, and fuzzy matching turns into duplicates.</li>
+  <li><strong>Deletes are the hardest case.</strong> Decide whether a delete propagates, soft-deletes, or is ignored — and remember Salesforce deletes can be undone from the recycle bin.</li>
+</ul>
+
+<h3>Observability for integrations</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Signal</th><th>Implementation</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Correlation id end to end</strong></td><td>Generated at the edge, passed in a header, stored on the record, logged at every hop. Non-negotiable for debugging</td></tr>
+    <tr><td><strong>Integration log object or event</strong></td><td>Direction, endpoint, status, duration, attempt, correlation id — never the sensitive payload</td></tr>
+    <tr><td><strong>Business-level reconciliation</strong></td><td>"Orders in Salesforce yesterday vs orders in ERP yesterday." Counts, not logs. This is the check that actually catches silent failure</td></tr>
+    <tr><td><strong>Freshness metric</strong></td><td>Age of the oldest unprocessed item. A rising number is the earliest warning you will get</td></tr>
+    <tr><td><strong>Alert on absence</strong></td><td>A feed that normally delivers 5,000 records and delivered zero should page someone. Most monitoring only alerts on errors, and silence is the more dangerous failure</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout exam">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">How to answer an integration design question</span>
+    Drive it in this order: <strong>① who owns the data</strong>, <strong>② what latency the business actually needs</strong>
+    (challenge "real-time"), <strong>③ volume and shape</strong>, <strong>④ consistency requirement and the compensation
+    for failure</strong>, <strong>⑤ then</strong> the pattern and the technology. Candidates who name MuleSoft or platform
+    events in the first thirty seconds have skipped every decision that matters.</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> Name the six integration patterns and one example of each.<span class="q-diff med">Medium</span></summary>

@@ -211,6 +211,122 @@ System.debug('Query rows used: ' + Limits.getQueryRows());</code></pre>
 </ul>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>Reading a debug log properly</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Section</th><th>What it tells you</th></tr></thead>
+  <tbody>
+    <tr><td><strong>CUMULATIVE_LIMIT_USAGE</strong></td><td>The single most useful block in the file. SOQL, DML, CPU and heap actually consumed — and it is broken down <em>per namespace</em>, so you can prove a managed package is burning your CPU</td></tr>
+    <tr><td><strong>CODE_UNIT_STARTED / FINISHED</strong></td><td>The execution tree: which trigger, which flow, which validation, in order. This is how you discover a flow you did not know existed</td></tr>
+    <tr><td><strong>SOQL_EXECUTE_BEGIN / END</strong></td><td>The query plus rows returned <em>and</em> elapsed time. A query returning 3 rows in 4,000ms is a selectivity problem, not a code problem</td></tr>
+    <tr><td><strong>FLOW_ELEMENT_*</strong></td><td>Element-by-element flow execution. Verbose, but the only way to see which decision branch was taken</td></tr>
+    <tr><td><strong>LIMIT_USAGE_FOR_NS</strong></td><td>Per-namespace limit consumption at the end of each unit</td></tr>
+    <tr><td><strong>Skipped frames / truncation</strong></td><td>Logs are capped (around 20MB, and the UI truncates sooner). When you see truncation, <strong>lower the log levels</strong> rather than hunting in a half-log — set everything to NONE except the one category you need</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout tip">
+  <span class="c-ico">🎚️</span>
+  <div class="c-body"><span class="c-title">The log level recipe</span>
+    For a limits problem: <code>APEX_PROFILING=FINEST</code>, everything else NONE. For "which automation ran":
+    <code>WORKFLOW=FINER</code> + <code>APEX_CODE=FINE</code>. For a query plan problem: <code>DATABASE=FINEST</code>.
+    Setting everything to FINEST is how you get a truncated log that answers nothing — and it also slows the transaction
+    enough to change the behaviour you are investigating.</div>
+</div>
+
+<h3>Tools beyond the log</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Tool</th><th>Use it for</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Query Plan tool</strong></td><td>Developer Console → paste a SOQL query. Shows cost and whether an index was used. Cost above ~1 means a table scan. The fastest way to diagnose a slow report or list view</td></tr>
+    <tr><td><strong>Apex Replay Debugger</strong></td><td>Free, in VS Code: replay a debug log with real breakpoints, stepping and variable inspection. Requires a log, so it is post-mortem — but it is the closest thing to a real debugger</td></tr>
+    <tr><td><strong>Apex Interactive Debugger</strong></td><td>Live breakpoints in a scratch org or sandbox (licensed). Worth it for genuinely complex async or package debugging</td></tr>
+    <tr><td><strong>Heap dump / checkpoints</strong></td><td>Developer Console checkpoints capture full object state at a line — invaluable for "why is this collection empty"</td></tr>
+    <tr><td><strong>Lightning Usage App</strong></td><td>EPT per page, browser and user. Where you start on "the org is slow", before touching code</td></tr>
+    <tr><td><strong>Event Monitoring</strong></td><td>Apex execution, page view, report export and API events as log files. The only retrospective view of production behaviour</td></tr>
+    <tr><td><strong>Developer Console Tests tab</strong></td><td>Per-test coverage and failure stacks without leaving the browser</td></tr>
+    <tr><td><strong>Browser devtools</strong></td><td>For LWC: the network tab shows Aura/Apex calls and payload sizes; the performance tab shows render cost. Half of "Salesforce is slow" is a component fetching too much</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Debugging production without debug logs</h3>
+<p>You often cannot reproduce it, cannot enable a trace in time, and the user has moved on. Build the instrumentation in
+   advance.</p>
+<pre><code class="language-apex">/* A structured logging framework, published as a platform event so the
+   record SURVIVES a rollback — the critical property. A log row written
+   with plain DML disappears when the transaction that failed rolls back. */
+public class AppLogger {
+
+    public static void error(String source, Exception e, Id recordId) {
+        EventBus.publish(new App_Log__e(
+            Source__c        = source,
+            Severity__c      = 'ERROR',
+            Message__c       = e.getMessage(),
+            Stack_Trace__c   = e.getStackTraceString().left(32000),
+            Record_Id__c     = recordId,
+            Correlation_Id__c = Request.getCurrent().getRequestId(),  // ties to the log
+            Quiddity__c      = String.valueOf(Request.getCurrent().getQuiddity()),
+            User_Id__c       = UserInfo.getUserId()
+        ));
+    }
+}
+
+/* Request.getCurrent() tells you HOW the code was invoked —
+   SYNCHRONOUS, QUEUEABLE, BATCH_APEX, REST, AURA, PLATFORM_EVENT_PUBLISH...
+   "It only fails from the mobile app" becomes a provable statement. */</code></pre>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Technique</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Platform-event logging</strong></td><td>Survives rollback. A failed transaction's own error log is otherwise rolled back with it — the single most common logging mistake</td></tr>
+    <tr><td><strong>Correlation / request id</strong></td><td><code>Request.getCurrent().getRequestId()</code> matches your log row to the platform's debug log and to Event Monitoring</td></tr>
+    <tr><td><strong>Quiddity</strong></td><td>Proves the invocation context. Essential when behaviour differs between UI, API and async</td></tr>
+    <tr><td><strong>Limit snapshots at key points</strong></td><td>See <a href="governor-limits.html#advanced">instrumenting limits</a> — warn at 60% rather than failing at 100%</td></tr>
+    <tr><td><strong>Feature-flagged verbose mode</strong></td><td>A custom permission that switches on extra logging for one user, so you can trace a specific person's issue in production without logging everyone</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>"It works in sandbox but not production"</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Cause</th><th>Check</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Data volume</strong></td><td>Query selectivity changes with row count — the query plan differs in production. Run the Query Plan tool <em>there</em></td></tr>
+    <tr><td><strong>Data shape</strong></td><td>Skew, a mega-account, nulls that do not exist in the sandbox</td></tr>
+    <tr><td><strong>Missing config data</strong></td><td>Custom setting rows, Custom Metadata, queue members, CPQ/FSL config — things that are data, not metadata</td></tr>
+    <tr><td><strong>Different automation</strong></td><td>An inactive flow in sandbox, a validation rule added directly in production, a managed package version mismatch</td></tr>
+    <tr><td><strong>Sharing and permissions</strong></td><td>You tested as an admin. Reproduce with <code>System.runAs</code> or by logging in as the actual user</td></tr>
+    <tr><td><strong>Integrations live</strong></td><td>Real callouts, real latency, real rate limits. Sandbox mocks hide all three</td></tr>
+    <tr><td><strong>Concurrency</strong></td><td>Lock contention and the concurrent long-running request limit only appear under real load</td></tr>
+    <tr><td><strong>Drift</strong></td><td>Production has changes that are not in your branch — see <a href="branching-strategy.html#drift">drift detection</a></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Debugging async and events</h3>
+<ul>
+  <li><strong>Set the trace flag on the Automated Process user</strong> — platform event triggers and some flows run as that user, not as you, so your own trace flag catches nothing.</li>
+  <li><strong>Query <code>AsyncApexJob</code></strong> for status, <code>ExtendedStatus</code> and error counts; the Apex Jobs UI is fine for humans but tells you nothing programmatically.</li>
+  <li><strong>Attach a Finalizer</strong> to every Queueable so an uncatchable failure is recorded at all — see <a href="async-apex.html#advanced">Async Apex</a>.</li>
+  <li><strong>Log the ReplayId</strong> in event subscribers so you can tell a redelivery from a new event.</li>
+  <li><strong>Check <code>CronTrigger</code></strong> for scheduled jobs left in a broken state after a deployment.</li>
+</ul>
+
+<div class="callout exam">
+  <span class="c-ico">🧭</span>
+  <div class="c-body"><span class="c-title">The method, restated</span>
+    <strong>Reproduce</strong> (as the right user, with the right data, through the right entry point) →
+    <strong>isolate</strong> (bisect by disabling automation, or run the unit in Execute Anonymous) →
+    <strong>measure</strong> (cumulative limits and the query plan, never intuition) → <strong>fix</strong> →
+    <strong>write the failing test first</strong> so it cannot come back. The step people skip is the first one: half of
+    all "unreproducible" bugs are reproducible as soon as you stop testing as a system administrator.</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> A user reports "it doesn't work". What are your first three steps?<span class="q-diff easy">Easy</span></summary>

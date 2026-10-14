@@ -201,6 +201,119 @@
 </ul>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>The calculation sequence and where you can intervene</h3>
+<p>CPQ's calculator runs a defined sequence of events. Price rules and the Quote Calculator Plugin hook into specific
+   points, and knowing which point is the difference between a rule that works and one that is silently overwritten.</p>
+<div class="flowchain">
+  <span class="chip b">On Initialization</span><span class="arrow">→</span>
+  <span class="chip v">Before Calculate</span><span class="arrow">→</span>
+  <span class="chip">pricing engine</span><span class="arrow">→</span>
+  <span class="chip t">On Calculate</span><span class="arrow">→</span>
+  <span class="chip a">After Calculate</span><span class="arrow">→</span>
+  <span class="chip g">totals saved</span>
+</div>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Event</th><th>Use it for</th></tr></thead>
+  <tbody>
+    <tr><td><strong>On Initialization</strong></td><td>Setting defaults when the quote line editor opens — before the user sees anything</td></tr>
+    <tr><td><strong>Before Calculate</strong></td><td>Injecting values the pricing engine should then use. Most "set a field that affects price" rules belong here</td></tr>
+    <tr><td><strong>On Calculate</strong></td><td>Adjusting during calculation — careful, it can trigger re-evaluation</td></tr>
+    <tr><td><strong>After Calculate</strong></td><td>Values derived <em>from</em> the final price (margin, display text). Anything written here will not re-price</td></tr>
+    <tr><td><strong>QCP (JavaScript plugin)</strong></td><td>Same hook points, in code, with access to the whole quote model. For logic too complex for declarative rules — and the usual home of performance problems</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout warn">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">The classic bug: right logic, wrong event</span>
+    A price rule that sets a discount <em>After Calculate</em> appears to work in the editor and then produces the wrong
+    total on save, because pricing already ran. If a field feeds pricing, it must be set <strong>Before
+    Calculate</strong>. When a rule "works sometimes", check its event before you check its conditions.</div>
+</div>
+
+<h3>Rules: four kinds, four jobs</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Rule</th><th>Purpose</th><th>Note</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Price Rule</strong></td><td>Injects or calculates values on quote lines — discounts, dates, custom fields</td><td>Conditions + actions, evaluated at a chosen event. Lookup Queries let a rule read a custom table of rates</td></tr>
+    <tr><td><strong>Product Rule — Validation</strong></td><td>Blocks an invalid configuration</td><td>Message quality matters: say what to change, not "invalid combination"</td></tr>
+    <tr><td><strong>Product Rule — Alert</strong></td><td>Warns without blocking</td><td>Good for upsell prompts and soft policy</td></tr>
+    <tr><td><strong>Product Rule — Selection</strong></td><td>Auto-adds, removes or hides options</td><td>The engine behind "choosing this chassis requires that power supply"</td></tr>
+    <tr><td><strong>Product Rule — Filter</strong></td><td>Narrows what is selectable in a dynamic bundle</td><td>Keeps large catalogues usable</td></tr>
+    <tr><td><strong>Configuration Attributes</strong></td><td>One question whose answer applies across the bundle</td><td>Combined with <strong>twin fields</strong> (matching API names) to propagate values between objects without code</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Amendments, renewals and co-termination</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Concept</th><th>Mechanics</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Contract generation</strong></td><td>Ordering a quote creates a Contract with Subscriptions representing what the customer now owns. Subscriptions — not quote lines — are the system of record for entitlement</td></tr>
+    <tr><td><strong>Amendment</strong></td><td>A new quote pre-filled from current subscriptions, with quantities and dates adjusted mid-term. Pricing is <strong>prorated</strong> from the amendment date to the contract end</td></tr>
+    <tr><td><strong>Renewal</strong></td><td>A quote generated for the next term, optionally uplifted by a percentage. Renewal forecasting on the contract drives the pipeline number</td></tr>
+    <tr><td><strong>Co-termination</strong></td><td>Aligning multiple subscriptions to one end date so the customer has a single renewal event. Essential for account management; fiddly to get right with partial periods</td></tr>
+    <tr><td><strong>Contracted prices</strong></td><td>Negotiated prices stored at account or contract level that override list price on future quotes — the mechanism behind "this customer always gets that rate"</td></tr>
+    <tr><td><strong>Evergreen vs evergreen-renewal</strong></td><td>Subscriptions with no end date behave differently in amendments. Decide the model before go-live; changing it later means data remediation</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout tip">
+  <span class="c-ico">📐</span>
+  <div class="c-body"><span class="c-title">Proration is where the finance team finds you</span>
+    Day-based versus month-based proration, whether the amendment date is inclusive, and how partial months round all
+    change the invoice. Agree the convention with finance <strong>in writing</strong>, encode it in a test case with
+    expected figures to the penny, and run that test after every CPQ package upgrade. Proration disputes are the most
+    common post-go-live CPQ escalation.</div>
+</div>
+
+<h3>Performance: the quote line ceiling</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Pressure</th><th>Mitigation</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Quote line count</strong></td><td>Calculation time grows with lines × rules. Large quotes (many hundreds of lines) hit timeouts. Split into multiple quotes, or reduce rule evaluation scope</td></tr>
+    <tr><td><strong>Price rule count</strong></td><td>Every rule is evaluated on every calculation. Consolidate rules, add tight conditions, and delete the ones nobody remembers creating</td></tr>
+    <tr><td><strong>Lookup Queries</strong></td><td>Powerful but each one is a query during calculation. Index the lookup object's filter fields</td></tr>
+    <tr><td><strong>QCP cost</strong></td><td>Runs client-side on the whole quote model. Loops over all lines inside another loop is the standard cause of a 60-second quote</td></tr>
+    <tr><td><strong>Bundle depth</strong></td><td>Deeply nested bundles multiply configuration work. Flatten where the business will accept it</td></tr>
+    <tr><td><strong>Large product catalogues</strong></td><td>Use search filters and product filter rules rather than presenting thousands of options</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Deployment: the part that is data</h3>
+<div class="callout danger">
+  <span class="c-ico">🧳</span>
+  <div class="c-body"><span class="c-title">Almost all CPQ configuration is records, not metadata</span>
+    Price rules, product rules, price conditions and actions, lookup queries, discount schedules, product options and
+    features, configuration attributes and the CPQ package settings are <strong>data</strong>. Change sets and source
+    deployments will not carry them, and the record Ids differ per org so references must be re-pointed on load. You need
+    a scripted, version-controlled migration — see <a href="branching-strategy.html#merge-hell">why git will not help
+    you</a> and <a href="devops.html#advanced">deployment of data</a>.</div>
+</div>
+<ul>
+  <li><strong>Migrate in dependency order</strong>: products → options/features → rules → conditions/actions → lookups, re-mapping references at each step.</li>
+  <li><strong>Keep a golden quote set</strong> — a handful of quotes with known expected totals — and recalculate them after every migration and every package upgrade. It is the only reliable regression test for a pricing engine.</li>
+  <li><strong>Package upgrades change calculation behaviour.</strong> Test in a full sandbox against the golden set before upgrading production.</li>
+  <li><strong>Advanced Approvals</strong> is a separate package with its own configuration records and its own migration problem.</li>
+</ul>
+
+<div class="callout exam">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">Debugging "the price is wrong", in order</span>
+    Walk the <strong>pricing waterfall</strong> stage by stage and find the first stage where the number diverges from
+    expectation. Then: which price rules fired, at which <strong>event</strong>, in what <strong>evaluation order</strong>;
+    is a discount schedule or contracted price applying; is the QCP overwriting a value after pricing ran. Most wrong
+    prices are a rule firing at the wrong event or two rules fighting in an undefined order — not a broken
+    engine.</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> When would you tell a client they don't need CPQ?<span class="q-diff med">Medium</span></summary>

@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Security &amp; Sharing · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>Security &amp; Sharing</span></div>
+  <h1>Security &amp; Sharing — 100 Scenarios</h1>
+  <p class="lede">"Why can they see this?" and "why can't they?" — object and field permissions, OWD, hierarchy, sharing
+     rules, Apex sharing, external access, encryption and incident response.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on
+    <a href="security.html">Security &amp; Sharing</a> and its <a href="security.html#advanced">Advanced</a> section.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="diagnosis">"Why can they see this?" (1–10)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> A user can see a record you believe they should not. Walk your diagnosis.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>In order: object permissions (profile + permission sets), FLS for the fields in question, OWD, role
+hierarchy, sharing rules, manual and Apex shares (query the share object and read the <code>RowCause</code>), implicit
+parent sharing, team membership, territory, then any restriction rule narrowing it back.</p>
+<p>And the one that is the answer more often than anyone expects: <code>without sharing</code> Apex or a system-context flow
+exposing the data through a component, bypassing everything above.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> A user cannot see a record they should. Same question, other direction.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Start at the top of the stack because the cheapest checks are first: do they have Read on the object at all,
+is the record type/layout hiding it, and is the record actually in a state your filter expects?</p>
+<p>Then OWD and whether any grant exists: hierarchy (are they above the owner?), sharing rule criteria actually matching this
+record, team membership, sharing set for external users. <strong>Log in as them</strong> rather than reasoning — it takes
+thirty seconds and settles it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Access to an Account unexpectedly grants access to its Cases.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Implicit sharing</strong> — parent-to-child grants that exist automatically based on the org's
+settings, and are invisible in the sharing UI.</p>
+<p>If you need child access to be independent, the child must not be master-detail, and you may need to tighten the Account's
+related-object access settings. Implicit sharing is the correct answer to a large share of "why can they see this"
+puzzles.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> A share row exists but you did not create it. How do you find out why?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Query the share object and read <code>RowCause</code> — it names the mechanism: Owner, Rule (a sharing rule),
+Manual, Team, Territory, ImplicitChild/ImplicitParent, or a custom Apex sharing reason.</p>
+<p>That single field turns sharing archaeology into a lookup. It is also why Apex managed sharing should always use a
+<strong>custom RowCause</strong>, so your grants are identifiable later.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> Removing a sharing rule does not immediately remove access.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Share rows are materialised, and recalculation is asynchronous — potentially hours on a large org.</p>
+<p>If the access must be revoked immediately for a security incident, do not wait: restrict at the object or profile level, or
+freeze the user. Sharing recalculation is not an incident-response tool.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> A manual share vanished after the record changed owner.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Expected: manual shares are deleted when ownership changes.</p>
+<p>For durable grants use <strong>Apex managed sharing with a custom RowCause</strong>, which survives owner changes and can be
+reported on. If the access is rule-based rather than exceptional, a criteria-based sharing rule is better than either.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> A report shows records a user cannot open.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check whether the report is on a dashboard with a <strong>running user</strong> — a standard dashboard shows
+one user's data view to everyone, which is the single most common dashboard misunderstanding.</p>
+<p>If it is a report they ran themselves, the data respects their access, so the discrepancy is usually a cached view or a
+record whose sharing changed since. Dynamic dashboards run as the viewer and solve the first case.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> An LWC shows data the user should not see.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Its Apex is almost certainly running <code>without sharing</code>, or <code>with sharing</code> but not enforcing
+FLS — because <code>with sharing</code> controls <em>record</em> visibility only and never field-level security or object
+permissions.</p>
+<p>Fix in Apex: <code>WITH USER_MODE</code> on queries, <code>as user</code> on DML, or
+<code>Security.stripInaccessible</code>. Hiding fields in the template is presentation, not security. See
+<a href="apex-core.html#advanced">user-mode queries</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> A user in a parent role cannot see a subordinate's records.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check "Grant Access Using Hierarchies" on the object — it can be disabled for custom objects, which stops
+hierarchy-based roll-up entirely.</p>
+<p>Also confirm the role hierarchy is what you think (people are frequently in the wrong role), and that the records are owned
+by the subordinate rather than a queue or another user.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> Everything looks correct but access is still wrong.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Look for the things that are not in the sharing model: a <strong>restriction rule</strong> removing access
+that sharing granted, a <strong>scoping rule</strong> changing the default view (which looks like missing access but is not),
+or permission set <strong>muting</strong> inside a permission set group subtracting a permission.</p>
+<p>Then check the user's actual permission set assignments rather than their profile — in a modern org most access comes from
+permission sets, and people reason about profiles out of habit.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="owd">OWD, hierarchy &amp; sharing rules (11–20)</h2>
+
+<details class="acc"><summary><span class="q-num">11</span> The business says "everyone should see everything". Do you set Public Read/Write?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Challenge it, then document the decision. Open OWD is simple and fast, but it removes your ability to
+tighten later without a painful migration, and it is rarely what compliance actually agreed to.</p>
+<p>Prefer Private or Public Read Only with sharing rules granting the openness — the same visible outcome with the ability to
+restrict one object or one population later. Going from open to private on a large object means a sharing redesign plus
+recalculation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> You need to change OWD from Public Read to Private on 20 million records.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>This triggers a full sharing recalculation that can run for a very long time and locks group membership while
+it does.</p>
+<p>Plan it as a change: do it in a maintenance window, ask Salesforce about <strong>deferred sharing maintenance</strong> so you
+can batch the related role and rule changes and resume once, and rehearse in a Full sandbox to time it. Never do it piecemeal
+during business hours.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> Criteria-based or owner-based sharing rule?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Owner-based when access follows <em>who owns</em> the record (give the EMEA role's records to the EMEA support
+group). Criteria-based when access follows the <em>record's data</em> (all records where Region = EMEA).</p>
+<p>Criteria-based rules recalculate when the criteria fields change, so they cost more at volume — and there are limits on how
+many you can have per object, which is a real constraint in a complex org.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> You need sharing based on a field on the <em>parent</em> record.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Criteria-based sharing rules evaluate fields on the record itself, so a parent field is not directly usable.</p>
+<p>Patterns: a formula field on the child copying the parent value (but formula fields are not always usable in sharing
+criteria), automation stamping a plain field on the child, or <strong>Apex managed sharing</strong> which can evaluate anything
+you can query. Stamping a field is usually the cheapest and most debuggable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> Sharing rules hit the per-object limit.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Consolidate: replace many narrow rules with fewer rules granting to <strong>public groups</strong> whose
+membership encodes the distinction, which is far more maintainable anyway.</p>
+<p>If the model genuinely needs per-record decisions, move to Apex managed sharing with a custom RowCause, or reconsider whether
+the hierarchy and ownership design is doing its job. Hitting the limit is usually a symptom of sharing being used to express
+something ownership should.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> Role hierarchy is 12 levels deep and performance is poor.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Deep hierarchies multiply share rows and recalculation cost. The hierarchy should model <em>access roll-up</em>,
+not the HR org chart.</p>
+<p>Flatten it: typically far fewer levels than the management structure, with public groups and sharing rules handling the
+exceptions. Reorganising a hierarchy is a heavy change, so plan it with deferred sharing maintenance and a sandbox
+rehearsal.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">17</span> An executive needs read access to everything, without Modify All Data.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>View All</strong> on the relevant objects via a permission set — object-scoped read-everything,
+without the write and delete power of Modify All Data.</p>
+<p>Prefer View All on specific objects over View All Data org-wide, and record the business justification; these are exactly the
+permissions a Health Check and an auditor will ask about.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> A team needs access to one Account's records, including from other owners.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Account teams</strong> (or Opportunity/Case teams) are built for exactly this, with per-member access
+levels, and they are maintainable by the account owner rather than an admin.</p>
+<p>Alternative for a stable pattern: a criteria-based sharing rule on a field identifying the account tier, granting to a public
+group. Teams for exceptions and per-record variation; rules for patterns.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">19</span> Territory management or role hierarchy for sales access?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Role hierarchy when access follows management lines and ownership is stable. <strong>Enterprise Territory
+Management</strong> when access follows territory assignment that changes independently of management — and when you need
+territory-based forecasting and reporting.</p>
+<p>Be explicit about the cost: territories are a second hierarchy to maintain alongside roles, with their own assignment rules
+and recalculation. Powerful and genuinely heavy. See <a href="sales-service.html#advanced">Sales Cloud</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> Can you share a master-detail child independently of its parent?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No. Master-detail children have no share object and inherit access from the master entirely.</p>
+<p>If independent sharing is required, the relationship must be a <strong>lookup</strong> with its own OWD — at the cost of
+roll-up summaries and cascade delete. That trade is a data-model decision to make before building, because converting later is
+a migration.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="fls">Profiles, permission sets &amp; FLS (21–30)</h2>
+
+<details class="acc"><summary><span class="q-num">21</span> You inherit 40 profiles. What is your plan?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Freeze profile editing first — all new permissions go into permission sets from today, or you are chasing a
+moving target forever.</p>
+<p>Then build permission sets around <em>capabilities</em> ("Approve Discounts", "Manage Knowledge"), compose them into permission
+set groups per role, use muting to subtract for exceptions, and strip profiles to the minimum (login hours, IP, defaults,
+layout and record type assignments). Verify per user with a before/after comparison and keep the evidence.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> Permission set group grants something one population must not have.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Use a <strong>muting permission set</strong> inside the group to subtract that permission, rather than cloning
+the entire group.</p>
+<p>That is the whole point of muting: one group definition with targeted subtractions, instead of five near-identical groups that
+drift apart over time.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> A user has a permission you cannot find the source of.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Permissions are the union of profile, every assigned permission set, and every permission set group (minus
+muting). Check all of them — people reason about the profile and forget the other three.</p>
+<p>Also check permission set <em>licences</em>, which can enable capability independently, and whether the permission comes from a
+managed package's own permission sets.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> FLS hides a field but it appears in a report.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>FLS is enforced in reports, so if it appears, the user has Read on that field somewhere — check every permission
+set and group, not just the profile.</p>
+<p>If it appears for a <em>different</em> user running the report on a dashboard, that is the running-user issue rather than
+FLS.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> Does <code>with sharing</code> enforce field-level security?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No — and this is the single most common misunderstanding in Salesforce security. <code>with sharing</code>
+controls which <em>records</em> are visible. FLS and object permissions are never enforced by it.</p>
+<p>Enforce them explicitly: <code>WITH USER_MODE</code>, <code>as user</code> DML,
+<code>Security.stripInaccessible</code>, or field-level <code>isAccessible()</code> checks.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> What is <code>inherited sharing</code> for?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A reusable class that should take the sharing mode of whatever calls it — the correct default for library and
+service classes.</p>
+<p>It is also the only safe-by-default choice when the class can be entered from a Visualforce page or a REST endpoint, where an
+unannotated class would run in system mode. Note inner classes do <em>not</em> inherit the outer class's declaration.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> A developer used <code>without sharing</code> "because it was easier".<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Triage rather than rewrite: classify every usage as genuinely needing elevation (document why), should be
+<code>with sharing</code>, or should be <code>inherited sharing</code>.</p>
+<p>Prioritise anything reachable from an <code>@AuraEnabled</code> method on a guest-accessible page or a REST endpoint — that is
+an exfiltration path, not a style issue. Keep deliberate elevation small, single-purpose and reviewed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> You need a permission for 200 users for two weeks only.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A permission set with an <strong>expiration date</strong> on the assignment where available, or a dated
+assignment you remove via a scheduled job — and a calendar reminder regardless.</p>
+<p>Temporary permissions that nobody removes are a standard audit finding. Build the removal into the same change as the
+grant.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> How do you prove least privilege to an auditor?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>With artefacts, not assertions: Security Health Check scores over time, a documented permission model
+(capability-based permission sets composed into groups per role), a list of who holds Modify All Data / View All Data with
+justifications, and evidence of periodic access review.</p>
+<p>Plus the change trail: permission changes going through pull requests, and Setup Audit Trail reviewed. "We think it's minimal"
+is not a control.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> Profiles cause merge conflicts on every PR. Remove them from git?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually yes, once they are minimal. A profile is one huge XML file so unrelated features both rewrite it, and
+people learn to resolve those diffs carelessly — including the ones that matter.</p>
+<p>Move permissions to permission sets, <code>.forceignore</code> the profiles, and <em>document</em> that profiles are now managed
+deliberately per org. The trade must be explicit, or you have just created an unmanaged surface. See
+<a href="branching-strategy.html#merge-hell">the merge problem</a>.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="apexsharing">Apex sharing &amp; programmatic access (31–40)</h2>
+
+<details class="acc"><summary><span class="q-num">31</span> You need to grant access programmatically based on a complex rule.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Apex managed sharing: insert <code>Object__Share</code> rows with <code>ParentId</code>,
+<code>UserOrGroupId</code>, <code>AccessLevel</code> and — crucially — a <strong>custom RowCause</strong> created in Setup, so
+the grants survive ownership changes and are identifiable.</p>
+<p>The class needs elevated context to insert shares, so keep it small and reviewed, and use
+<code>Database.insert(shares, false)</code> so one bad row does not lose the rest.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> Your Apex shares disappeared after a sharing recalculation.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>You used the <code>Manual</code> RowCause, which the platform manages and removes. Custom Apex sharing reasons
+are preserved.</p>
+<p>Re-create them with a custom reason, and add a reconciliation job that re-asserts expected shares — any programmatic sharing
+model needs a way to detect and repair divergence.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">33</span> Stale Apex shares grant access long after the reason ended.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Nothing cleans them up for you. Whatever creates shares must also delete them when the condition no longer
+holds, and a scheduled reconciliation should catch the gaps.</p>
+<p>Stale shares are a common audit finding precisely because the grant path gets built and the revoke path does not.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> You cannot share above the OWD. Why does that matter?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Sharing only ever <em>grants</em>. If OWD is Public Read/Write, share rows achieve nothing — so a team building
+elaborate sharing on an open object is wasting effort.</p>
+<p>Corollary: to tighten access you change OWD (and then grant back), or use a <strong>restriction rule</strong>, which is the only
+mechanism that removes access sharing has given.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> An integration user needs broad access. How do you scope it?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A dedicated integration user with a least-privilege permission set — only the objects and fields the integration
+touches, and View All only where genuinely required.</p>
+<p>Never a named human's admin account: it breaks when they leave and makes every audit trail ambiguous. Add IP restrictions where
+the caller has stable egress, and scope the Connected App's OAuth scopes to the minimum.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> A flow can see records the running user cannot. Is that a bug?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No — record-triggered flows run in <strong>system context without sharing</strong> by default. It is powerful
+and it is a security review item.</p>
+<p>Autolaunched flows let you choose the context explicitly; screen flows run as the user. Choose deliberately, write the choice in
+the flow description, and be especially careful with anything reachable by a guest user. See
+<a href="flows.html#advanced">running context</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> How do you enforce FLS on a dynamic SOQL query?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Append <code>WITH USER_MODE</code>, or run the results through
+<code>Security.stripInaccessible(AccessType.READABLE, records)</code> and use <code>getRecords()</code>.</p>
+<p>And escape the dynamic parts: <code>String.escapeSingleQuotes()</code> on any user-supplied fragment, with bind variables wherever
+possible. Dynamic SOQL built by concatenation is both an injection risk and an FLS risk.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> A test passes as admin and fails for real users.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Tests run in system mode by default, so they never exercise the sharing and FLS your users experience.</p>
+<p>Use <code>System.runAs</code> with a user created from a <strong>minimum-access profile</strong> plus only the permission set under
+test — not an admin. That is the test that finds the access bug before your users do. See
+<a href="testing.html#advanced">testing permissions</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> Should an <code>@AuraEnabled</code> method trust the client?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Never. Every <code>@AuraEnabled</code> method is a callable endpoint for anyone who can load the component —
+including, on a public page, anonymous visitors.</p>
+<p>Re-check CRUD, FLS and sharing server side, validate and bound every parameter, and never accept a filter expression or an object
+name from the client. Client-side checks are UX.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> An Apex REST endpoint needs to be callable by a partner but see only their data.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Authenticate as a user whose access <em>is</em> the restriction — a per-partner integration user or a
+per-user OAuth principal — and write the class <code>with sharing</code> so record access does the filtering.</p>
+<p>Do not implement the filter as a <code>WHERE</code> clause on an elevated query; a bug in that clause becomes a data breach, whereas
+sharing failing closed is the safer default. Then log every request with a correlation id.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="external">External &amp; guest access (41–50)</h2>
+
+<details class="acc"><summary><span class="q-num">41</span> 100,000 community users need to see their own cases.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>High-volume Customer Community licences have <strong>no role hierarchy</strong>, so the mechanism is a
+<strong>Sharing Set</strong> matching the user's Contact or Account to a field on the Case.</p>
+<p>For internal staff to see records those users <em>own</em>, you additionally need a <strong>Share Group</strong> — otherwise those
+records are invisible to everyone else. See <a href="experience-cloud.html#advanced">external sharing</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> Should External OWD be enabled?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Yes — it gives external users a separate OWD so you can lock their access down without constraining internal
+users.</p>
+<p>A single OWD for both populations is how community data leaks: an internal convenience setting silently becomes an external
+grant.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> A guest user can read records you did not intend.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Review the guest profile's object <em>and field</em> permissions first — FLS on the guest profile is the control
+that actually prevents exposure. Then check guest sharing rules (guests cannot be targets of ordinary sharing rules) and that
+"Secure guest user record access" is enabled.</p>
+<p>Then audit code paths: any <code>@AuraEnabled</code> method or system-context flow reachable from a public page. Finally, test as
+the guest in an incognito window and try to read what you did not intend.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> Guest users are creating spam records.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A guest-writable object with no validation is a target. Add CAPTCHA and honeypots on the form, rate-limit at the
+web layer, validate server side, and route submissions to a review queue rather than into live data.</p>
+<p>Also remember guest users cannot own records, so creations are reassigned to a default owner you must configure — and that owner
+can develop ownership skew if volumes are high.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> Partners must see their own and their resellers' opportunities.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Partner Community licences with partner roles under each account, Super User access for partner managers, and
+<strong>External Account Hierarchy</strong> for the distributor-to-reseller tier.</p>
+<p>Verify the licence includes Opportunity — Customer Community does not. Then test as each persona, because multi-tier channel
+access is where external sharing models most often turn out to be wrong in one direction or the other.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> A community user can see another customer's record.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Treat it as an incident: contain first. Tighten the object permission or disable the page while you diagnose,
+rather than attempting an elegant fix live.</p>
+<p>Then find the grant: an over-broad Sharing Set match field, a sharing rule that includes external users, an elevated Apex method,
+a system-context flow, or External OWD left open. Afterwards, assess exposure with Event Monitoring and write up what made it
+reachable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> Self-registration is creating users with too much access.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The self-registration Apex handler is a <strong>public endpoint</strong>. Never trust supplied profile, role or
+permission values — assign them server side from a fixed, least-privilege configuration.</p>
+<p>Add CAPTCHA, rate limiting and email verification, and review the default profile's permissions field by field. This handler is
+one of the most commonly exploited surfaces in Experience Cloud.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> How do you review what anonymous visitors can reach?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Five surfaces, with evidence for each: the guest profile's object and field permissions; the guest sharing rules;
+every <code>@AuraEnabled</code> method reachable from a public page; every flow running in system context on that page; and the
+self-registration handler.</p>
+<p>Each site has its own guest user and profile, so hardening one does not harden the others. Then test it as the guest rather than
+reading configuration.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> Contractors need access to only their own field service appointments.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Experience Cloud with Sharing Sets matching the contractor's Contact to the Service Resource and Assigned
+Resource records — or dedicated contractor licences.</p>
+<p>Test with a real contractor login, including the mobile app: under-sharing shows up as <em>blank screens on the device</em>, which
+looks like a mobile bug for days. See <a href="field-service-advanced.html#sharing">Field Service sharing</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> A public Experience Cloud site needs to be indexed by Google but not leak data.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Separate the content from the data. Public, indexable content (LWR for SEO and performance) should be CMS or
+Knowledge articles exposed deliberately via data category visibility — not records surfaced by a permissive guest profile.</p>
+<p>Anything record-backed stays behind authentication. The failure mode is exposing a record-driven page to guests for SEO and
+discovering a search engine has indexed customer data.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="encryption">Encryption, PII &amp; compliance (51–60)</h2>
+
+<details class="acc"><summary><span class="q-num">51</span> Legal asks you to "encrypt all PII".<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Clarify the threat model first, because Shield Platform Encryption protects data at rest from
+infrastructure-level access — it does <strong>not</strong> hide data from a user who has FLS on the field.</p>
+<p>If the requirement is "staff must not see it", that is field-level security. If it is "it must be encrypted at rest for
+compliance", that is Shield — and it breaks filtering, sorting, some formulas and matching rules, so scope it to the fields that
+genuinely need it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> An encrypted field can no longer be used in a report filter.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Expected: filtering and sorting on encrypted fields is restricted, and that is the main functional cost of
+Shield.</p>
+<p>Design around it: keep a non-sensitive derived field for filtering (a hashed key, a bucketed value), or reconsider whether that
+field needs encryption. Discovering this after encrypting a field used in fifty reports is an expensive week.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> Who holds the encryption key, and what happens if it is destroyed?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>With bring-your-own-key you do, which is the point and the risk: destroying a key makes the data permanently
+unreadable, and that is not recoverable by Salesforce.</p>
+<p>So key management needs real process — custody, rotation schedule, documented recovery, and a named owner. Teams adopt BYOK for a
+compliance tick and then have no key-rotation runbook.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> A customer invokes their right to be forgotten.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Deletion must cascade further than people expect: the record, history, feeds, files, email logs, Big Objects,
+backups, sandboxes, and downstream systems you have fed.</p>
+<p>Build it as a documented, repeatable process with a verification step rather than an ad-hoc query — and decide between deletion and
+anonymisation, since anonymisation often preserves reporting integrity while meeting the requirement.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> Sandbox contains real customer data and developers have full access.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>That is a compliance exposure and usually a policy breach. Run <strong>Data Mask</strong> as part of the
+post-refresh checklist, before anyone logs in.</p>
+<p>Also set email deliverability to System Email Only first — the masking conversation is often triggered by test emails reaching real
+customers, which is the more visible failure. See <a href="devops.html#advanced">post-refresh</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> You need to prove who exported a report containing PII.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Event Monitoring</strong> — report export events are among the most valuable log types it provides,
+and it is the only retrospective answer.</p>
+<p>Without Event Monitoring you cannot answer the question after the fact, which is itself worth knowing before an incident. Real-Time
+Event Monitoring plus a Transaction Security policy lets you alert on or block large exports as they happen.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> Consent is recorded in three systems and they disagree.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Nominate <strong>one system of record per channel</strong> and sync outward from it — Salesforce's
+<code>Individual</code> and consent objects, Account Engagement opt-out, Marketing Cloud subscriber status.</p>
+<p>A preference centre that updates one system and not the others is a regulatory finding waiting to be found. Also record proof: the
+timestamp, source, and the exact wording shown. See <a href="marketing.html#advanced">consent architecture</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> Field Audit Trail or Field History Tracking?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Field History Tracking is a convenience: a limited number of fields per object and limited retention. Field Audit
+Trail (Shield) extends retention substantially and is the right answer when a regulator asks the question.</p>
+<p>Decide from the requirement's retention period, not from the feature list — and remember neither is a reporting-friendly shape for
+trend analysis.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> A Transaction Security policy could block a risky action. Should you use it?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Yes for well-understood, high-signal cases: a very large report export, a login from an unexpected region, a mass
+data operation. Start in <em>notify</em> mode to measure false positives before you block anything.</p>
+<p>Blocking first produces business disruption and a policy that gets switched off. Notify, tune, then enforce.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> Security Health Check score dropped 20 points. What happened?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Something was relaxed — usually a password policy, session timeout, or a "temporary" permission grant that became
+permanent.</p>
+<p>Health Check scores drift downward because exceptions accumulate. Run it quarterly with a named owner, and treat each regression as a
+ticket with a justification or a fix. See <a href="governance.html#advanced">platform health</a>.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="incidents">Incidents &amp; investigation (61–70)</h2>
+
+<details class="acc"><summary><span class="q-num">61</span> You suspect an account is compromised. First three actions?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Freeze</strong> the user (instant and reversible, unlike deactivation), <strong>revoke</strong> their
+OAuth tokens and sessions, and <strong>preserve evidence</strong> — login history, Event Monitoring logs, Setup Audit Trail — before
+anything is overwritten or rotated.</p>
+<p>Containment before diagnosis, diagnosis before elegance. Only then work out what was accessed and what needs changing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> Data was exfiltrated via the API. How do you find out what?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Event Monitoring API and Apex execution events, plus login history for the source, and the Connected App's usage
+page for which app and which tokens.</p>
+<p>Without Event Monitoring, you will not be able to answer this — which is the argument for having it before you need it. Build the
+query and the dashboard in advance, not during the incident.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> A departing employee may have downloaded customer lists.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Report export events in Event Monitoring, plus login history and any Data Loader usage. Freeze first if they are
+still active.</p>
+<p>Preventatively: a Transaction Security policy on large exports, restricting export permissions by profile, and making report folder
+access deliberate. This is a predictable risk that most orgs only instrument after the first occurrence.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> An integration user's credentials leaked.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Revoke the tokens from the Connected App immediately (which is faster than rotating the user), then rotate the
+certificate or client secret, then redeploy the pipeline's secret.</p>
+<p>Afterwards: move to <strong>JWT bearer</strong> with a certificate rather than a stored password, add IP restrictions where egress is
+stable, scope OAuth scopes to the minimum, and set refresh token policy to expire on inactivity rather than "until revoked". See
+<a href="identity.html#advanced">token lifecycle</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> A security researcher reports a vulnerability in your community.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Acknowledge, contain, verify, then fix forward. Containment might be disabling a page or tightening a guest
+permission — accept the functionality loss while you diagnose.</p>
+<p>Verify the claim yourself as the guest or external user before changing architecture, then fix through the hotfix path with a test
+that fails without the fix. And write up what made it reachable, because the same class of hole usually exists elsewhere.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> How do you detect a permission change nobody authorised?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Setup Audit Trail reviewed weekly, plus permission changes going through pull requests so there is an approved
+record — and drift detection flagging metadata that differs from <code>main</code>.</p>
+<p>The detection is only useful with a named owner and a cadence. An unread audit trail is not a control. See
+<a href="branching-strategy.html#drift">drift detection</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> Logs show a user accessing records at 3am from an unusual country.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Verify before accusing — travel, VPNs and offshore teams are common explanations. Check login history for the IP,
+device and auth method, and whether MFA was satisfied.</p>
+<p>Then prevention: login IP ranges, login hours, high-assurance sessions for sensitive operations, and a Transaction Security policy for
+anomalous logins. Investigation first, policy second.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> You need to know every user who can see a specific record, today.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Query the object's share table for that <code>ParentId</code> and resolve the <code>UserOrGroupId</code> values
+through group membership — plus everyone above the owner in the hierarchy, plus anyone with View All or Modify All on the object.</p>
+<p>That last part is why the honest answer always includes "and all administrators". Produce it as a repeatable script, because this is a
+question auditors ask more than once.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> An admin deleted 50,000 records by mistake.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Check the recycle bin immediately — it has capacity limits and purges, so time matters. Restore in batches and
+verify counts.</p>
+<p>If it was a hard delete or the bin has purged, you are into backup restore, and this is where "we have a backup we have never
+restored" becomes expensive. Afterwards: restrict delete permissions, and require bulk operations to go through a reviewed process.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> What is the most common root cause of Salesforce data exposure?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Elevated code reachable from an under-protected surface: an <code>@AuraEnabled</code> method or a system-context
+flow, running without sharing, exposed on a guest-accessible Experience Cloud page.</p>
+<p>The sharing model is usually fine; the bypass around it is the problem. Which is why the review question is not "is our OWD private"
+but "what code can an anonymous visitor cause to run, and in whose context?"</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="design">Design decisions (71–85)</h2>
+
+<details class="acc"><summary><span class="q-num">71</span> Design sharing for 500 internal, 200 partners, 100,000 customers.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Three populations, three mechanisms. Internal: private OWD, role hierarchy for roll-up, criteria or owner-based
+rules for cross-team, teams for exceptions. Partners: Partner Community licences, partner roles under the account, Super User, External
+Account Hierarchy for tiers. Customers: high-volume licences, so <strong>Sharing Sets</strong> plus a <strong>Share Group</strong> for
+internal visibility.</p>
+<p>Then External OWD separately, guest hardening if anything is public, and a plan for recalculation time at that volume.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> Private OWD plus 40 sharing rules — is that a smell?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually yes. Forty rules means sharing is being used to express something ownership or hierarchy should, and it will
+hit per-object limits and recalculation cost.</p>
+<p>Consolidate: grant to <strong>public groups</strong> whose membership encodes the distinction, revisit whether the hierarchy models
+access correctly, and consider whether some populations belong in teams or territories instead.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> Restriction rule or a tighter OWD?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>OWD plus grants is the primary model and scales. A <strong>restriction rule</strong> is for subtracting access that
+sharing legitimately granted — "support agents see only their region's cases" on top of an otherwise open model.</p>
+<p>Remember restriction rules apply to reports and API too (which is the point), so an integration running as a restricted user will also
+be narrowed. Test that path explicitly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> Is a scoping rule a security control?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No. Scoping rules change the <em>default view</em> — users can still reach the records.</p>
+<p>They are a usability feature, and presenting one to an auditor as a control is a mistake that will be found. Restriction rules remove
+access; scoping rules tidy list views.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> Sales must not see each other's opportunities, but managers must.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Private OWD plus the role hierarchy — that is precisely what the hierarchy is for, and it requires no sharing
+rules.</p>
+<p>Check "Grant Access Using Hierarchies" is on (it can be disabled for custom objects), and that managers are actually above their
+reports in the <em>role</em> hierarchy rather than just the HR org chart.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> HR data must be invisible to everyone except HR, including admins.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>You cannot fully hide data from a system administrator — Modify All Data and View All Data exist, and so does the
+ability to grant themselves access.</p>
+<p>What you can do: a separate object with private OWD and tightly scoped permissions, remove View All/Modify All from everyone who does
+not need it, enable Event Monitoring so access is <em>detectable</em>, and consider a separate org if the requirement is absolute. Be
+honest with the business about the difference between prevention and detection.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">77</span> Should you use a permission set or a profile for a new capability?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Permission set, always, for anything new. Profiles should hold only login hours, IP ranges, defaults, and layout
+and record type assignments.</p>
+<p>Capability-based permission sets compose into permission set groups per role, which is maintainable, reviewable and mergeable — unlike
+profiles. See <a href="security.html#advanced">the migration</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> An object needs different access for the same user depending on record state.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Sharing is not state-aware in that way. Patterns: criteria-based sharing rules keyed on a status field (they
+recalculate when it changes), Apex managed sharing maintained by automation, or record-level ownership changes as the record moves
+through states.</p>
+<p>Also consider whether the requirement is really about <em>editability</em> rather than visibility — a validation rule or a record-locking
+approval step may be the right control instead.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">79</span> You need field-level access to differ by record, not by user.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>FLS is per user and per field — it cannot vary per record. There is no record-level field security.</p>
+<p>Workarounds: move the sensitive data to a related record with its own sharing, or encode the distinction in record types plus separate
+fields. If someone proposes hiding a field conditionally on the layout, be clear that this is presentation only and the data remains
+available via API.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> How do you design sharing you can still change in two years?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Keep OWD tight and grant through <strong>public groups</strong> rather than roles or named users, so changing who
+has access is a membership change rather than a rule rewrite. Keep the role hierarchy shallow and about access, not HR.</p>
+<p>Document the intent of every rule, and prefer a few general rules over many specific ones. Sharing models become unchangeable when
+nobody can tell which of forty rules is load-bearing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">81</span> A managed package requests broad permissions on install.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Install in a sandbox and review what it actually adds: permission sets, objects it reads, and whether any of its
+Apex runs <code>without sharing</code> in paths you expose.</p>
+<p>Check what data leaves your org and to where, for your own compliance position. A completed security review means it met a bar, not that
+its permission footprint suits your org. See <a href="governance.html#advanced">ISV discipline</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> You need to let a support engineer impersonate a user.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Login As, granted deliberately via the "Administrators Can Log in as Any User" setting and restricted to the people
+who genuinely need it.</p>
+<p>It is logged, so it is auditable — make sure someone reviews those logs. And it is the single most useful diagnostic tool for access
+problems, so the answer is usually "grant it narrowly" rather than "never".</p></div></details>
+
+<details class="acc"><summary><span class="q-num">83</span> MFA is mandatory but a service account cannot do it.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Service accounts should not be logging in interactively at all — use <strong>JWT bearer</strong> or client
+credentials with a certificate, which sidesteps the question entirely.</p>
+<p>If an account genuinely must have a password, it needs a documented exemption, IP restrictions, and a rotation schedule. An MFA
+exemption with no compensating control is an audit finding.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> How do you handle a break-glass admin account?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>At least one administrator who can authenticate <em>without</em> the IdP — password plus MFA — because an SSO design
+with no break-glass path is one IdP outage away from nobody being able to fix it.</p>
+<p>Controls: credentials in escrow, MFA on a shared hardware token, login alerting on the account, periodic verification that it still
+works, and an audit trail of every use. Test it on a schedule; an untested break-glass account is a belief.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> Compliance wants a quarterly access review. How do you make it sustainable?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Automate the evidence: a scheduled report or script producing who holds elevated permissions (Modify All, View All,
+Export, Login As), who has not logged in for 90 days, and what changed since last quarter.</p>
+<p>Then the review is a decision meeting rather than a data-gathering project. A manual quarterly review built from scratch each time gets
+skipped by the third quarter.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="judgement">Judgement &amp; trade-offs (86–100)</h2>
+
+<details class="acc"><summary><span class="q-num">86</span> A deadline is tomorrow and the secure design needs two more days.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Offer a safe subset rather than a binary. Ship with the surface narrowed — one profile, internal users only,
+feature-flagged off for guests — and complete the full design next week.</p>
+<p>State the residual risk explicitly in writing, and who is accepting it. "We shipped it insecurely because of the deadline" should never be
+an undocumented decision made by the developer alone.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> A stakeholder insists hiding the field on the layout is sufficient.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Demonstrate it: one REST call, or export the report, and show the data. Thirty seconds of evidence ends the
+argument more effectively than any explanation.</p>
+<p>Then do it properly with field-level security, and note that component visibility and Dynamic Forms conditions are in the same
+category — presentation, not control.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> You find a sharing hole that has existed for three years.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Assess exposure before you close it — what was reachable, by whom, and is there evidence it was accessed (Event
+Monitoring, report exports, API logs)? Closing it first destroys your ability to answer that.</p>
+<p>Then fix, notify whoever owns the compliance position, and review whether the same class of hole exists elsewhere. Age does not reduce
+severity; it increases the exposure window.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> Security review flags 40 issues. How do you prioritise?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>By reachability and blast radius, not by the tool's severity label. Anything an anonymous or external user can
+reach comes first; then internal elevation; then hardening and hygiene.</p>
+<p>Fix the categories, not the instances: if one <code>@AuraEnabled</code> method lacks FLS enforcement, the pattern probably repeats — fix
+the pattern and add a review checklist item.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> Developers say enforcing FLS everywhere is too much work.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Make it cheap rather than optional: <code>WITH USER_MODE</code> on queries and <code>as user</code> on DML are a
+few characters, and a selector layer centralises it so it is written once per object.</p>
+<p>Add it to the PR checklist and to static analysis so it is caught automatically. Security that depends on individual diligence on every
+method will fail; security that is the default path will not.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> An integration needs View All Data. Do you grant it?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Not reflexively. Ask which objects and which records — usually the real need is View All on two objects, not org-wide.</p>
+<p>Grant the minimum through a permission set on a dedicated integration user, document the justification, and review it periodically.
+"The vendor's documentation said to" is not a justification.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> Two teams need opposite sharing on the same object.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Set OWD to the <em>tighter</em> requirement and grant the looser one back through sharing rules to a public group.
+Sharing only ever grants, so the restrictive requirement must be the baseline.</p>
+<p>If one team needs <em>less</em> than the baseline grants, that is a restriction rule — the only mechanism that subtracts.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> Is Shield worth it?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Depends which part. <strong>Event Monitoring</strong> is frequently the highest-value component — it is the only
+retrospective answer to "who accessed what", and most orgs cannot answer that today. <strong>Field Audit Trail</strong> is worth it when
+retention is a regulatory requirement.</p>
+<p><strong>Platform Encryption</strong> is worth it when the threat model genuinely requires at-rest encryption, and costly in functionality
+when adopted as a tick-box. Price the components separately against actual requirements.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> The business wants to copy production data to a demo org.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Mask it first, and check whether your policy or regulator permits it at all. A demo org is usually less controlled than
+a sandbox, with more people having access.</p>
+<p>Better: generate synthetic data that demonstrates the same shapes. It is a day of work once and it removes a recurring compliance
+conversation permanently.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> How do you security-review a flow?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Three questions: what <strong>context</strong> does it run in (record-triggered flows default to system context
+without sharing); what can <strong>invoke</strong> it (is it reachable from a guest page or an external user); and what does it
+<strong>touch</strong> (which objects and fields, and does it return data to the client).</p>
+<p>A system-context flow exposed to guests is the same risk class as <code>without sharing</code> Apex, and it is reviewed far less
+often.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> You are asked to sign off a design you think is unsafe.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>State the specific risk, the realistic scenario, and the mitigation cost — in writing, in one page. Then let the
+accountable person decide; if they accept it, record the acceptance and move on.</p>
+<p>Vague objections get overruled. A concrete "an authenticated customer can read other customers' invoices via this endpoint; two days to
+fix" either gets fixed or gets consciously owned, and both are better than an unresolved worry.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> What is the first thing you check on a new org's security posture?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Who has Modify All Data and View All Data, and why. It is the fastest signal of whether access is designed or
+accumulated.</p>
+<p>Then Health Check, guest user profiles on any site, External OWD, and a grep for <code>without sharing</code>. Those five checks give you
+an accurate picture in under an hour.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> How do you keep a sharing model documented without it rotting?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Document <em>intent</em> in the metadata itself — the description field on every sharing rule, permission set and
+permission set group — so it travels with the configuration and appears in diffs.</p>
+<p>Separate documents rot because they live elsewhere. A rule whose description says "granted for the 2023 EMEA support model" is one you can
+confidently delete in 2026; an undescribed rule is one nobody dares touch.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> A permission was granted "temporarily" eighteen months ago.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Remove it, or justify it as permanent and document that. Temporary grants that nobody revokes are the most common way
+least privilege erodes.</p>
+<p>Prevention: expiration dates on permission set assignments where available, and a quarterly review that specifically lists grants older
+than their stated purpose.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit that prevents most security incidents here?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Asking, of every piece of code and every flow: <strong>"who can cause this to run, and in whose context?"</strong>
+Almost every real Salesforce exposure is elevated logic reachable from an under-protected surface, not a misconfigured sharing rule.</p>
+<p>Make it a required line in every pull request template. It costs nothing and it catches the category of bug that actually makes the
+news.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="security.html">Security &amp; Sharing</a>, the <a href="scenarios.html">full scenario index</a>, or
+    <a href="apex-core-scenarios.html">Apex Core — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Security — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

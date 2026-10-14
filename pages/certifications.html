@@ -199,6 +199,100 @@
 </ul>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>The architect track, and what it actually tests</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Stage</th><th>What it measures</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Designer-level exams</strong></td><td>Depth in one domain — Data Architecture, Sharing &amp; Visibility, Integration Architecture, Identity &amp; Access, Development Lifecycle &amp; Deployment, Platform Developer II</td></tr>
+    <tr><td><strong>Application / System Architect</strong></td><td>Awarded for completing the relevant designer set. Not separate exams — a milestone</td></tr>
+    <tr><td><strong>CTA review board</strong></td><td>A hypothetical scenario: you present a design and defend it live to judges, under time pressure, including questions you did not anticipate</td></tr>
+    <tr><td><strong>What the board really assesses</strong></td><td>Justification and trade-off reasoning, not recall. "I chose X because of Y, having rejected Z for this reason" — and whether you can defend it when challenged</td></tr>
+    <tr><td><strong>The common failure</strong></td><td>Poor time management, and designing a technically elegant solution that does not answer the stated business requirements</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>How to prepare for a design-scenario question</h3>
+<p>This is the format for CTA, and increasingly for senior interviews. A repeatable structure beats raw knowledge:</p>
+<ul class="steps">
+  <li><b>Restate the requirements in your own words</b> and separate them into functional, non-functional (volume, latency, availability) and constraints (budget, licences, timeline, existing systems).</li>
+  <li><b>Name the actors and their counts</b> — 500 internal users, 50,000 customers, 20 partners. Volumes drive licence, sharing and performance decisions more than anything else.</li>
+  <li><b>Draw the landscape</b> before the detail: systems, which owns which data, and the integration points.</li>
+  <li><b>Work through the domains in a fixed order</b> — data model, sharing and visibility, licensing, integration, identity, development lifecycle, then reporting. A fixed order means you never forget identity under pressure.</li>
+  <li><b>State every assumption out loud.</b> An unstated assumption looks like a gap; a stated one looks like judgement.</li>
+  <li><b>Justify each choice with the <em>rejected</em> alternative.</b> "Permission set groups rather than profiles, because..." is the sentence shape being marked.</li>
+  <li><b>Call out risks and what you would validate</b> with a proof of concept. Acknowledging uncertainty reads as experience, not weakness.</li>
+  <li><b>Manage the clock.</b> A complete, slightly shallow answer scores far better than a beautiful half-answer — in the exam and in the interview.</li>
+</ul>
+
+<h3>Exam mechanics worth knowing</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Fact</th><th>Implication</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Scored by section weighting</strong></td><td>Sections are weighted differently. Study the exam guide's percentages and allocate preparation proportionally — not evenly</td></tr>
+    <tr><td><strong>No section minimums (typically)</strong></td><td>An overall pass mark means a weak area can be carried by strength elsewhere — but only if you know which areas are heavy</td></tr>
+    <tr><td><strong>Questions describe scenarios</strong></td><td>Most wrong answers are technically correct but do not fit the stated constraint. Read the constraint twice</td></tr>
+    <tr><td><strong>"Most efficient" / "least effort"</strong></td><td>These phrases are doing work: they usually mean "declarative over code" or "standard over custom"</td></tr>
+    <tr><td><strong>Flag and return</strong></td><td>Answer everything; flag the uncertain ones. There is no penalty for a wrong answer, so never leave one blank</td></tr>
+    <tr><td><strong>Maintenance</strong></td><td>Credentials require periodic maintenance modules. Missing a deadline can suspend the credential — track the dates</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout tip">
+  <span class="c-ico">✂️</span>
+  <div class="c-body"><span class="c-title">Eliminate, don't recall</span>
+    On a hard scenario question, two options are usually eliminable immediately — wrong tool, or ignores a stated
+    constraint. Of the remaining two, pick the one matching the question's bias: "efficient" and "minimal maintenance"
+    favour declarative and standard features; "scalable to millions" and "complex logic" favour code and asynchronous
+    patterns. That single heuristic converts most 50/50 guesses.</div>
+</div>
+
+<h3>Certifications versus demonstrable capability</h3>
+<div class="grid g2">
+  <div class="card accent-green"><h4>What certifications genuinely give you</h4>
+    <ul><li>A structured syllabus that exposes gaps you would not have found</li>
+        <li>Shared vocabulary with other practitioners</li>
+        <li>Passing a CV filter — real, and worth acknowledging</li>
+        <li>Partner-tier requirements for consultancies</li>
+        <li>Coverage of features you have never had a project for</li></ul></div>
+  <div class="card accent-amber"><h4>What they do not give you</h4>
+    <ul><li>Evidence you can debug a production incident</li>
+        <li>Evidence you can say no to a bad requirement</li>
+        <li>Experience of data at volume, where theory breaks</li>
+        <li>The judgement that comes from maintaining your own decisions for two years</li></ul></div>
+</div>
+<p>The pairing that works: certifications for breadth and credibility, plus <strong>two or three things you can talk
+   about in real depth</strong> — a problem you diagnosed, a design you changed your mind about, a system you still
+   maintain. Senior interviews are won on the second half.</p>
+
+<h3>A 90-day plan from these notes</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Weeks</th><th>Focus</th></tr></thead>
+  <tbody>
+    <tr><td><strong>1–3</strong></td><td><a href="fundamentals.html">Fundamentals</a>, <a href="admin.html">Admin</a>, <a href="security.html">Security</a> — including each page's <em>Advanced</em> section. Build something small in a Developer org every day</td></tr>
+    <tr><td><strong>4–6</strong></td><td><a href="apex-core.html">Apex Core</a>, <a href="apex-triggers.html">Triggers</a>, <a href="testing.html">Testing</a>, <a href="governor-limits.html">Limits</a>. Write tests for everything, including the bulk and negative cases</td></tr>
+    <tr><td><strong>7–8</strong></td><td><a href="lwc-core.html">LWC</a> and <a href="lwc-advanced.html">LWC data</a>. Build one real component with error and empty states, and a Jest test</td></tr>
+    <tr><td><strong>9–10</strong></td><td><a href="integration-core.html">Integration</a>, <a href="integration-events.html">Events</a>, <a href="integration-patterns.html">Patterns</a>, <a href="postman.html">Postman</a>. Integrate with a real public API end to end</td></tr>
+    <tr><td><strong>11</strong></td><td><a href="devops.html">DevOps</a>, <a href="branching-strategy.html">Branching Strategy</a>, <a href="debugging.html">Debugging</a>. Put a real pipeline on your own repo</td></tr>
+    <tr><td><strong>12</strong></td><td><a href="practice.html">Practice Q&amp;A</a> and the <a href="data-management.html">data</a>/<a href="governance.html">governance</a> Advanced sections. Mock interviews out loud, timed</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout exam">
+  <span class="c-ico">🗣️</span>
+  <div class="c-body"><span class="c-title">The preparation nobody does</span>
+    <strong>Answer out loud, timed, to a person or a recording.</strong> Knowing something and explaining it under mild
+    pressure in ninety seconds are different skills, and only the second one is assessed in an interview or a review
+    board. Pick ten questions from any Advanced section on this site, answer each aloud in two minutes, and listen back.
+    It is uncomfortable and it is the highest-return hour of preparation available.</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> You have PD1 but no Admin cert. Is that a problem?<span class="q-diff easy">Easy</span></summary>

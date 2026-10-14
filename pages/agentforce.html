@@ -542,6 +542,153 @@ Instructions:
 </div>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>Topic classification: diagnosing the thing that breaks most often</h3>
+<p>The reasoning engine's first decision is which topic the request belongs to. Get that wrong and nothing downstream can
+   recover — the agent confidently does the wrong job well.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
+  <tbody>
+    <tr><td>Requests land in the wrong topic</td><td>Classification descriptions overlap — two topics both plausibly cover "billing question"</td><td>Rewrite descriptions to be mutually exclusive and name the <em>boundary</em>: "...does not cover refunds, which belong to Returns"</td></tr>
+    <tr><td>Everything lands in one catch-all topic</td><td>That topic's description is too broad, so it wins every comparison</td><td>Narrow it, or remove it and let unmatched requests escalate</td></tr>
+    <tr><td>Nothing matches; the agent deflects</td><td>Descriptions written in internal jargon the customer never uses</td><td>Write descriptions in <em>customer</em> language, mined from real transcripts</td></tr>
+    <tr><td>Correct topic, wrong action</td><td>Too many actions in one topic with similar descriptions</td><td>Split the topic, or sharpen action descriptions to state when <em>not</em> to use them</td></tr>
+    <tr><td>Behaviour drifts after an edit</td><td>Instructions and descriptions interact; a change in one topic shifts classification across all of them</td><td>Re-run the full regression set after <em>every</em> change — this is not optional</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout tip">
+  <span class="c-ico">✍️</span>
+  <div class="c-body"><span class="c-title">Write descriptions for a new colleague, not a machine</span>
+    The most reliable description pattern: <strong>what it covers, what it explicitly does not cover, and where that goes
+    instead</strong>. "Handles order status and delivery tracking for placed orders. Does not handle returns, refunds or
+    cancellations — those belong to the Returns topic." That negative clause does more for accuracy than any amount of
+    prompt tuning.</div>
+</div>
+
+<h3>Action design for determinism</h3>
+<pre><code class="language-apex">/* An agent action is a tool description the model reads. Write the
+   description for the MODEL and the implementation for production. */
+public with sharing class GetOrderStatus {
+
+    public class Request {
+        @InvocableVariable(
+            required=true
+            label='Order Number'
+            description='The customer-facing order number, format ORD-123456. Not the record Id.'
+        )
+        public String orderNumber;
+    }
+
+    public class Response {
+        @InvocableVariable(description='Current status: Placed, Shipped, Delivered or Cancelled')
+        public String status;
+        @InvocableVariable(description='Estimated delivery date, or null if not yet shipped')
+        public Date estimatedDelivery;
+        @InvocableVariable(description='Set when the order cannot be found, so the agent can say so')
+        public Boolean notFound;
+    }
+
+    @InvocableMethod(
+        label='Get Order Status'
+        description='Returns the delivery status of ONE order by its order number. '
+                  + 'Use when a customer asks where their order is. '
+                  + 'Does not cancel, modify or refund orders.'
+        category='Orders'
+    )
+    public static List&lt;Response&gt; run(List&lt;Request&gt; requests) {
+        List&lt;Response&gt; out = new List&lt;Response&gt;();
+        for (Request r : requests) {
+            Response res = new Response();
+            // Narrow, user-mode query: the agent user's permissions apply
+            List&lt;Order&gt; orders = [
+                SELECT Status, EstimatedDelivery__c FROM Order
+                WHERE OrderNumber = :r.orderNumber WITH USER_MODE LIMIT 1
+            ];
+            if (orders.isEmpty()) { res.notFound = true; }
+            else {
+                res.status = orders[0].Status;
+                res.estimatedDelivery = orders[0].EstimatedDelivery__c;
+            }
+            out.add(res);                       // one response per request, in order
+        }
+        return out;
+    }
+}</code></pre>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Rule</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td><strong>One action, one verb</strong></td><td>"Get order status" not "manage orders". A broad action gets chosen for the wrong purpose</td></tr>
+    <tr><td><strong>State what it does NOT do</strong></td><td>The single most effective line in any action description</td></tr>
+    <tr><td><strong>Return structured outcomes, not exceptions</strong></td><td>A <code>notFound</code> flag lets the agent explain the situation; a thrown exception gives it nothing to say</td></tr>
+    <tr><td><strong>Never let the model choose scope</strong></td><td>Accept <em>one</em> order number, not a filter expression. Any action taking free-form criteria is a data-exfiltration surface</td></tr>
+    <tr><td><strong>Describe parameter formats</strong></td><td>The model guesses otherwise, and will pass a record Id where you wanted an order number</td></tr>
+    <tr><td><strong>Idempotent writes</strong></td><td>The agent may retry. See <a href="async-apex.html#advanced">idempotency</a></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Testing a non-deterministic system</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Layer</th><th>Test method</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Actions</strong></td><td>Ordinary Apex unit tests. Fully deterministic — and the only layer where you can demand exact assertions</td></tr>
+    <tr><td><strong>Classification</strong></td><td>A labelled set of real utterances with the expected topic. Measure accuracy as a percentage and track it per release like any other metric</td></tr>
+    <tr><td><strong>End-to-end conversations</strong></td><td>Scripted multi-turn scenarios with <em>characteristics</em> asserted, not exact strings: did it call the right action, did it escalate, did it avoid promising a refund</td></tr>
+    <tr><td><strong>Adversarial set</strong></td><td>Prompt injection, out-of-scope requests, abusive language, deliberately ambiguous phrasing, and attempts to extract other customers' data</td></tr>
+    <tr><td><strong>Regression discipline</strong></td><td>Every bug becomes a permanent test case. The suite only grows</td></tr>
+    <tr><td><strong>Human review</strong></td><td>Read transcripts daily at launch, weekly after. No metric substitutes for this in the first month</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout warn">
+  <span class="c-ico">📏</span>
+  <div class="c-body"><span class="c-title">Assert characteristics, never exact text</span>
+    Model output varies between runs and changes when the model version changes. A test asserting an exact sentence will
+    fail for no reason and be deleted within a month. Assert what matters: the action called, the arguments passed,
+    whether escalation happened, whether a forbidden claim appeared. Those are stable and they are what the business
+    cares about.</div>
+</div>
+
+<h3>Cost, latency and the experience</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Lever</th><th>Effect</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Grounding volume</strong></td><td>The dominant driver of both cost and latency. Ground narrowly; retrieve the three relevant chunks, not thirty</td></tr>
+    <tr><td><strong>Turn count</strong></td><td>Each reasoning turn is a model call. An agent that asks three clarifying questions costs four times one that asks none — and users abandon</td></tr>
+    <tr><td><strong>Action latency</strong></td><td>A slow callout inside an action stalls the whole conversation. Budget it, and prefer cached or pre-computed data</td></tr>
+    <tr><td><strong>Model choice per topic</strong></td><td>Simple classification and short answers do not need your largest model. Measure quality per topic before paying for capability you cannot detect</td></tr>
+    <tr><td><strong>Streaming</strong></td><td>Where supported, showing partial output transforms perceived latency without changing actual latency</td></tr>
+    <tr><td><strong>Containment vs quality</strong></td><td>Pushing containment too hard produces an agent that refuses to escalate. Watch escalation rate <em>and</em> CSAT together — see <a href="sales-service.html#advanced">paired metrics</a></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Permissions, and the blast radius question</h3>
+<ul>
+  <li><strong>The agent user is a real user.</strong> Its profile, permission sets and sharing determine everything the agent can read or write — so the agent's blast radius <em>is</em> a sharing design exercise.</li>
+  <li><strong>Least privilege per topic is impossible</strong> if every action runs as one agent user, so scope by the <em>actions</em> you expose and by narrow, user-mode queries inside them.</li>
+  <li><strong>Separate read agents from write agents</strong> where the risk justifies it: a read-only service agent plus a tightly-scoped action set for the few mutations you allow.</li>
+  <li><strong>Require confirmation</strong> for anything consequential — refunds, cancellations, data deletion, external notifications. The confirmation step belongs in the <em>action</em>, not in the prompt.</li>
+  <li><strong>Log every action invocation</strong> with arguments and outcome. When something goes wrong, "which agent did what, to which record, on whose behalf" must be answerable.</li>
+  <li><strong>Review permissions when adding an action</strong>, not quarterly. Each new action can widen the surface invisibly.</li>
+</ul>
+
+<div class="callout exam">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">The architecture answer</span>
+    "I treat the agent as an <strong>untrusted orchestrator over trusted tools</strong>. The model decides sequence; my
+    actions decide what is permissible. So the engineering work is narrow single-purpose actions, descriptions that state
+    their own boundaries, least-privilege permissions on the agent user, confirmation gates on consequential writes, a
+    labelled regression suite for classification, and transcript review. The model is the part I control least, so I put
+    the guarantees everywhere else."</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> What makes an agent different from a chatbot or a prompt?<span class="q-diff easy">Easy</span></summary>

@@ -710,6 +710,120 @@ Approval.process(wi);</code></pre>
 </div>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>Formula fields — the limits nobody mentions until you hit them</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Limit</th><th>Reality</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Compiled size</strong></td><td>A formula compiles to a byte size far beyond the characters you typed. Nested <code>IF</code>s and repeated cross-object references explode it. <code>CASE</code> and helper formula fields are the usual rescue</td></tr>
+    <tr><td><strong>Cross-object depth</strong></td><td>You can walk up relationships, but only so far — and every hop costs query work on every row rendered</td></tr>
+    <tr><td><strong>Not selectively filterable</strong></td><td>A formula spanning objects generally cannot be indexed or used in a selective filter. This is why "just report on the formula field" gets slow at volume — see <a href="data-management.html#advanced">selectivity</a></td></tr>
+    <tr><td><strong>No aggregation</strong></td><td>Formulas cannot sum children. That is a roll-up summary, a trigger, or a declarative roll-up tool</td></tr>
+    <tr><td><strong>Blank handling</strong></td><td>"Treat blank fields as zeroes" versus "as blanks" silently changes every arithmetic result. Choose deliberately and document it</td></tr>
+    <tr><td><strong>Evaluated on read</strong></td><td>Always current, but also re-evaluated on every list view, report row and API read. A formula is not free just because it stores nothing</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Roll-up summaries, and what to do when you cannot use one</h3>
+<p>A roll-up summary requires a <strong>master-detail</strong> relationship. The moment the business says "but the child
+   must be reparentable" or "it is a lookup", you need an alternative.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Option</th><th>Use when</th><th>Cost</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Roll-up summary field</strong></td><td>True master-detail, standard aggregations</td><td>Free to build, but parent recalculation is heavy at volume and contributes to parent record locking</td></tr>
+    <tr><td><strong>Record-triggered flow</strong></td><td>Simple counts or sums over a lookup, modest volume</td><td>Easy, but you own bulkification and recursion</td></tr>
+    <tr><td><strong>Apex trigger</strong></td><td>Complex criteria, cross-object, high volume</td><td>Code to own and test — but the only fully controllable option</td></tr>
+    <tr><td><strong>Declarative roll-up tool</strong></td><td>Many lookup roll-ups maintained by admins</td><td>A dependency, and it consumes the same governor limits your own code would</td></tr>
+    <tr><td><strong>A report or CRM Analytics</strong></td><td>Nobody actually needs the number <em>stored</em></td><td>Zero write cost — always ask this first</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout tip">
+  <span class="c-ico">🧮</span>
+  <div class="c-body"><span class="c-title">The question to ask before building any roll-up</span>
+    "Does this number need to be <em>filterable, sortable, or usable in automation</em> — or does someone just need to
+    look at it?" Only the first case justifies storing it. A good share of the roll-ups in a typical org exist because
+    nobody asked.</div>
+</div>
+
+<h3>Record types: a strategy decision, not a feature</h3>
+<ul>
+  <li><strong>Record types multiply.</strong> Every record type × profile combination is a layout assignment and a set of picklist value assignments. Ten record types and fifteen profiles is a 150-cell matrix somebody must maintain.</li>
+  <li><strong>Picklist values are assigned per record type</strong> — the classic "the value exists but I cannot select it". Check the record type's available values before you check the field.</li>
+  <li><strong>Dependent picklists</strong> add a second dimension: the controlling value must <em>also</em> be available for that record type.</li>
+  <li><strong>Dynamic Forms remove most layout-driven record types</strong> — show and hide fields by criteria on one layout instead of cloning layouts per variant. Do this before you add your eighth record type.</li>
+  <li><strong>Record types are not security.</strong> They shape the UI; they do not restrict data access. Field-level security and sharing do that — see <a href="security.html">Security</a>.</li>
+</ul>
+
+<h3>Approval processes beyond the basics</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Capability</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Dynamic approver</strong></td><td>Route via a hierarchy field or a custom user-lookup on the record — how you avoid hard-coding approvers who then leave the company</td></tr>
+    <tr><td><strong>Parallel approvals</strong></td><td>Several approvers on one step, with unanimous or first-response behaviour</td></tr>
+    <tr><td><strong>Delegated approvers</strong></td><td>Cover absence — and quietly break your "the manager personally approved it" assumption. Know whether that matters to your auditors</td></tr>
+    <tr><td><strong>Recall actions</strong></td><td>Fire on withdrawal. The most commonly unconfigured piece, which leaves records stranded in Pending forever</td></tr>
+    <tr><td><strong>Record locking</strong></td><td>Submitted records lock by default, so automation attempting to update them fails. Use the unlock option or sequence your automation around it</td></tr>
+    <tr><td><strong>Entry criteria vs validation</strong></td><td>Entry criteria block submission <em>silently</em>; a validation rule explains why. Prefer the explanation</td></tr>
+    <tr><td><strong>When to leave it behind</strong></td><td>Multi-stage, conditional, long-running sign-off belongs in <a href="flows.html#advanced">Flow Orchestrator</a>. Approval processes are for linear, record-locking approvals</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Automation order and the one-entry-point principle</h3>
+<p>You can have record-triggered flows, Apex triggers, legacy workflow rules and processes on the same object. They all
+   fire inside one save, in an order you only partly control.</p>
+<div class="flowchain">
+  <span class="chip b">before-save flows</span><span class="arrow">→</span>
+  <span class="chip v">before triggers</span><span class="arrow">→</span>
+  <span class="chip">validation</span><span class="arrow">→</span>
+  <span class="chip t">after triggers</span><span class="arrow">→</span>
+  <span class="chip a">after-save flows</span><span class="arrow">→</span>
+  <span class="chip">roll-ups</span><span class="arrow">→</span>
+  <span class="chip g">commit</span>
+</div>
+<p>Within one category — two record-triggered flows on the same object — <strong>order is not guaranteed unless you set
+   the flow's trigger order explicitly</strong>. The working rule: one entry point per object per category, ordering
+   declared, and a named owner. The full sequence, including the re-entry cases, is on
+   <a href="apex-triggers.html#order-of-execution">Triggers &amp; Order of Execution</a>.</p>
+
+<h3>Custom Settings vs Custom Metadata vs Labels — the decision, one line each</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Need</th><th>Use</th></tr></thead>
+  <tbody>
+    <tr><td>A value that differs per user or profile at runtime</td><td><strong>Hierarchy Custom Setting</strong></td></tr>
+    <tr><td>Configuration that ships with the release and is queryable with no SOQL cost</td><td><strong>Custom Metadata Type</strong></td></tr>
+    <tr><td>Rows an admin must edit in production without a deployment</td><td>Custom Setting (Custom Metadata <em>is</em> deployable metadata — that is the point of it)</td></tr>
+    <tr><td>Translatable UI text</td><td><strong>Custom Label</strong></td></tr>
+    <tr><td>A kill switch for a trigger or flow during an incident</td><td>Hierarchy Custom Setting — switchable per user, instantly</td></tr>
+    <tr><td>Business rules a consultant maintains (mappings, thresholds)</td><td>Custom Metadata, plus a test that fails when a required row is missing</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Auditing and change control for admins</h3>
+<ul>
+  <li><strong>Field History Tracking</strong> — a limited number of fields per object, retained for a limited period. A convenience, not an audit system.</li>
+  <li><strong>Field Audit Trail</strong> (Shield) extends retention substantially — the right answer when a regulator asks the question.</li>
+  <li><strong>Setup Audit Trail</strong> — who changed configuration. Review it weekly; it is how you catch undocumented production changes before a release silently reverts them.</li>
+  <li><strong>Declarative changes are changes.</strong> Getting them back into version control is a solved problem — see <a href="branching-strategy.html#drift">config drift and back-propagation</a>.</li>
+</ul>
+
+<div class="callout warn">
+  <span class="c-ico">🪤</span>
+  <div class="c-body"><span class="c-title">Admin changes that become architecture problems</span>
+    A validation rule that fires on every integration load. A newly required field that breaks an existing API caller. A
+    record type whose picklist values nobody assigned. A formula field used as a report filter over ten million rows. A
+    duplicate rule that blocks a migration at 2am. Each is a five-minute change that becomes somebody else's incident —
+    which is exactly why <strong>declarative changes deserve the same review as code</strong>.</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> How do you model a many-to-many relationship, and what decides the "primary" side?<span class="q-diff med">Medium</span></summary>

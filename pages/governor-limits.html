@@ -221,6 +221,132 @@ Database.executeBatch(new MyBatch(), 200);</pre></div>
 </div>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>What actually counts as CPU time</h3>
+<p>The 10-second synchronous CPU limit is the one that fails mysteriously, because the things that <em>don't</em> count
+   are as important as the things that do.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Counts towards CPU</th><th>Does NOT count</th></tr></thead>
+  <tbody>
+    <tr><td>Your Apex loops, collection work, string building</td><td><strong>Waiting for SOQL</strong> to return (database time)</td></tr>
+    <tr><td>JSON serialise/deserialise</td><td><strong>Waiting for a callout</strong> response</td></tr>
+    <tr><td>Formula evaluation during your DML</td><td>DML commit time in the database layer</td></tr>
+    <tr><td>Flow element execution</td><td>Time the user spends on a screen in a screen flow</td></tr>
+    <tr><td>Validation rules, roll-up recalculation triggered by your save</td><td>Platform-internal search indexing</td></tr>
+    <tr><td>Managed-package code your transaction invokes</td><td>&nbsp;</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout warn">
+  <span class="c-ico">🧠</span>
+  <div class="c-body"><span class="c-title">The counter-intuitive consequence</span>
+    A transaction can take 40 seconds of wall-clock time and never approach the CPU limit, because most of it was spent
+    waiting on queries and callouts. Equally, a transaction that completes in 11 seconds of wall clock can fail on CPU
+    because it was all computation. <strong>Stop optimising the clock and start profiling the compute</strong> — the
+    cumulative limits section at the end of a debug log tells you which one you have.</div>
+</div>
+
+<h3>Limits that differ between synchronous and asynchronous</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Limit</th><th>Synchronous</th><th>Asynchronous</th></tr></thead>
+  <tbody>
+    <tr><td>CPU time</td><td>10 seconds</td><td>60 seconds</td></tr>
+    <tr><td>Heap size</td><td>6 MB</td><td>12 MB</td></tr>
+    <tr><td>SOQL queries</td><td>100</td><td>200</td></tr>
+    <tr><td>Total query rows</td><td>50,000</td><td>50,000 (unchanged — the one people assume doubles)</td></tr>
+    <tr><td>DML statements / rows</td><td>150 / 10,000</td><td>150 / 10,000 (also unchanged)</td></tr>
+    <tr><td>Callout time</td><td>120 s cumulative</td><td>Same, per execution</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Moving work async buys you <strong>CPU, heap and query count</strong> — not row counts. "Make it a batch" does not fix
+   a design that tries to load 200,000 rows into one transaction; it fixes one that does heavy computation on 10,000.</p>
+
+<h3>Limits that are not per-transaction</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Limit</th><th>Scope</th><th>Failure mode</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Concurrent long-running requests</strong></td><td>10 per org, for synchronous requests over 5 seconds</td><td>Users get errors because of <em>background</em> work. The nastiest limit on the platform because the symptom is nowhere near the cause</td></tr>
+    <tr><td><strong>Daily API requests</strong></td><td>Org-wide, scales with licences</td><td>Integrations fail at 4pm because a polling job consumed the budget</td></tr>
+    <tr><td><strong>Async executions per 24h</strong></td><td>Org-wide, licence-scaled</td><td>A retry loop quietly consumes it; all async work stops</td></tr>
+    <tr><td><strong>Concurrent batch jobs / flex queue</strong></td><td>Org-wide</td><td>Jobs queue in Holding; a nightly window silently stops fitting</td></tr>
+    <tr><td><strong>Scheduled Apex jobs</strong></td><td>Org-wide count</td><td>You cannot schedule the new job. Caused by per-region/per-entity scheduling</td></tr>
+    <tr><td><strong>Single-email / mass-email limits</strong></td><td>Daily, org-wide</td><td>Notifications stop sending with no exception in your code path</td></tr>
+    <tr><td><strong>Platform event allocation</strong></td><td>Daily publish <em>and</em> delivery</td><td>Multiple subscribers multiply consumption — see <a href="integration-events.html#advanced">Events</a></td></tr>
+    <tr><td><strong>Data and file storage</strong></td><td>Org-wide</td><td>Loads start failing; nobody is monitoring it until then</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Instrumenting your own limit usage</h3>
+<pre><code class="language-apex">/* Measure before you optimise, and leave the measurement in place
+   so you find out BEFORE a limit is breached in production. */
+public class LimitsSnapshot {
+
+    private final Integer cpuStart   = Limits.getCpuTime();
+    private final Integer soqlStart  = Limits.getQueries();
+    private final Integer dmlStart   = Limits.getDmlStatements();
+    private final Integer heapStart  = Limits.getHeapSize();
+    private final String  label;
+
+    public LimitsSnapshot(String label) { this.label = label; }
+
+    public void logIfHot() {
+        Integer cpuUsed = Limits.getCpuTime() - cpuStart;
+        Decimal cpuPct  = (Decimal) cpuUsed / Limits.getLimitCpuTime() * 100;
+
+        // Warn well before the wall, so you get a ticket not an incident
+        if (cpuPct &gt; 60) {
+            System.debug(LoggingLevel.WARN, String.format(
+                '{0}: CPU {1}ms ({2}%), SOQL {3}/{4}, DML {5}/{6}, heap {7}KB',
+                new List&lt;Object&gt;{
+                    label, cpuUsed, cpuPct.setScale(0),
+                    Limits.getQueries() - soqlStart, Limits.getLimitQueries(),
+                    Limits.getDmlStatements() - dmlStart, Limits.getLimitDmlStatements(),
+                    (Limits.getHeapSize() - heapStart) / 1024
+                }
+            ));
+            // Better still: publish a platform event so it is visible in production
+        }
+    }
+}</code></pre>
+
+<h3>Designing for graceful degradation</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Technique</th><th>How it helps</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Check remaining limits mid-loop</strong></td><td>In a batch or queueable, stop and re-enqueue the remainder when CPU or heap crosses a threshold. The job completes in two passes instead of failing at 95%</td></tr>
+    <tr><td><strong>Chunk by a stable key</strong></td><td>Process by parent Id or date range so a re-run is deterministic and resumable</td></tr>
+    <tr><td><strong>Record a high-water mark</strong></td><td>Persist "processed up to here" so a failure resumes rather than restarting — essential for anything over a few minutes</td></tr>
+    <tr><td><strong>Fail the record, not the batch</strong></td><td><code>allOrNone = false</code> plus an error log. One bad record should not cost you 199 good ones</td></tr>
+    <tr><td><strong>Bound every collection</strong></td><td>Query with a <code>LIMIT</code> you chose, not the 50,000 the platform allows. An unbounded query is a future incident with a date on it</td></tr>
+    <tr><td><strong>Degrade the feature, not the save</strong></td><td>If an enrichment callout fails, save the record and queue the enrichment. Users forgive missing decoration; they do not forgive losing their work</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Limits in managed packages</h3>
+<ul>
+  <li><strong>Some limits are namespace-scoped.</strong> A managed package gets its own allocation for certain per-transaction limits, so a package's SOQL does not consume yours — but <strong>CPU time is shared</strong>, and that is the one that fails.</li>
+  <li><strong>Your trigger and the package's trigger both run</strong> on the same save, competing for the same CPU budget. This is why a previously-fine trigger starts failing after an unrelated package install.</li>
+  <li><strong>You cannot see inside package code</strong> in a debug log beyond the cumulative totals, so isolate by disabling your own logic and re-measuring.</li>
+  <li><strong>Raise it with the vendor with evidence</strong> — the cumulative limits section naming their namespace is the artefact that gets a support case taken seriously.</li>
+</ul>
+
+<div class="callout exam">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">The four questions that solve most limit problems</span>
+    <strong>① Is it per-transaction or org-wide?</strong> (If org-wide, no amount of code tuning helps.)
+    <strong>② Is it CPU or waiting?</strong> (Read the cumulative limits, don't guess from the clock.)
+    <strong>③ Does async actually fix it?</strong> (CPU, heap and query count yes; row counts no.)
+    <strong>④ Is the collection bounded?</strong> (An unbounded query works until the day it doesn't.)</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> Why do governor limits exist? (Don't say "to stop bad code".)<span class="q-diff easy">Easy</span></summary>

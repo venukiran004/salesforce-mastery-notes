@@ -215,6 +215,105 @@ public with sharing class PublicCaseController {
 </div>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>External sharing mechanics, precisely</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Mechanism</th><th>What it does</th><th>Applies to</th></tr></thead>
+  <tbody>
+    <tr><td><strong>External Org-Wide Defaults</strong></td><td>A <em>separate</em> OWD for external users, so you can keep internal access open while locking external access down</td><td>All external licence types. Enable it — a single OWD for both is how data leaks</td></tr>
+    <tr><td><strong>Sharing Sets</strong></td><td>Grants access based on a <em>match</em> between a field on the user's Contact/Account and a field on the record ("see Cases where AccountId = my Account")</td><td>Customer Community and similar high-volume licences, which have <strong>no roles</strong></td></tr>
+    <tr><td><strong>Share Groups</strong></td><td>Lets <em>internal</em> users and partners access records owned by high-volume community users — which are otherwise invisible to everyone</td><td>High-volume licences</td></tr>
+    <tr><td><strong>Partner roles &amp; hierarchy</strong></td><td>Partner Community users get a role under the account owner, so partner managers roll up to their own staff</td><td>Partner Community (up to three roles per account)</td></tr>
+    <tr><td><strong>Super User access</strong></td><td>A partner or customer user who can see their whole account's records — delegated, per-account visibility</td><td>Partner and Customer Community Plus</td></tr>
+    <tr><td><strong>External Account Hierarchy</strong></td><td>Access across a parent/child account structure — distributor sees its resellers' records</td><td>Partner-style licences; the answer to multi-tier channel models</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout warn">
+  <span class="c-ico">🧩</span>
+  <div class="c-body"><span class="c-title">High-volume licences have no role hierarchy</span>
+    This single fact drives most community sharing design. No roles means no hierarchy-based access and no sharing rules
+    to groups of them — so <strong>Sharing Sets are the mechanism</strong>, and internal visibility of their records
+    requires a <strong>Share Group</strong>. Designing a community on the assumption that roles exist, then discovering
+    the licence does not have them, is a redesign.</div>
+</div>
+
+<h3>Guest user hardening — the checklist</h3>
+<ul class="steps">
+  <li><b>Guest user sharing rules only</b> — the guest user cannot be given access through ordinary sharing rules; it needs explicitly scoped guest sharing rules, and "Secure guest user record access" should stay enabled.</li>
+  <li><b>No ownership</b> — guest users cannot own records. Records they create are reassigned, usually to a default owner you must configure deliberately.</li>
+  <li><b>Review every object and field</b> the guest profile can read. Field-level security on the guest profile is the control that actually prevents data exposure.</li>
+  <li><b>Audit Apex reachable by guests</b> — any <code>@AuraEnabled</code> method on a guest-accessible page is a public endpoint. <code>without sharing</code> there is an exfiltration path, as is a system-context flow.</li>
+  <li><b>Lock down object creation</b> — a guest-writable object with no validation is a spam target. Rate-limit and validate server side.</li>
+  <li><b>Check sites separately</b> — each site has its own guest user and its own profile. Hardening one does not harden the others.</li>
+  <li><b>Then test as the guest user</b> in an incognito window, and try to read things you did not intend. This step finds what the review missed.</li>
+</ul>
+
+<h3>LWR versus Aura templates</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>LWR (Lightning Web Runtime)</th><th>Aura templates</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Performance</strong></td><td>Substantially faster; static content served from CDN</td><td>Heavier client-side bootstrap</td></tr>
+    <tr><td><strong>SEO</strong></td><td>Much better — the right choice for public, indexable content</td><td>Poor for public pages</td></tr>
+    <tr><td><strong>Component model</strong></td><td>LWC only</td><td>Aura and LWC</td></tr>
+    <tr><td><strong>Out-of-the-box features</strong></td><td>Leaner; some older standard components are unavailable</td><td>Richer legacy component set (Chatter, some case/knowledge components)</td></tr>
+    <tr><td><strong>Choose it for</strong></td><td>New builds, public sites, microsites, commerce, performance-sensitive portals</td><td>Existing sites, or when you specifically need a legacy component with no LWR equivalent</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Check the feature matrix for your release before committing — the gap narrows every release, and basing the decision
+   on year-old knowledge is how a project discovers a missing component in week six.</p>
+
+<h3>Performance and caching</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Lever</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr><td><strong>CDN</strong></td><td>Enable it for public sites. The largest single win for anonymous traffic</td></tr>
+    <tr><td><strong>Guest-user caching</strong></td><td>Public pages can be cached aggressively <em>because</em> the content is identical for everyone. Authenticated pages cannot</td></tr>
+    <tr><td><strong>Component count per page</strong></td><td>Each component is work. Audit what is actually above the fold and lazy-load the rest — see <a href="lwc-core.html#advanced">LWC performance</a></td></tr>
+    <tr><td><strong>Image and asset weight</strong></td><td>Community pages are frequently megabytes of unoptimised imagery. Compress, resize and use modern formats</td></tr>
+    <tr><td><strong>Apex call count on load</strong></td><td>Five components each calling Apex is five round trips. Consolidate into one call returning a composite payload</td></tr>
+    <tr><td><strong>Measure with real tooling</strong></td><td>Lighthouse and the browser network tab, on a throttled connection, from the geography your users are in — not your office laptop</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Personalisation, moderation and self-registration</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Capability</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Audience targeting</strong></td><td>Vary components, pages and branding by profile, location, record field or custom criteria. The declarative way to serve several segments from one site</td></tr>
+    <tr><td><strong>CMS integration</strong></td><td>Salesforce CMS for content reused across sites and channels, with workspaces and translations</td></tr>
+    <tr><td><strong>Self-registration</strong></td><td>A configurable Apex handler. Treat it as a <strong>public endpoint</strong>: validate input, apply a CAPTCHA, rate-limit, and never trust supplied profile or role values</td></tr>
+    <tr><td><strong>Moderation</strong></td><td>Rules for content, rate limits on posting, member criteria and flagged-content queues. Essential for any site with user-generated content</td></tr>
+    <tr><td><strong>Case deflection</strong></td><td>Surface Knowledge search before the case form, and measure the deflection — see <a href="sales-service.html#advanced">metrics</a></td></tr>
+    <tr><td><strong>Localisation</strong></td><td>Site translations, locale-aware formatting and right-to-left support. Plan it at the start; retrofitting means rebuilding pages</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Licence maths</h3>
+<ul>
+  <li><strong>Member-based vs login-based.</strong> Member licences suit frequent users; login licences are a pool of logins per month and suit occasional users. The crossover point is usually around two or three logins per member per month — model it with real expected behaviour.</li>
+  <li><strong>Customer Community</strong> is high volume and cheap, with no roles and no sharing-rule participation. <strong>Customer Community Plus</strong> adds roles, reports and sharing rules at a higher price. <strong>Partner Community</strong> adds CRM objects like Opportunities and Leads.</li>
+  <li><strong>The object access matters more than the price.</strong> Discovering mid-build that your licence cannot see Opportunity is the expensive mistake — check the object availability per licence before design, not after.</li>
+  <li><strong>Count real logins</strong> in a pilot before buying at scale. Estimates in business cases are consistently wrong in both directions.</li>
+</ul>
+
+<div class="callout danger">
+  <span class="c-ico">🔓</span>
+  <div class="c-body"><span class="c-title">The security review question you will be asked</span>
+    "What can an unauthenticated visitor reach?" Answer it with evidence: the guest profile's object and field
+    permissions, the guest sharing rules, every <code>@AuraEnabled</code> method reachable from a public page, every flow
+    running in system context on that page, and the self-registration handler. Those five surfaces are where every
+    serious Experience Cloud incident has originated.</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> Why do Sharing Sets exist?<span class="q-diff med">Medium</span></summary>

@@ -202,6 +202,107 @@ req.setEndpoint('callout:Self_Org/services/data/v62.0/sobjects/Account/' + acc.I
    passwords for specified roles and profiles, without full admin rights.</p>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>Choosing an OAuth flow — the decision table</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Caller</th><th>Flow</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Server-to-server, no user</strong></td><td><strong>JWT Bearer</strong></td><td>A certificate, no stored password, no refresh token to leak. The right default for CI and integrations</td></tr>
+    <tr><td><strong>Server-to-server, modern alternative</strong></td><td><strong>Client Credentials</strong></td><td>Simpler than JWT, tied to a nominated integration user. Needs careful scoping</td></tr>
+    <tr><td><strong>Web app with a user</strong></td><td><strong>Web Server (authorization code) + PKCE</strong></td><td>The code never leaves the back channel; PKCE prevents interception</td></tr>
+    <tr><td><strong>Mobile / single-page app</strong></td><td><strong>Authorization code + PKCE</strong></td><td>Public clients cannot keep a secret — PKCE replaces it</td></tr>
+    <tr><td><strong>Device with no browser</strong></td><td><strong>Device flow</strong></td><td>User authorises on a second device with a code</td></tr>
+    <tr><td><strong>Never use</strong></td><td><s>Username-Password</s></td><td>Stores a credential, bypasses MFA, and is being actively restricted. Remove it from existing integrations</td></tr>
+    <tr><td><strong>Never use</strong></td><td><s>Implicit</s></td><td>Returns the token in the URL fragment. Deprecated industry-wide</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>SAML and OIDC side by side</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>SAML 2.0</th><th>OpenID Connect</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Token</strong></td><td>XML assertion, signed (optionally encrypted)</td><td>JWT id_token, signed</td></tr>
+    <tr><td><strong>Transport</strong></td><td>Browser POST binding, usually</td><td>JSON over HTTPS, built on OAuth 2.0</td></tr>
+    <tr><td><strong>Identity claim</strong></td><td>The <code>Subject</code>/NameID, mapped to Federation Id or Username</td><td>The <code>sub</code> claim plus whatever scopes requested</td></tr>
+    <tr><td><strong>Replay protection</strong></td><td><code>NotBefore</code>/<code>NotOnOrAfter</code>, <code>InResponseTo</code>, assertion id tracking</td><td><code>nonce</code>, <code>exp</code>, <code>iat</code>, and <code>state</code> for CSRF</td></tr>
+    <tr><td><strong>Best for</strong></td><td>Enterprise workforce SSO, existing IdP estates</td><td>Customer identity, mobile and API-centric apps</td></tr>
+    <tr><td><strong>Clock skew</strong></td><td>The classic failure: the IdP and Salesforce clocks disagree and assertions are rejected as expired</td><td>Same root cause, same symptom</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Debugging a failed SSO login, in order</h3>
+<ul class="steps">
+  <li><b>Login History</b> — find the attempt and read the status. "SAML assertion invalid" versus "user not found" versus "restricted IP" point to completely different causes.</li>
+  <li><b>SAML Assertion Validator</b> — paste the actual assertion. It checks signature, issuer, audience, recipient, timestamps and the subject in one pass. This solves most cases on its own.</li>
+  <li><b>Identity provider certificate</b> — expired, or rotated without telling you. Put the IdP's certificate expiry in a shared calendar; it will otherwise take you offline at renewal.</li>
+  <li><b>Entity Id and ACS URL</b> — must match exactly on both sides, including trailing slashes and the My Domain hostname.</li>
+  <li><b>User mapping</b> — Federation Id populated and unique, or Username matching exactly. A blank Federation Id looks like a configuration problem but is a data problem.</li>
+  <li><b>JIT provisioning</b> — if enabled, the handler may be failing on a required field or an invalid profile. Its errors surface in the login history, not in a debug log.</li>
+  <li><b>Login restrictions</b> — IP ranges, login hours and MFA requirements applied at profile level, evaluated <em>after</em> authentication succeeds.</li>
+</ul>
+
+<h3>Token lifecycle and session management</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Control</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Refresh token policy</strong></td><td>Per Connected App: valid until revoked, or expiring after a period of inactivity. "Until revoked" is convenient and the most common cause of a stale integration keeping access long after it should</td></tr>
+    <tr><td><strong>Access token lifetime</strong></td><td>Tied to the session timeout policy of the Connected App or the org</td></tr>
+    <tr><td><strong>Revocation</strong></td><td>Admins can revoke per-user, per-app from the Connected App's usage page; users can revoke their own. Build a revocation step into your offboarding process</td></tr>
+    <tr><td><strong>Scopes</strong></td><td>Request the minimum. <code>full</code> is almost never necessary; <code>refresh_token offline_access</code> plus a narrow API scope usually suffices</td></tr>
+    <tr><td><strong>IP relaxation</strong></td><td>Per Connected App — whether to enforce the profile's IP restrictions for that app. Relaxing it is sometimes necessary and should be a documented exception</td></tr>
+    <tr><td><strong>High assurance sessions</strong></td><td>Require MFA for specific actions (reports export, Setup access) by raising the session security level for a profile</td></tr>
+    <tr><td><strong>External Client Apps</strong></td><td>The newer, more granular app framework. Prefer it for new integrations; understand both, because every existing org has Connected Apps</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Provisioning and the user lifecycle</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Mechanism</th><th>Use</th></tr></thead>
+  <tbody>
+    <tr><td><strong>SCIM</strong></td><td>Standards-based create/update/deactivate from the IdP. The right answer for workforce identity at scale</td></tr>
+    <tr><td><strong>JIT provisioning</strong></td><td>The user is created or updated on first SSO login from assertion attributes. Low effort; limited control, and failures are login failures</td></tr>
+    <tr><td><strong>Identity Connect</strong></td><td>Active Directory synchronisation where SCIM is not available</td></tr>
+    <tr><td><strong>Deactivation, not deletion</strong></td><td>Users cannot be deleted. Deactivate, reassign their records, and remember they may own queue memberships, scheduled jobs and integration credentials</td></tr>
+    <tr><td><strong>Freeze vs deactivate</strong></td><td>Freeze blocks login immediately; deactivation frees the licence but requires reassignment first. Freeze is the correct first move in a security incident</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout danger">
+  <span class="c-ico">🚪</span>
+  <div class="c-body"><span class="c-title">The offboarding checklist people miss</span>
+    Freeze the user, revoke their OAuth tokens, reassign record ownership, check whether they own <strong>scheduled
+    Apex jobs</strong> (which keep running as them), check whether they are the running user of a
+    <strong>dashboard</strong> or an <strong>integration</strong>, check queue and group memberships, and check whether
+    they are a Named Principal on a <a href="integration-core.html#advanced">Named Credential</a>. Deactivating without
+    the scheduled-job check is how a nightly batch silently stops two weeks later.</div>
+</div>
+
+<h3>Salesforce as the Identity Provider</h3>
+<ul>
+  <li><strong>Experience Cloud identity</strong> — Salesforce authenticates your customers and brokers to other apps. Self-registration, social sign-on, passwordless login via email or SMS.</li>
+  <li><strong>Headless identity APIs</strong> let a custom app run registration, login, passwordless and password reset without redirecting to Salesforce-hosted pages — the modern choice for a branded mobile experience.</li>
+  <li><strong>My Domain is the foundation.</strong> Enhanced domains change every URL your integrations, SSO configs and bookmarks use. It is a project with a communication plan, not a setting.</li>
+  <li><strong>Delegated authentication</strong> sends credentials to your endpoint for validation. Powerful and dangerous — a failure of your service locks everyone out, and it bypasses Salesforce's own protections. Treat it as a last resort.</li>
+  <li><strong>Certificate rotation</strong> for both SSO and JWT integrations needs a documented owner and a calendar entry. Expiry is the single most common identity outage.</li>
+</ul>
+
+<div class="callout exam">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">The question behind the question</span>
+    When asked "how would you set up SSO", interviewers want to hear the <em>failure modes</em>: clock skew, certificate
+    expiry, Federation Id mapping, Entity Id mismatch, and a <strong>break-glass path</strong> — at least one admin who
+    can log in with a password and MFA when the IdP is down. An SSO design with no break-glass account is one IdP outage
+    away from nobody being able to fix it.</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> Authentication vs authorisation — where does each live in Salesforce?<span class="q-diff easy">Easy</span></summary>

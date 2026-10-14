@@ -610,6 +610,159 @@ newman run collection.json -e env.json \
 </div>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>JWT bearer flow in Postman — no password, no browser</h3>
+<p>The right flow for testing as an integration user, and for mirroring exactly what your CI pipeline does.</p>
+<pre><code class="language-js">// Pre-request script on the collection. Requires CryptoJS (built into Postman)
+// and a private key stored in a VAULT or environment secret — never in the script.
+
+const header  = { alg: 'RS256' };
+const now     = Math.floor(Date.now() / 1000);
+const claims  = {
+    iss: pm.environment.get('consumer_key'),          // Connected App consumer key
+    sub: pm.environment.get('integration_username'),  // the user to impersonate
+    aud: pm.environment.get('login_url'),             // login.salesforce.com or test.
+    exp: now + 180
+};
+
+// Postman's sandbox cannot do RS256 natively — generate the assertion in CI
+// or with a small helper, then store it as a short-lived environment variable.
+// For interactive work, prefer the OAuth 2.0 helper with Authorization Code + PKCE.
+
+pm.sendRequest({
+    url: pm.environment.get('login_url') + '/services/oauth2/token',
+    method: 'POST',
+    header: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: {
+        mode: 'urlencoded',
+        urlencoded: [
+            { key: 'grant_type', value: 'urn:ietf:params:oauth:grant-type:jwt-bearer' },
+            { key: 'assertion',  value: pm.environment.get('jwt_assertion') }
+        ]
+    }
+}, (err, res) =&gt; {
+    if (err) { console.error(err); return; }
+    const body = res.json();
+    pm.environment.set('access_token', body.access_token);
+    pm.environment.set('instance_url', body.instance_url);   // ALWAYS use this, not login_url
+});</code></pre>
+<div class="callout warn">
+  <span class="c-ico">🔐</span>
+  <div class="c-body"><span class="c-title">Secret hygiene, because collections get shared</span>
+    Store tokens and keys in <strong>environment</strong> or vault variables of type <em>secret</em>, never in the
+    collection itself — collections are exported, committed and shared, and an exported collection with a refresh token
+    in it is a credential leak. Keep separate environments per org and make the environment name visible in your
+    requests so you cannot POST to production believing it is a sandbox.</div>
+</div>
+
+<h3>Token refresh without thinking about it</h3>
+<pre><code class="language-js">// Collection-level pre-request script: refresh only when needed.
+const expiry = Number(pm.environment.get('token_expires_at') || 0);
+
+if (Date.now() &gt; expiry - 60000) {          // refresh a minute before expiry
+    pm.sendRequest({
+        url: pm.environment.get('login_url') + '/services/oauth2/token',
+        method: 'POST',
+        header: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: {
+            mode: 'urlencoded',
+            urlencoded: [
+                { key: 'grant_type',    value: 'refresh_token' },
+                { key: 'refresh_token', value: pm.environment.get('refresh_token') },
+                { key: 'client_id',     value: pm.environment.get('consumer_key') }
+            ]
+        }
+    }, (err, res) =&gt; {
+        if (!err &amp;&amp; res.code === 200) {
+            const b = res.json();
+            pm.environment.set('access_token', b.access_token);
+            pm.environment.set('token_expires_at', Date.now() + 1000 * 60 * 110);
+        }
+    });
+}</code></pre>
+
+<h3>Chaining requests into a real scenario</h3>
+<pre><code class="language-js">// Tests tab: assert, then capture values the NEXT request needs.
+pm.test('Account created', () =&gt; {
+    pm.response.to.have.status(201);
+    const body = pm.response.json();
+    pm.expect(body.success).to.be.true;
+    pm.environment.set('account_id', body.id);        // feeds the next request
+});
+
+pm.test('Responds quickly enough', () =&gt; {
+    pm.expect(pm.response.responseTime).to.be.below(2000);
+});
+
+// Clean up after yourself — a scenario that leaves records behind
+// pollutes the org and makes the next run non-deterministic.
+pm.test('Schedule cleanup', () =&gt; {
+    const ids = JSON.parse(pm.environment.get('created_ids') || '[]');
+    ids.push(pm.environment.get('account_id'));
+    pm.environment.set('created_ids', JSON.stringify(ids));
+});</code></pre>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Technique</th><th>Use</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Environment variables for ids</strong></td><td>Pass a created record's Id to the next request — the basis of any multi-step scenario</td></tr>
+    <tr><td><code>pm.execution.setNextRequest()</code></td><td>Branch or loop inside a Collection Runner run — conditional flows and polling an async job</td></tr>
+    <tr><td><strong>Data files (CSV/JSON)</strong></td><td>Data-driven runs: the same request executed per row, with assertions per row</td></tr>
+    <tr><td><strong>Teardown requests</strong></td><td>A final request that deletes everything created. Non-negotiable if you run against a shared sandbox</td></tr>
+    <tr><td><strong>Folder-level scripts</strong></td><td>Shared setup for a group of requests without duplicating it in each one</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Salesforce-specific requests worth having in the collection</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Request</th><th>Why it earns its place</th></tr></thead>
+  <tbody>
+    <tr><td><code>GET /services/data</code></td><td>Lists available API versions — the quickest check that auth works and which version to pin</td></tr>
+    <tr><td><code>GET /limits</code></td><td>Daily API calls remaining, storage, async usage. The first thing to check when an integration starts failing at 4pm</td></tr>
+    <tr><td><code>POST /composite</code></td><td>Up to 25 subrequests in one round trip, with references between them. Test your composite payloads here before coding them</td></tr>
+    <tr><td><code>POST /composite/sobjects</code></td><td>Up to 200 records in one call, with <code>allOrNone</code> — the shape most integrations should use rather than per-record calls</td></tr>
+    <tr><td><code>PATCH .../sobjects/X/ExtId__c/value</code></td><td>Upsert by External Id. Run it twice and confirm the second call updates rather than duplicates — that is your idempotency test</td></tr>
+    <tr><td><code>POST /jobs/ingest</code></td><td>Bulk API 2.0: create job → upload CSV → close → poll state. Worth scripting as a folder with a polling loop</td></tr>
+    <tr><td><code>GET /query?q=...</code> + <code>nextRecordsUrl</code></td><td>Proves your client handles pagination — the most commonly missed integration bug</td></tr>
+    <tr><td><code>POST /graphql</code></td><td>Shape read queries across objects without Apex</td></tr>
+    <tr><td><code>GET /sobjects/X/describe</code></td><td>Field names, types and picklist values — faster than hunting in Setup</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Newman and CI</h3>
+<pre><code class="language-bash"># Run the collection in a pipeline — API contract tests on every deployment
+newman run salesforce-api.postman_collection.json \
+  --environment ci-sandbox.postman_environment.json \
+  --env-var "consumer_key=$CONSUMER_KEY" \
+  --env-var "refresh_token=$REFRESH_TOKEN" \
+  --reporters cli,junit \
+  --reporter-junit-export results/newman.xml \
+  --bail                      # stop on first failure
+
+# Treat these as smoke tests AFTER deployment:
+#   does auth work, do the custom endpoints respond,
+#   is the contract unchanged, are limits healthy.</code></pre>
+<ul>
+  <li><strong>Keep the collection in version control</strong> alongside the code it tests, so the contract and the implementation move together.</li>
+  <li><strong>Never commit the environment file with secrets</strong> — commit a template with empty values and inject real ones from CI secrets.</li>
+  <li><strong>Run post-deployment, not pre.</strong> These are integration smoke tests; they verify the deployed org, which unit tests cannot.</li>
+  <li><strong>Make failures readable</strong> — JUnit output so your pipeline shows which endpoint broke, not a wall of console text.</li>
+</ul>
+
+<div class="callout tip">
+  <span class="c-ico">🧭</span>
+  <div class="c-body"><span class="c-title">Troubleshooting, quickly</span>
+    <strong>401</strong> → expired token, or you are calling <code>login.salesforce.com</code> instead of the
+    <code>instance_url</code> from the token response. <strong>403 REQUEST_LIMIT_EXCEEDED</strong> → check
+    <code>/limits</code>. <strong>400 MALFORMED_QUERY</strong> → URL-encode the SOQL. <strong>404 on a custom
+    endpoint</strong> → wrong namespace, wrong version, or the class is not exposed. <strong>Works for you, fails for
+    the integration user</strong> → permissions, not the request: that is the most common case by a wide margin.</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> Walk me through connecting Postman to a Salesforce org from scratch.<span class="q-diff easy">Easy</span></summary>

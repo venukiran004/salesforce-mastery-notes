@@ -238,6 +238,118 @@ Database.insertImmediate(bigObjectRows);   // bypasses the normal DML transactio
    handle backups. Design for this before you're asked for it.</p>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>The three skews, and the numbers</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Skew</th><th>Shape</th><th>What breaks</th><th>Fix</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Ownership skew</strong></td><td>One user or queue owns a very large number of records (commonly cited threshold: ~10,000+)</td><td>Every role or ownership change triggers massive sharing recalculation; record locking becomes routine</td><td>Spread ownership; keep the skewed owner <strong>out of the role hierarchy</strong> or at the very top with no peers</td></tr>
+    <tr><td><strong>Account data skew</strong></td><td>One Account with a very large number of child records (~10,000+ contacts, cases, opportunities)</td><td>Implicit sharing recalculation on that parent; lock contention on any child DML</td><td>Split the mega-account; avoid "House Account" dumping grounds</td></tr>
+    <tr><td><strong>Lookup skew</strong></td><td>Thousands of children pointing at the same lookup parent (a "Default" picklist-as-lookup record)</td><td>DML contention — concurrent inserts fight over the parent row</td><td>Spread the values, or remove the lookup in favour of a picklist/text field</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout danger">
+  <span class="c-ico">🔒</span>
+  <div class="c-body"><span class="c-title">Skew is the root cause behind most UNABLE_TO_LOCK_ROW tickets</span>
+    The error appears in an unrelated integration at 2am, so people tune the integration. The actual cause is a parent
+    record that thousands of rows point at, or an integration user who owns a million records. Look at the <em>shape of
+    the data</em> before you tune the code — and sort DML by parent Id so concurrent transactions lock in the same
+    order.</div>
+</div>
+
+<h3>Index selectivity in practice</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Rule of thumb</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Standard index thresholds</strong></td><td>A filter is index-eligible when it returns roughly under 30% of the first million rows and under ~15% beyond that, capped at around a million rows returned. Custom indexes use tighter thresholds (~10%)</td></tr>
+    <tr><td><strong>The same query changes plan</strong></td><td>As data grows, a filter that was selective stops being selective and the optimiser switches to a scan. That is why a report "suddenly" times out with no code change</td></tr>
+    <tr><td><strong>Two-column custom indexes</strong></td><td>Available via Support for common composite filters — often a better answer than two separate indexes</td></tr>
+    <tr><td><strong>Nulls</strong></td><td>Historically excluded from custom indexes unless explicitly enabled, which is why <code>WHERE Field__c = null</code> scans. Ask Support if you need it</td></tr>
+    <tr><td><strong>Formula fields</strong></td><td>Deterministic, single-object formulas can be indexed; anything cross-object or non-deterministic cannot</td></tr>
+    <tr><td><strong>Skinny tables</strong></td><td>Support-created denormalised tables for heavy read patterns. Up to 100 fields, no joins, and they do <em>not</em> automatically include fields you add later</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Bulk API 2.0 and PK chunking</h3>
+<pre><code class="language-bash"># Bulk API 2.0: you upload, Salesforce chunks and processes.
+# Always use an External Id for upserts — it is the idempotency guarantee.
+sf data upsert bulk --sobject Account \
+  --file accounts.csv --external-id External_Account_Id__c \
+  --wait 30 --target-org prod
+
+# Extraction at volume: PK chunking splits the query by Id ranges
+# so each chunk is selective. Essential above a few million rows.
+#   Sforce-Enable-PKChunking: chunkSize=100000
+sf data export bulk --query "SELECT Id, Name FROM Account" \
+  --output-file accounts.csv --wait 30</code></pre>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Concern</th><th>Guidance</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Serial vs parallel mode</strong></td><td>Parallel is faster but causes lock contention on shared parents. Switch to serial when you see <code>UNABLE_TO_LOCK_ROW</code> — slower and finishes, versus faster and fails</td></tr>
+    <tr><td><strong>Sort the file by parent Id</strong></td><td>Groups children of the same parent into the same chunk, dramatically reducing lock contention. The single cheapest migration optimisation there is</td></tr>
+    <tr><td><strong>Disable automation during load</strong></td><td>Triggers, flows, validation rules, workflow, roll-ups and sharing recalculation all run per row. Use a <a href="apex-triggers.html#advanced">bypass switch</a> on the load user, then run a reconciliation pass afterwards</td></tr>
+    <tr><td><strong>Defer sharing calculation</strong></td><td>For a very large load, suspend sharing recalculation and resume once at the end</td></tr>
+    <tr><td><strong>Load order</strong></td><td>Parents before children; self-referential relationships (Account parent, Contact reports-to) need a second pass to fill the references</td></tr>
+    <tr><td><strong>Hard delete</strong></td><td>Normal deletes go to the recycle bin and still consume storage. <code>hardDelete</code> on Bulk API skips it — irreversible, so prove the data is right first</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Big Objects and archiving</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Aspect</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr><td><strong>What they are</strong></td><td>Append-oriented storage for billions of rows, outside standard storage limits. Used for history, telemetry, archived transactions</td></tr>
+    <tr><td><strong>The index is everything</strong></td><td>A Big Object has a defined composite index, and <strong>you can only query along it, in order, left to right</strong>. Get it wrong at design time and the data is effectively unqueryable — and the index cannot be changed afterwards</td></tr>
+    <tr><td><strong>Async SOQL</strong></td><td>For large result sets, results are written to another object rather than returned. Synchronous SOQL works only for narrow, index-aligned queries</td></tr>
+    <tr><td><strong>No triggers, limited DML</strong></td><td>Insert and (limited) delete. No updates in the usual sense, no roll-ups, no sharing model</td></tr>
+    <tr><td><strong>Reporting</strong></td><td>Not a standard reporting source. Surface it via CRM Analytics or a custom component</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Archiving pattern: a scheduled batch copies closed records older than <em>n</em> years into a Big Object (or an
+   external store), verifies the copy, then hard-deletes the originals. <strong>Verify before you delete</strong>, in a
+   separate job run, and keep a reconciliation count.</p>
+
+<h3>Encryption, masking and deletion</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Need</th><th>Tool</th><th>Catch</th></tr></thead>
+  <tbody>
+    <tr><td>Protect data at rest from infrastructure access</td><td><strong>Shield Platform Encryption</strong></td><td>Breaks filtering, sorting, some formulas and matching rules. It does <em>not</em> hide data from users who have FLS — see <a href="security.html#advanced">Security</a></td></tr>
+    <tr><td>Hide data from most users</td><td><strong>Field-level security</strong></td><td>The correct tool for this requirement, and free</td></tr>
+    <tr><td>Realistic-but-fake data in sandboxes</td><td><strong>Data Mask</strong></td><td>Run it as part of the post-refresh checklist, before anyone logs in</td></tr>
+    <tr><td>Right to be forgotten</td><td>Delete or anonymise, plus <code>Individual</code> / consent records</td><td>Deletion must cascade to history, feeds, files, email logs, Big Objects and external systems. Build it as a documented process, not an ad-hoc query</td></tr>
+    <tr><td>Retention policy</td><td>Scheduled archive and delete jobs</td><td>"Keep everything forever" is itself a compliance position — and usually the wrong one</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Backup and recovery — the part people discover too late</h3>
+<ul>
+  <li><strong>The Weekly Export is not a backup.</strong> It is a CSV dump with no relationships preserved, no automation, and a restore measured in weeks of manual work.</li>
+  <li><strong>Recycle bin limits</strong> mean a mass delete is not reliably recoverable — capacity is bounded and it purges.</li>
+  <li><strong>Test the restore.</strong> A backup you have never restored is a hypothesis. Restore a subset into a sandbox quarterly and time it.</li>
+  <li><strong>Know your RPO and RTO</strong> and write them down. "How much data can we lose, and how long can we be down?" drives the tool choice; working backwards from a product does not.</li>
+  <li><strong>Metadata needs backup too</strong> — that is what version control is for. A data backup with no metadata to restore into is not a recovery plan.</li>
+</ul>
+
+<div class="callout exam">
+  <span class="c-ico">🎯</span>
+  <div class="c-body"><span class="c-title">The LDV design conversation</span>
+    Lead with four questions: <strong>how many rows, growing how fast</strong>; <strong>which queries must stay
+    fast</strong> (and are their filters indexable); <strong>what the sharing shape is</strong> (skew, OWD, hierarchy
+    depth); and <strong>what the retention rule is</strong>. Those four answers determine indexes, skinny tables,
+    archiving and whether the data belongs in Salesforce at all — which is sometimes the right answer.</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> Data Import Wizard or Data Loader — how do you choose?<span class="q-diff easy">Easy</span></summary>

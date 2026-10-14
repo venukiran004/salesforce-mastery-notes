@@ -182,6 +182,112 @@
 </div>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>Dataflows, recipes and when each one wins</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>Recipe (Data Prep)</th><th>Dataflow (legacy)</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Interface</strong></td><td>Visual, with a live data preview at each step</td><td>JSON node graph</td></tr>
+    <tr><td><strong>Capabilities</strong></td><td>Joins, aggregates, transforms, clustering and prediction steps, output to dataset or external</td><td>Core extract/augment/filter/register nodes</td></tr>
+    <tr><td><strong>Direction of travel</strong></td><td>Where Salesforce is investing — new work belongs here</td><td>Maintenance only; migrate when you touch it</td></tr>
+    <tr><td><strong>Performance</strong></td><td>Runs on the newer compute engine; generally faster at scale</td><td>Can be hard to optimise once large</td></tr>
+    <tr><td><strong>Debugging</strong></td><td>Preview per node — you can see where rows disappear</td><td>Run the whole thing and inspect the result</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout tip">
+  <span class="c-ico">🧹</span>
+  <div class="c-body"><span class="c-title">Where row counts go wrong</span>
+    Nearly every "my numbers don't match the report" issue is a join in the data prep: an inner join silently dropping
+    rows with no match, or a one-to-many join <em>multiplying</em> rows so every subsequent sum is inflated. Check the row
+    count after every join node, and compare the dataset total against a Salesforce report before anyone builds a
+    dashboard on it.</div>
+</div>
+
+<h3>Security: predicates and sharing inheritance</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Mechanism</th><th>How it works</th><th>Caveat</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Sharing inheritance</strong></td><td>The dataset honours Salesforce sharing for a supported object, automatically</td><td>Supported for a limited set of objects, and it has a row-count ceiling. Beyond it, access falls back — you must know what the fallback is</td></tr>
+    <tr><td><strong>Security predicate</strong></td><td>A row-level filter expression evaluated per user (e.g. <code>'OwnerId' == "$User.Id"</code>) — you implement the sharing model yourself</td><td>Entirely your responsibility. A predicate that silently matches nothing shows an empty dashboard; one that matches everything leaks data with no error</td></tr>
+    <tr><td><strong>Flatten for hierarchy</strong></td><td>A flatten step turns the role hierarchy into a list you can reference in a predicate, so managers see their team's rows</td><td>Must be re-run when the hierarchy changes, or the predicate is stale</td></tr>
+    <tr><td><strong>App-level sharing</strong></td><td>Controls who can open the app, dashboards and datasets</td><td>Separate from row-level security. Both are needed — app access without a predicate is a data leak</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout danger">
+  <span class="c-ico">🔓</span>
+  <div class="c-body"><span class="c-title">Always test a predicate as a restricted user</span>
+    Predicates are evaluated at query time with no error when they are wrong. Build a test matrix — a rep, a manager, a
+    regional lead, an exec — and verify expected row counts for each before release, and again after any hierarchy
+    change. "It looked right as an admin" is how analytics data leaks happen, and they are invisible until someone
+    notices.</div>
+</div>
+
+<h3>Bindings: what makes a dashboard interactive</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Binding type</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Selection binding</strong></td><td>One widget's query depends on what the user <em>selected</em> in another. The basis of drill-down</td></tr>
+    <tr><td><strong>Results binding</strong></td><td>One query consumes another query's <em>results</em> — compute a cohort in step one, filter by it in step two</td></tr>
+    <tr><td><strong>Interaction syntax</strong></td><td><code>{{cell(stepName.selection, 0, "field").asString()}}</code> and friends. Verbose, and worth learning properly because it unlocks most real dashboard requirements</td></tr>
+    <tr><td><strong>Static vs dynamic steps</strong></td><td>Static steps provide fixed option lists for filters; dynamic steps query live values</td></tr>
+    <tr><td><strong>Faceting</strong></td><td>Automatic cross-filtering between widgets on the same dataset. Turn it off deliberately where a widget should stay global — unexpected faceting is a frequent "why did my total change" complaint</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>SAQL and query layers</h3>
+<ul>
+  <li><strong>Compact form</strong> is what the builder generates — JSON-ish, fine for most dashboards.</li>
+  <li><strong>SAQL</strong> is the underlying language: streams, groups, projections and windowing functions. Needed for period-over-period calculations, custom cohorts and anything the builder cannot express.</li>
+  <li><strong>Windowing</strong> (<code>sum(...) over ([-2..0] partition by ...)</code>) gives moving averages and running totals — the most common reason to drop into SAQL.</li>
+  <li><strong>Compare tables</strong> handle many period-over-period cases declaratively; try them before writing SAQL.</li>
+  <li><strong>Dataset design beats query cleverness.</strong> Pre-compute expensive derivations in the recipe so dashboards stay fast — dashboards should read, not calculate.</li>
+</ul>
+
+<h3>Einstein Discovery: model operations</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Stage</th><th>What matters</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Story setup</strong></td><td>Define the outcome variable precisely. "Won" versus "Won within 90 days" are different models with different business meanings</td></tr>
+    <tr><td><strong>Leakage</strong></td><td>Remove fields that are only populated <em>after</em> the outcome. A model predicting churn from the cancellation-reason field will look superb and be useless</td></tr>
+    <tr><td><strong>Bias checks</strong></td><td>The platform flags sensitive variables. Review proxies too — postcode and job title can encode protected characteristics</td></tr>
+    <tr><td><strong>Deployment</strong></td><td>Predictions written to records, surfaced in Lightning pages, or consumed in flows and Apex</td></tr>
+    <tr><td><strong>Drift monitoring</strong></td><td>Model quality decays as the business changes. Schedule refreshes and compare predicted versus actual — a model nobody re-trains is a model nobody should trust</td></tr>
+    <tr><td><strong>Actionability</strong></td><td>A prediction nobody acts on has no value. Pair every model with the decision it changes, and measure that decision</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Choosing a tool in the modern stack</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Need</th><th>Tool</th></tr></thead>
+  <tbody>
+    <tr><td>Operational, live, single-object-plus-children</td><td><strong>Reports &amp; dashboards</strong> — see <a href="reports.html#advanced">Reports</a></td></tr>
+    <tr><td>Blended Salesforce data, trending, large datasets, embedded in CRM</td><td><strong>CRM Analytics</strong></td></tr>
+    <tr><td>Enterprise BI across many non-Salesforce sources, deep visual analysis</td><td><strong>Tableau</strong></td></tr>
+    <tr><td>Unified customer profile, identity resolution, activation to other systems</td><td><strong>Data Cloud</strong> — see <a href="einstein-ai.html#advanced">Einstein &amp; Data Cloud</a></td></tr>
+    <tr><td>Zero-copy access to a warehouse</td><td><strong>Data Cloud zero-copy</strong> rather than ingesting it twice</td></tr>
+    <tr><td>Predictions inside a CRM workflow</td><td><strong>Einstein Discovery / Prediction Builder</strong></td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout warn">
+  <span class="c-ico">💸</span>
+  <div class="c-body"><span class="c-title">Watch the consumption model</span>
+    Rows ingested, dataset row limits, recipe runtime, query concurrency and Data Cloud credits all meter. A recipe
+    scheduled hourly "just in case" over a 200-million-row dataset is a budget conversation waiting to happen. Set the
+    refresh cadence from the <em>decision latency</em> the business actually needs — the same question as
+    <a href="integration-patterns.html#advanced">latency budgeting</a>.</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> When do you move a requirement from standard Reports to CRM Analytics?<span class="q-diff med">Medium</span></summary>

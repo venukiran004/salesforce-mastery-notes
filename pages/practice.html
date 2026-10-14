@@ -500,6 +500,132 @@ automatically, refreshes OAuth tokens, and keeps secrets out of code. Use
 </table>
 </div>
 
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+<p>Architect-level scenarios. No single right answer — what is being assessed is whether you surface the trade-offs,
+   state your assumptions, and justify the choice you make.</p>
+
+<details class="acc"><summary><span class="q-num">A1</span> 50 million Cases. Reports time out, nightly batches fail on locks. Where do you start?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Separate the two symptoms, because they have different causes. <strong>Reports timing out</strong> is
+selectivity: check the Query Plan for the report's filters, confirm they lead with an indexed and selective field, and
+look for cross-object formula fields in filters (never indexable). Request a custom or two-column index, or a skinny
+table, for the filters that matter most.</p>
+<p><strong>Batch lock failures</strong> are almost always data shape, not code: ownership skew (an integration user
+owning millions of records), account data skew (one mega-account with tens of thousands of children), or parallel batches
+contending on shared parents. Fixes: sort DML by parent Id so transactions lock in the same order, reduce batch scope, run
+serial mode, and get the skewed owner out of the role hierarchy.</p>
+<p>Then the structural answer: a retention policy. Fifty million open-ended Cases means an archive to a Big Object or
+external store with a verified copy before hard delete. See <a href="data-management.html#advanced">Data Management</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">A2</span> Design the sharing model: 500 internal users, 200 partners, 100,000 customers.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Three populations, three mechanisms. <strong>Internal</strong>: private OWD, role hierarchy for
+management roll-up, criteria or owner-based sharing rules for cross-team access, teams for exceptions. <strong>Partners</strong>:
+Partner Community licences with partner roles under the account, Super User access for partner managers, and External
+Account Hierarchy if there is a distributor/reseller tier. <strong>Customers</strong>: at 100,000 the licence is
+high-volume Customer Community — which has <strong>no role hierarchy</strong>, so access comes from <strong>Sharing
+Sets</strong> matching the user's Contact/Account to the record, and internal visibility of their records requires a
+<strong>Share Group</strong>.</p>
+<p>Then: enable <strong>External OWD</strong> separately so you can lock external access without constraining internal;
+audit the guest profile if any part is public; and plan for sharing recalculation time at that volume. The thing to say
+out loud is that high-volume licences having no roles is the constraint driving the whole design — see
+<a href="experience-cloud.html#advanced">Experience Cloud</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">A3</span> An ERP must stay in sync with Salesforce accounts, bidirectionally. Design it.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>First, challenge the requirement: <strong>bidirectional sync doubles complexity and demands conflict
+resolution</strong>. Name the system of record <em>per field</em> — ERP owns billing address and credit terms, Salesforce
+owns relationship data — and most "bidirectional" requirements collapse into two one-way flows, which is far safer.</p>
+<p>If genuinely bidirectional: stable cross-system keys on both sides (External Id on Salesforce, indexed and unique),
+explicit conflict rules (last-write-wins, source-wins per field, or raise for review), <strong>idempotency keys</strong> so
+retries are harmless, and a loop-prevention flag so each system ignores changes it caused.</p>
+<p>Transport: Change Data Capture or platform events outbound for freshness, Bulk API for the initial load and for
+nightly reconciliation. And the part that makes it correct — <strong>a reconciliation job</strong> comparing counts and
+checksums, because the event stream will have a hole in it eventually and "the event was lost" is not an acceptable
+explanation. See <a href="integration-patterns.html#advanced">Patterns</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">A4</span> Deployments take three hours and break things. Fix the process.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Three hours is usually full-org deployments with all tests. Fix with <strong>delta
+deployments</strong> (manifest generated from the diff since the last release tag) and <strong>validate-then-quick-deploy</strong>:
+run the tests in a validation-only deployment, then promote the validated build without re-running them. Minutes, not
+hours.</p>
+<p>"Breaks things" is a gates problem. Add tiered CI: static analysis and Jest on every PR, delta validation against the
+integration org for <code>develop</code>, validation against <strong>production</strong> for release branches. Set a
+per-class coverage floor on changed classes rather than trusting the org-wide number.</p>
+<p>Then the cause nobody mentions: <strong>drift</strong>. If production has undocumented changes, every deployment
+reverts someone's fix. Add nightly drift detection diffing production against <code>main</code>, a sanctioned fast path
+for urgent admin changes, and a scripted migration for the config that is data rather than metadata. See
+<a href="branching-strategy.html">Branching Strategy</a> and <a href="devops.html#advanced">DevOps</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">A5</span> A nightly batch worked for two years and now fails on CPU. Nothing was deployed.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Something changed even if your code did not. Candidates, in order of likelihood: <strong>data
+volume growth</strong> pushing a query past the selectivity threshold so the optimiser now scans; a <strong>managed
+package installed</strong> whose triggers run inside your transaction and share your CPU budget; <strong>new automation
+added</strong> on an object you touch (a record-triggered flow someone added last month); <strong>roll-up or sharing
+recalculation</strong> growing with the data; or a <strong>skew</strong> that crossed a threshold.</p>
+<p>Diagnose from the cumulative limits section of a debug log — it attributes consumption <strong>per namespace</strong>,
+which immediately tells you whether the CPU is yours or a package's. Then reduce batch scope, move computation out of
+loops, or re-enqueue in chunks with a high-water mark so the job completes in passes instead of failing at 95%. See
+<a href="governor-limits.html#advanced">Limits</a> and <a href="debugging.html#advanced">Debugging</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">A6</span> The business wants an AI agent to handle refunds end to end. Advise them.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Agree the useful part and constrain the dangerous part. Agents are well suited to
+<strong>understanding the request, retrieving the facts and preparing the decision</strong>; they are poorly suited to
+<em>executing an irreversible financial action unsupervised</em>.</p>
+<p>Design: narrow single-purpose actions (look up order, check refund eligibility, calculate amount), a
+<strong>confirmation gate inside the action</strong> for anything above a threshold, least-privilege permissions on the
+agent user, and an escalation path. Treat grounded content as untrusted — a refund request arriving via a web form can
+contain prompt injection. Log every action invocation with arguments and outcome.</p>
+<p>Then the testing answer: a labelled classification set, scripted multi-turn scenarios asserting
+<em>characteristics</em> rather than exact text, and an adversarial suite. And a measured pilot — auto-approve under a
+small value threshold, human-review above it, and widen only once the data supports it. See
+<a href="agentforce.html#advanced">Agentforce</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">A7</span> Two business units, one org, constant release conflict. Split the org?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Probably not, and the first question is diagnostic: <strong>do they share customers, processes or
+reporting?</strong> If yes, splitting destroys the single customer view — the hardest thing to retrofit — and you will
+still have the same disagreement, now across two orgs plus an integration.</p>
+<p>Release conflict is usually a <strong>governance and branching problem</strong> dressed as architecture. Fixes:
+separate release trains on parallel release branches, clear ownership of conflict-prone metadata (one owner per flow, per
+layout, per global value set), and decomposition into <strong>unlocked packages</strong> so each team owns a versioned
+artefact — the real structural answer to permanent cross-team contention.</p>
+<p>Separate orgs become defensible when there is genuinely no shared customer or process, or when different regulators or
+data-residency rules force it. Say that explicitly, then say that splitting to avoid a difficult conversation gives you
+two orgs <em>and</em> the conversation. See <a href="governance.html#advanced">Governance</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">A8</span> Technicians say the schedule is unusable and ignore it. Diagnose.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Start with <strong>travel calibration</strong>. If the engine believes a cross-city journey takes
+twelve minutes, every plan is fiction, technicians fall behind by mid-morning and stop trusting it — and this failure is
+silent because nobody raises a ticket saying "the schedule is optimistic".</p>
+<p>Then: are durations honest (Work Type estimates versus actual times from the mobile app)? Are arrival windows so
+narrow that no efficient route exists? Are home base and start/end locations correct, so the first and last legs are
+real? Is dispatch happening so early that the plan is frozen before the day settles? Are dispatchers pinning everything,
+leaving optimisation nothing to improve?</p>
+<p>The method: compare a week of estimated travel and durations against actuals, fix the model, <em>then</em> tune
+objective weights — tuning against a broken model is wasted work. See
+<a href="field-service-advanced.html#optimization">Field Service — Advanced</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">A9</span> You inherit an org with 14 automations on Account. What do you do?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Document before changing anything. Inventory every trigger, record-triggered flow, workflow rule,
+process and validation rule, with what it does, who owns it and whether it is still needed. A debug log of a single
+Account save gives you the actual execution tree, including the ones nobody remembered.</p>
+<p>Then consolidate in order of risk: delete what is provably dead (check Setup Audit Trail and usage), migrate workflow
+rules and processes into flows, and converge on <strong>one entry point per object per timing</strong> with explicit
+trigger order. Move same-record field updates into <strong>before-save</strong> flows — a large performance win and it
+removes a whole class of re-entry bugs.</p>
+<p>Critically: do it incrementally behind tests, not as a big-bang rewrite. Each consolidation ships separately so a
+regression is attributable. And add a bypass switch while you are in there, because you will want it during the next data
+migration. See <a href="admin.html#advanced">Admin</a> and <a href="apex-triggers.html#advanced">Triggers</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">A10</span> How would you prove to an auditor that git matches production?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>With a mechanism, not an assertion. <strong>A scheduled drift-detection job</strong> that retrieves
+production metadata nightly, diffs it against <code>main</code>, and fails loudly on divergence — plus its run history as
+evidence. That is the artefact an auditor actually wants.</p>
+<p>Supporting controls: <code>main</code> equals production as an enforced invariant (no direct pushes, protected branch,
+every release a tag), deployments executed by a service account rather than humans, human metadata-edit rights removed in
+production, Setup Audit Trail reviewed weekly with exceptions captured into <code>config/*</code> branches via pull
+request, and ticket ids in merge commits linking each change to its requirement.</p>
+<p>And the honest caveat: the config that is <em>data</em> — CPQ, Field Service, custom metadata rows — is not covered by
+metadata drift detection and needs its own versioned migration and reconciliation. Saying that unprompted is what
+separates a real answer from a rehearsed one. See <a href="branching-strategy.html#drift">Branching Strategy</a>.</p></div></details>
 <div class="page-nav" id="pageNav"></div>
 </article>
 <footer class="site-footer">Salesforce Mastery Notes · Practice Q&amp;A</footer>

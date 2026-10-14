@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Branching Strategy | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Ship</span> › <span>Branching Strategy</span></div>
+  <h1>Branching Strategy</h1>
+  <p class="lede">How to map git branches onto Salesforce orgs without losing work: the models that actually survive
+     contact with declarative admins, the metadata that will not merge, the gates that belong on each branch, and how
+     hotfixes get back into main without silently reverting a release.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">🔗</span>
+  <div class="c-body"><span class="c-title">Where this sits</span>
+    <a href="devops.html">Deployment &amp; DevOps</a> covers the tooling — CLI, packaging, change sets, pipelines. This
+    page is only about <strong>branch topology</strong>: which branches exist, what each one means, which org it maps to,
+    and how changes travel between them.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="why-different">Why Salesforce branching is different</h2>
+<p>Every git branching model you have read about assumes three things that are not true on this platform. Understand the
+   differences and the strange parts of Salesforce branching stop looking arbitrary.</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Normal software assumes</th><th>On Salesforce</th><th>Consequence</th></tr></thead>
+  <tbody>
+    <tr><td>A branch can be built and tested in isolation</td><td>Code only compiles and tests <em>inside an org</em></td><td>Every branch needs an org to validate against. Branches are cheap; orgs are not</td></tr>
+    <tr><td>All changes arrive through git</td><td>Admins make changes <strong>in a UI, in an org</strong></td><td>Branches drift from reality. Retrieval and back-propagation are part of the strategy, not an afterthought</td></tr>
+    <tr><td>Source files merge cleanly</td><td>Some metadata is a single large XML file that many people touch</td><td>Profiles, layouts, flows and translations conflict constantly — see <a href="#merge-hell">the merge problem</a></td></tr>
+    <tr><td>Production is a deployment target</td><td>Production is also a <em>source</em> of truth people edit directly</td><td>You need a defensible answer to "who changed this, and is it in git?"</td></tr>
+    <tr><td>Rollback means redeploy the old build</td><td>There is no transactional rollback of a deployment</td><td>Forward-fix is the norm; your branch model must make hotfixes fast</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout warn">
+  <span class="c-ico">🧭</span>
+  <div class="c-body"><span class="c-title">The one principle that decides everything else</span>
+    <strong>A branch should mean exactly one thing.</strong> Either a branch represents <em>an org's current state</em>
+    (org-based) or it represents <em>a unit of work</em> (feature-based). Teams get into trouble when a branch means both
+    — "develop is the dev org, but also where features queue up, but also what we release from". Pick one meaning per
+    branch and write it down.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="env-mapping">Mapping branches to orgs</h2>
+<p>The spine of any Salesforce strategy is the branch ⇄ org mapping. Everything else is detail.</p>
+
+<div class="dgm">
+  <div class="dgm-title">The standard four-tier mapping</div>
+  <svg viewBox="0 0 800 330" role="img" aria-label="Branch to org mapping: feature branches to scratch orgs, develop to integration, release to UAT, main to production">
+    <rect class="s-box-b" x="25" y="24" width="180" height="58" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="115" y="46">feature/ABC-123</text>
+    <text class="s-t-sm anchor-mid" x="115" y="66">short-lived · one story</text>
+    <path class="s-line-b" d="M205 53 H265" marker-end="url(#br1)"/>
+    <rect class="s-box" x="265" y="24" width="175" height="58" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="352" y="46">Scratch org / dev sandbox</text>
+    <text class="s-t-sm anchor-mid" x="352" y="66">disposable</text>
+
+    <rect class="s-box-v" x="25" y="98" width="180" height="58" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="115" y="120">develop</text>
+    <text class="s-t-sm anchor-mid" x="115" y="140">everything merged</text>
+    <path class="s-line-v" d="M205 127 H265" marker-end="url(#br1)"/>
+    <rect class="s-box" x="265" y="98" width="175" height="58" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="352" y="120">Integration sandbox</text>
+    <text class="s-t-sm anchor-mid" x="352" y="140">auto-deploy on merge</text>
+
+    <rect class="s-box-t" x="25" y="172" width="180" height="58" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="115" y="194">release/2026.04</text>
+    <text class="s-t-sm anchor-mid" x="115" y="214">frozen scope</text>
+    <path class="s-line-t" d="M205 201 H265" marker-end="url(#br1)"/>
+    <rect class="s-box" x="265" y="172" width="175" height="58" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="352" y="194">UAT / staging sandbox</text>
+    <text class="s-t-sm anchor-mid" x="352" y="214">full copy, real data shape</text>
+
+    <rect class="s-box-g" x="25" y="246" width="180" height="58" rx="9"/>
+    <text class="s-t s-t-g anchor-mid" x="115" y="270">main</text>
+    <text class="s-t-sm anchor-mid" x="115" y="290">= what is live</text>
+    <path class="s-line-g" d="M205 275 H265" marker-end="url(#br1)"/>
+    <rect class="s-box-r" x="265" y="246" width="175" height="58" rx="9"/>
+    <text class="s-t s-t-r anchor-mid" x="352" y="270">Production</text>
+    <text class="s-t-sm anchor-mid" x="352" y="290">tagged releases only</text>
+
+    <path class="s-line-b s-dash" d="M115 82 V98"/>
+    <path class="s-line-v s-dash" d="M115 156 V172"/>
+    <path class="s-line-t s-dash" d="M115 230 V246"/>
+
+    <rect class="s-box-a" x="490" y="60" width="285" height="210" rx="10"/>
+    <text class="s-t s-t-a anchor-mid" x="632" y="86">Gates increase as you descend</text>
+    <text class="s-t-sm anchor-mid" x="632" y="112">feature → lint, unit tests, scanner</text>
+    <text class="s-t-sm anchor-mid" x="632" y="134">develop → validate deploy + all tests</text>
+    <text class="s-t-sm anchor-mid" x="632" y="156">release → UAT sign-off, data migration dry run</text>
+    <text class="s-t-sm anchor-mid" x="632" y="178">main → quick deploy of a validated build</text>
+    <text class="s-t-sm anchor-mid" x="632" y="208">Nothing reaches main that has not</text>
+    <text class="s-t-sm anchor-mid" x="632" y="228">passed every gate above it</text>
+    <text class="s-t-sm anchor-mid" x="632" y="252">↑ this is the whole point</text>
+    <defs><marker id="br1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+  <div class="dgm-cap">Long-lived branches map to persistent orgs. Short-lived branches map to disposable orgs.</div>
+</div>
+
+<div class="callout tip">
+  <span class="c-ico">1️⃣</span>
+  <div class="c-body"><span class="c-title">main always equals production</span>
+    If someone has to ask "is main what's live?", your strategy has already failed. <code>main</code> is deployed to
+    production and nothing else; every production release is a tagged commit on it. That single invariant is what makes
+    hotfixes, audits and rollbacks tractable.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="models">The four models</h2>
+
+<h3>1 · Org branching (branch per environment)</h3>
+<p>A long-lived branch for each org: <code>dev</code> → <code>int</code> → <code>uat</code> → <code>main</code>.
+   Changes are promoted by merging one environment branch into the next.</p>
+<div class="grid g2">
+  <div class="card accent-green"><h4>Works when</h4>
+    <ul><li>The team is mostly admins and declarative work</li>
+        <li>Releases are scheduled and move as one block</li>
+        <li>You need the simplest possible mental model</li></ul></div>
+  <div class="card accent-rose"><h4>Breaks when</h4>
+    <ul><li>You need to ship <em>part</em> of what's in UAT — cherry-picking becomes the normal case, which it should never be</li>
+        <li>Branches drift: merges become enormous and conflict-ridden</li>
+        <li>Nobody can answer "what's actually in this release?"</li></ul></div>
+</div>
+
+<h3>2 · GitFlow (feature → develop → release → main)</h3>
+<p>Feature branches merge into <code>develop</code>; a <code>release/*</code> branch is cut and stabilised; it merges to
+   <code>main</code> and back into <code>develop</code>. <code>hotfix/*</code> branches come off <code>main</code>.</p>
+<div class="grid g2">
+  <div class="card accent-green"><h4>Works when</h4>
+    <ul><li>You release on a cadence — fortnightly or monthly</li>
+        <li>UAT needs a frozen scope while development continues</li>
+        <li>Multiple teams contribute to one release</li>
+        <li>You need an auditable "what shipped when"</li></ul></div>
+  <div class="card accent-amber"><h4>Costs</h4>
+    <ul><li>The most moving parts of any model</li>
+        <li>Forward-merging hotfixes is a discipline people forget</li>
+        <li>Long-lived release branches re-introduce drift</li></ul></div>
+</div>
+<p><strong>This is the default for most Salesforce programmes</strong>, because the frozen-UAT-scope requirement is close
+   to universal and the platform gives you no feature-flag mechanism for free.</p>
+
+<h3>3 · Trunk-based with short-lived branches</h3>
+<p>One long-lived branch (<code>main</code>). Feature branches live hours or days, merge behind a flag, and deploy
+   continuously.</p>
+<div class="grid g2">
+  <div class="card accent-green"><h4>Works when</h4>
+    <ul><li>A mature, mostly-developer team with real test coverage</li>
+        <li>Package-based development with versioned artefacts</li>
+        <li>You can hide incomplete work behind <a href="#feature-flags">feature flags</a></li>
+        <li>You genuinely want to deploy several times a week</li></ul></div>
+  <div class="card accent-rose"><h4>Breaks when</h4>
+    <ul><li>Admins click-build in a shared sandbox with no flag discipline</li>
+        <li>Business stakeholders need a fixed UAT scope to sign off</li>
+        <li>Test coverage is thin, so merging is scary and branches quietly get long</li></ul></div>
+</div>
+
+<h3>4 · Package-based (branch per package)</h3>
+<p>The repo holds several unlocked packages; each has its own directory, its own version history, and often its own
+   release train. Branches target a package rather than an environment.</p>
+<div class="callout note">
+  <span class="c-ico">📦</span>
+  <div class="c-body"><span class="c-title">The endgame, not the starting point</span>
+    Package-based development is where the platform is heading and it genuinely solves drift and dependency problems. It
+    also demands clean modular boundaries, dependency discipline and strong test coverage. Most orgs should get org-based
+    GitFlow working reliably first, then decompose into packages — doing both migrations at once is how programmes stall
+    for a year.</div>
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>Org branching</th><th>GitFlow</th><th>Trunk-based</th><th>Package-based</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Long-lived branches</strong></td><td>One per org</td><td>main + develop</td><td>main only</td><td>main per package</td></tr>
+    <tr><td><strong>Frozen UAT scope</strong></td><td>Hard</td><td>Natural</td><td>Needs flags</td><td>Per version</td></tr>
+    <tr><td><strong>Partial release</strong></td><td>Cherry-pick (bad)</td><td>Choose what merges</td><td>Flag off</td><td>Don't promote the version</td></tr>
+    <tr><td><strong>Drift resistance</strong></td><td>Poor</td><td>Moderate</td><td>Good</td><td>Best</td></tr>
+    <tr><td><strong>Team maturity needed</strong></td><td>Low</td><td>Medium</td><td>High</td><td>High</td></tr>
+    <tr><td><strong>Release cadence</strong></td><td>Slow, scheduled</td><td>Scheduled</td><td>Continuous</td><td>Per package</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="naming">Naming, commits and scope</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Branch</th><th>Pattern</th><th>Lifetime</th></tr></thead>
+  <tbody>
+    <tr><td>Feature</td><td><code>feature/ABC-123-short-slug</code></td><td>Days. If it's older than a sprint, it's a problem</td></tr>
+    <tr><td>Bug (pre-release)</td><td><code>bugfix/ABC-456-short-slug</code></td><td>Days</td></tr>
+    <tr><td>Hotfix (live defect)</td><td><code>hotfix/ABC-789-short-slug</code></td><td>Hours</td></tr>
+    <tr><td>Release</td><td><code>release/2026.04</code> or <code>release/1.12.0</code></td><td>One cycle, then deleted</td></tr>
+    <tr><td>Config capture</td><td><code>config/uat-retrieve-2026-04-12</code></td><td>Hours — retrieving admin changes back into git</td></tr>
+    <tr><td>Spike</td><td><code>spike/idea</code> — never merged</td><td>Delete it; don't let experiments become features</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Always carry the ticket id in the branch name. It is how a deployment gets traced back to a requirement eighteen
+   months later during an audit, and it lets delta tooling and release notes be generated automatically.</p>
+
+<div class="callout tip">
+  <span class="c-ico">✂️</span>
+  <div class="c-body"><span class="c-title">The real cause of merge pain is branch lifetime</span>
+    Almost every horrible Salesforce merge traces back to a branch that lived for six weeks. Metadata conflicts grow
+    superlinearly with branch age because so much of it lives in shared files. One story per branch, merged within days,
+    prevents more pain than any tooling you can buy.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="merge-hell">The metadata that will not merge</h2>
+<p>Some metadata is fundamentally hostile to parallel work. Knowing which, and what to do about it, is the difference
+   between a strategy that works and one everybody bypasses.</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Metadata</th><th>Why it conflicts</th><th>Mitigation</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Profiles</strong></td><td>One giant XML listing every object, field and tab permission. Two people touching unrelated features both rewrite it</td><td><strong>Stop versioning profiles.</strong> Use permission sets and permission set groups; keep profiles minimal and manage them manually in each org. Add them to <code>.forceignore</code> if you can</td></tr>
+    <tr><td><strong>Page layouts</strong></td><td>Field order is positional; two additions collide on the same lines</td><td>Prefer <a href="ux-mobile.html">Dynamic Forms</a>; assign layout ownership per team; expect manual conflict resolution</td></tr>
+    <tr><td><strong>Flows</strong></td><td>A flow is one XML blob with generated element positions. A text merge produces a corrupt flow</td><td>Treat flows as <strong>binary</strong>: never merge, take one side wholesale. One owner per flow per release; split big flows into subflows so two people aren't in the same file</td></tr>
+    <tr><td><strong>Custom labels &amp; translations</strong></td><td>All labels in one file; translations in one file per language</td><td>Append-only conventions, alphabetical ordering, and resolve by taking both sides</td></tr>
+    <tr><td><strong>Picklist value sets</strong></td><td>Shared global value sets rewritten by anyone adding a value</td><td>Append-only; never reorder; review carefully</td></tr>
+    <tr><td><strong>package.xml</strong></td><td>Everyone edits the same manifest</td><td>Generate it from the diff instead of hand-maintaining it — see <a href="#delta">delta deployments</a></td></tr>
+    <tr><td><strong>Record types &amp; picklist assignments</strong></td><td>Buried inside object XML and profile XML simultaneously</td><td>Source-format decomposition helps; permission sets help more</td></tr>
+    <tr><td><strong>CPQ / Field Service config</strong></td><td>It is <em>data</em>, not metadata — git does not see it at all</td><td>A scripted, version-controlled data migration. See <a href="field-service-advanced.html#deploy">Field Service deployment</a></td></tr>
+  </tbody>
+</table>
+</div>
+
+<pre><code class="language-bash"># Treat flows and other generated XML as unmergeable: take one side, never blend
+# .gitattributes
+*.flow-meta.xml      merge=ours -diff
+*.labels-meta.xml    merge=union        # append-only files can safely take both sides
+*.translation-meta.xml merge=union
+
+# .forceignore — keep hostile metadata out of version control entirely
+# (make sure every org's profiles are then managed deliberately, not forgotten)
+**/profiles/**
+**/*.profile-meta.xml
+**/settings/**
+**/reports/unfiled$public/**</code></pre>
+
+<div class="callout danger">
+  <span class="c-ico">🌊</span>
+  <div class="c-body"><span class="c-title">A text-merged flow is a corrupt flow</span>
+    Git will happily merge two flow XML files line by line and produce something that deploys, loads in the builder, and
+    behaves wrongly — missing connectors, duplicated elements, orphaned decisions. Configure the merge driver above,
+    agree one owner per flow per release, and if two people must change the same flow, they do it sequentially rather
+    than in parallel.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="drift">Config drift and back-propagation</h2>
+<p>The hardest problem in Salesforce branching is not merging — it is that <strong>your orgs change without git</strong>.
+   An admin fixes a validation rule in production on Friday. Your <code>main</code> branch no longer matches production,
+   and the next deployment silently reverts their fix.</p>
+
+<div class="dgm">
+  <div class="dgm-title">Drift, and the loop that closes it</div>
+  <svg viewBox="0 0 790 230" role="img" aria-label="Config drift loop: admin edits production, retrieve into a config branch, PR into main, redeploy downward">
+    <rect class="s-box-r" x="25" y="24" width="190" height="60" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="120" y="48">Admin edits production</text>
+    <text class="s-t-sm anchor-mid" x="120" y="68">directly, on Friday</text>
+    <path class="s-line-r" d="M215 54 H285" marker-end="url(#br2)"/>
+
+    <rect class="s-box-a" x="285" y="24" width="200" height="60" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="385" y="48">Detect it</text>
+    <text class="s-t-sm anchor-mid" x="385" y="68">scheduled diff vs main</text>
+    <path class="s-line-a" d="M485 54 H555" marker-end="url(#br2)"/>
+
+    <rect class="s-box-v" x="555" y="24" width="210" height="60" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="660" y="48">Retrieve to config/ branch</text>
+    <text class="s-t-sm anchor-mid" x="660" y="68">PR, reviewed like any change</text>
+    <path class="s-line-v" d="M660 84 V120 H420" marker-end="url(#br2)"/>
+
+    <rect class="s-box-g" x="250" y="120" width="170" height="56" rx="9"/>
+    <text class="s-t s-t-g anchor-mid" x="335" y="144">main updated</text>
+    <text class="s-t-sm anchor-mid" x="335" y="164">git = production again</text>
+    <path class="s-line-g" d="M250 148 H170" marker-end="url(#br2)"/>
+
+    <rect class="s-box-b" x="25" y="120" width="145" height="56" rx="9"/>
+    <text class="s-t-sm anchor-mid" x="97" y="144">Merge down</text>
+    <text class="s-t-sm anchor-mid" x="97" y="164">to develop + release</text>
+    <text class="s-t-sm anchor-mid" x="395" y="206">Skip any step and the next deployment reverts the admin's fix — silently</text>
+    <defs><marker id="br2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-t"/></marker></defs>
+  </svg>
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Control</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Scheduled drift detection</strong></td><td>A nightly job retrieves key metadata from production and diffs it against <code>main</code>, failing loudly if they differ. This is the single highest-value piece of automation in a Salesforce pipeline</td></tr>
+    <tr><td><strong>Setup Audit Trail review</strong></td><td>Weekly: who changed what in production outside a release. Cheap, and it names the behaviour rather than the person</td></tr>
+    <tr><td><strong>Locked-down production</strong></td><td>Remove Modify All Data and metadata-edit permissions from humans; deployments happen as a service account. The honest version of "don't change prod"</td></tr>
+    <tr><td><strong>A sanctioned fast path</strong></td><td>Admins <em>will</em> need to change things urgently. Give them a documented route — a hotfix branch and a 20-minute pipeline — or they will use production directly and you will never see it</td></tr>
+    <tr><td><strong>Back-propagation discipline</strong></td><td>Anything that lands in <code>main</code> out of band merges down into <code>develop</code> and every open <code>release/*</code> branch <em>the same day</em></td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="hotfix">Hotfixes without losing the fix</h2>
+<p>A production defect cannot wait for the release train. The flow is fixed, and the last step is the one people skip.</p>
+<ul class="steps">
+  <li><b>Branch from <code>main</code></b>, never from develop — develop contains unreleased work that must not go live.</li>
+  <li><b>Fix it, with a test that fails without the fix.</b> A hotfix with no test is how the same defect ships twice.</li>
+  <li><b>Validate against production</b> (a check-only deployment with the relevant tests) so the real deployment is a quick deploy of an already-validated build.</li>
+  <li><b>Deploy to production and tag it</b> — <code>v2026.04.1</code>. The tag is your rollback reference and your audit record.</li>
+  <li><b>Merge the hotfix branch back into <code>main</code></b> if you worked on a separate branch.</li>
+  <li><b>Forward-merge <code>main</code> into <code>develop</code> AND every open <code>release/*</code> branch.</b> Miss this and the next release ships the old broken code over the top of your fix — the classic "we fixed that twice" incident.</li>
+</ul>
+
+<pre><code class="language-bash"># Hotfix, end to end
+git switch main &amp;&amp; git pull
+git switch -c hotfix/ABC-789-quote-total-rounding
+
+# ... fix + test ...
+git commit -am "Fix rounding on quote grand total (ABC-789)"
+
+# Validate against production before you deploy anything
+sf project deploy start --dry-run --target-org prod \
+  --test-level RunSpecifiedTests --tests QuoteTotalsTest
+
+# Real deploy, then tag what went live
+sf project deploy start --target-org prod \
+  --test-level RunSpecifiedTests --tests QuoteTotalsTest
+git switch main &amp;&amp; git merge --no-ff hotfix/ABC-789-quote-total-rounding
+git tag -a v2026.04.1 -m "Hotfix: quote total rounding"
+git push origin main --tags
+
+# THE STEP EVERYONE FORGETS — get the fix into unreleased lines
+git switch develop &amp;&amp; git merge --no-ff main &amp;&amp; git push
+git switch release/2026.05 &amp;&amp; git merge --no-ff main &amp;&amp; git push</code></pre>
+
+<div class="callout warn">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Make the forward-merge mechanical</span>
+    Do not rely on memory. Add a CI job that fails whenever <code>main</code> contains commits absent from
+    <code>develop</code> or from any open <code>release/*</code> branch. It turns a discipline problem into a red build,
+    which is the only kind of reminder that works.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="release">Release branches, freezes and tags</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Step</th><th>What happens</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Cut</strong></td><td><code>release/2026.04</code> is created from <code>develop</code>. From this moment its scope is frozen; <code>develop</code> reopens for the next cycle immediately</td></tr>
+    <tr><td><strong>Stabilise</strong></td><td>Only bug fixes for <em>in-scope</em> items land on the release branch. Each fix also merges back to <code>develop</code></td></tr>
+    <tr><td><strong>UAT</strong></td><td>The release branch deploys to the UAT org. Sign-off is against a specific commit, not "whatever's in UAT"</td></tr>
+    <tr><td><strong>Dry run</strong></td><td>A validation-only deployment against production, with the real test level. Plus a rehearsal of any data or config-data migration</td></tr>
+    <tr><td><strong>Release</strong></td><td>Merge to <code>main</code>, deploy (ideally a quick deploy of the validated build), tag <code>v2026.04.0</code></td></tr>
+    <tr><td><strong>Close</strong></td><td>Merge <code>main</code> back into <code>develop</code>, delete the release branch. Keep the tag forever</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout tip">
+  <span class="c-ico">🏷️</span>
+  <div class="c-body"><span class="c-title">Tags are your only real rollback story</span>
+    There is no transactional rollback on the platform, so "roll back" means "deploy the previous known-good state and
+    manually undo what cannot be redeployed" — destructive changes, data, picklist values. A tag per release makes the
+    first half trivial. Write down, per release, which changes are <em>not</em> reversible; that list is what turns a
+    rollback decision from a guess into a judgement.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="pr">Pull requests and the gates on each branch</h2>
+<p>Branch protection is where a strategy stops being a diagram and starts being enforced.</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Target branch</th><th>Required checks</th><th>Review</th></tr></thead>
+  <tbody>
+    <tr><td><code>feature/*</code></td><td>Lint, Jest for LWC, Apex static analysis (scanner/PMD), fast unit tests in a scratch org</td><td>None — it's yours</td></tr>
+    <tr><td><code>develop</code></td><td>Delta validation deploy to the integration org, full local test run, scanner clean at your agreed severity</td><td>1 reviewer</td></tr>
+    <tr><td><code>release/*</code></td><td>Validation deploy against <strong>production</strong>, specified-tests run, migration dry run</td><td>1 reviewer + release manager</td></tr>
+    <tr><td><code>main</code></td><td>Everything above, plus drift check against production and an up-to-date-with-main requirement</td><td>2 reviewers, linear history, no direct pushes — ever</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>What to actually review in a Salesforce PR</h3>
+<div class="grid g2">
+  <div class="card accent-blue"><h4>Code</h4>
+    <ul><li>Bulkification: no SOQL or DML in loops</li>
+        <li>Sharing keywords (<code>with sharing</code> / <code>without sharing</code>) deliberate, not accidental</li>
+        <li>FLS and CRUD enforcement where required</li>
+        <li>Tests that assert behaviour, not just run it, and don't use <code>SeeAllData</code></li>
+        <li>No hard-coded Ids — see <a href="field-service-advanced.html#policies">why</a></li></ul></div>
+  <div class="card accent-violet"><h4>Metadata</h4>
+    <ul><li>Did a profile sneak into the diff?</li>
+        <li>Flow changes: one owner, deliberate version, not text-merged</li>
+        <li>Field-level security changes reviewed as a security change</li>
+        <li>Destructive changes listed explicitly — nothing gets deleted by surprise</li>
+        <li>Anything that is <em>data</em> rather than metadata, and how it will be migrated</li></ul></div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="delta">Delta deployments</h2>
+<p>Deploying the whole repo to production is slow, risks reverting drift, and makes every deployment a full-org risk.
+   Deploying <em>only what changed between two commits</em> is the norm for mature pipelines.</p>
+
+<pre><code class="language-bash"># What changed between the last release tag and HEAD?
+git diff --name-only v2026.03.0..HEAD -- force-app/
+
+# Generate a manifest and a destructive manifest from the diff
+# (sfdx-git-delta is the common community plugin for this)
+sf sgd source delta --to HEAD --from v2026.03.0 --output-dir delta --generate-delta
+
+# Validate just the delta against production, then quick-deploy the validated build
+sf project deploy start --dry-run --manifest delta/package/package.xml \
+  --post-destructive-changes delta/destructiveChanges/destructiveChanges.xml \
+  --target-org prod --test-level RunLocalTests
+
+sf project deploy quick --use-most-recent --target-org prod</code></pre>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>Full deployment</th><th>Delta deployment</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Speed</strong></td><td>Slow — grows with the org</td><td>Proportional to the change</td></tr>
+    <tr><td><strong>Drift behaviour</strong></td><td>Overwrites undocumented production changes</td><td>Leaves untouched metadata alone — kinder, but hides drift</td></tr>
+    <tr><td><strong>Risk profile</strong></td><td>Whole-org blast radius every time</td><td>Scoped to the change</td></tr>
+    <tr><td><strong>Confidence that git = org</strong></td><td>High (it enforces it)</td><td>Lower — you need separate drift detection</td></tr>
+  </tbody>
+</table>
+</div>
+<p>The mature answer is <strong>delta deployments plus scheduled drift detection</strong>: fast releases, with a separate
+   mechanism that tells you when the org and git have diverged, instead of papering over it on every deploy.</p>
+
+<!-- ============================================ -->
+<h2 id="feature-flags">Feature flags on Salesforce</h2>
+<p>Flags are what make short-lived branches and trunk-based development possible: merge incomplete work safely because it
+   is switched off. The platform gives you three good mechanisms.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Mechanism</th><th>Best for</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Custom Permission</strong></td><td>Per-user and per-profile rollout</td><td>Checkable in Apex, flows, formulas and component visibility. The cleanest option for a progressive rollout</td></tr>
+    <tr><td><strong>Custom Metadata Type</strong></td><td>Environment-level on/off, deployable</td><td>Queryable without a SOQL limit cost; the setting travels with your release</td></tr>
+    <tr><td><strong>Hierarchy Custom Setting</strong></td><td>Org / profile / user overrides at runtime</td><td>Editable in production without a deployment — which is both the feature and the risk</td></tr>
+  </tbody>
+</table>
+</div>
+<pre><code class="language-apex">// A flag check that works in Apex, and the same flag drives
+// component visibility and flow entry conditions
+public with sharing class FeatureGate {
+
+    // Custom Metadata: environment-level, ships with the release
+    private static Map&lt;String, Boolean&gt; cache = new Map&lt;String, Boolean&gt;();
+
+    public static Boolean isOn(String featureName) {
+        if (!cache.containsKey(featureName)) {
+            Feature_Flag__mdt flag = Feature_Flag__mdt.getInstance(featureName);
+            cache.put(featureName, flag != null &amp;&amp; flag.Is_Enabled__c);
+        }
+        return cache.get(featureName);
+    }
+
+    // Custom Permission: per-user rollout, no deployment needed to widen it
+    public static Boolean isOnForMe(String customPermissionName) {
+        return FeatureManagement.checkPermission(customPermissionName);
+    }
+}</code></pre>
+<div class="callout warn">
+  <span class="c-ico">🧹</span>
+  <div class="c-body"><span class="c-title">Flags are debt with an expiry date</span>
+    Every flag is a branch in your code that must be tested in both states. Put a removal ticket in the same sprint you
+    add the flag, and review live flags every release. An org with forty stale flags is harder to reason about than the
+    long-lived branches you were avoiding.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="pipeline">A working pipeline, by branch</h2>
+<pre><code class="language-bash"># .github/workflows/ci.yml — the shape of it
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, "release/**", main]
+
+jobs:
+  static-analysis:
+    # Fast, no org needed — run on every PR
+    # sf scanner run --target force-app --severity-threshold 3
+    # npm run lint && npm run test:unit  (LWC Jest)
+
+  validate:
+    # Delta validation against the right org for the target branch
+    # develop     -> integration sandbox, RunLocalTests
+    # release/**  -> PRODUCTION, dry-run, RunLocalTests
+    # main        -> PRODUCTION, dry-run + drift check
+
+  drift-check:
+    # Nightly on main: retrieve from prod, diff against the branch,
+    # fail loudly if the org and git have diverged</code></pre>
+<p>The principle: <strong>the gate matches the blast radius of the target branch.</strong> A feature PR should get an
+   answer in two minutes. A PR into <code>main</code> should be slow, thorough and boring.</p>
+
+<!-- ============================================ -->
+<h2 id="teams">Multiple teams and parallel releases</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Situation</th><th>Approach</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Two teams, one release train</strong></td><td>Shared <code>develop</code>, clear ownership of conflict-prone metadata (one owner per flow, per layout, per global value set), and a daily merge-down habit</td></tr>
+    <tr><td><strong>Two teams, different cadences</strong></td><td>Two <code>release/*</code> branches live at once. Both must receive every hotfix and every merge to main. This is where discipline breaks — automate the staleness check</td></tr>
+    <tr><td><strong>A long programme alongside BAU</strong></td><td>A long-lived <code>project/*</code> branch with a <strong>scheduled rebase or merge from develop</strong> (weekly, minimum). Without that cadence it becomes unmergeable, and the project gets its own org and its own re-integration project</td></tr>
+    <tr><td><strong>Genuinely independent domains</strong></td><td>Decompose into unlocked packages so each team owns a versioned artefact — the only structural fix for permanent cross-team contention</td></tr>
+    <tr><td><strong>An ISV or multi-org estate</strong></td><td>Branch per package version, with tags per customer release. See <a href="governance.html">Governance</a></td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<h3>Choosing a strategy: the five questions</h3>
+<p>Do not start from a diagram. Answer these, and the model is usually determined:</p>
+<ul class="steps">
+  <li><b>Does the business need to sign off a frozen scope?</b> Yes → you need release branches. This single answer rules out trunk-based for most enterprises.</li>
+  <li><b>Who makes changes — admins in a UI, or developers in an IDE?</b> Mostly admins → optimise for retrieval and drift detection, not for merge elegance.</li>
+  <li><b>How often must you ship?</b> Monthly → GitFlow. Weekly or faster → short-lived branches plus flags, or you'll spend your life merging.</li>
+  <li><b>How good is your test coverage, honestly?</b> Thin coverage makes merging frightening, which makes branches long, which makes merging worse. Fix coverage before adopting a model that depends on confidence.</li>
+  <li><b>How many sandboxes do you actually have, and of what type?</b> Your branch topology cannot exceed your org topology. One full sandbox refreshed every 29 days constrains everything downstream.</li>
+</ul>
+
+<h3>Migrating an existing org onto a branch model</h3>
+<p>The common real task: a five-year-old org with no version control. Sequence that works:</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Phase</th><th>What you do</th><th>Why in this order</th></tr></thead>
+  <tbody>
+    <tr><td><strong>1 · Baseline</strong></td><td>Retrieve production into <code>main</code>. Accept that it's ugly. Tag it <code>baseline</code></td><td>You cannot manage drift without a starting point. Perfection here wastes months</td></tr>
+    <tr><td><strong>2 · Convert &amp; ignore</strong></td><td>Convert to source format; <code>.forceignore</code> the hostile metadata (profiles, settings, unfiled reports)</td><td>Decomposed source is what makes diffs and merges legible</td></tr>
+    <tr><td><strong>3 · Read-only pipeline</strong></td><td>CI that validates PRs but deploys nothing; nightly drift detection on</td><td>Builds trust and surfaces the real change volume before you block anyone</td></tr>
+    <tr><td><strong>4 · One tier at a time</strong></td><td>Automate deployment into integration, then UAT, then production last</td><td>Production automation last, when the pipeline has earned it</td></tr>
+    <tr><td><strong>5 · Close production</strong></td><td>Remove human metadata-edit rights in prod; deployments only</td><td>Only credible once the sanctioned fast path is genuinely fast</td></tr>
+    <tr><td><strong>6 · Decompose</strong></td><td>Carve out unlocked packages where boundaries are clean</td><td>The payoff phase — and only safe once everything above is boring</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Branching for declarative-only teams</h3>
+<p>A team of admins with no developers still needs a strategy, but a different one. The branch is a <em>record of what
+   was changed</em>, not a development workspace:</p>
+<ul>
+  <li>Changes are made in a dev or config sandbox, then <strong>retrieved</strong> into a branch by the pipeline, not hand-written.</li>
+  <li>The PR exists for the <em>review conversation</em> and the audit trail — the diff is evidence, not craft.</li>
+  <li>Scope discipline matters even more: one admin per conflict-prone component per release.</li>
+  <li>Change sets may still be the deployment mechanism while git provides history and review. That's a legitimate intermediate state, not a failure.</li>
+</ul>
+
+<h3>What a strategy cannot fix</h3>
+<div class="grid g2">
+  <div class="card accent-rose"><h4>Structural problems</h4>
+    <ul><li>Not enough sandboxes, or the wrong types</li>
+        <li>No test coverage, so nothing can be validated cheaply</li>
+        <li>One monolithic org serving five unrelated business units</li>
+        <li>Config living as data (CPQ, Field Service) with no migration tooling</li></ul></div>
+  <div class="card accent-amber"><h4>Behavioural problems</h4>
+    <ul><li>Production edits treated as normal because the sanctioned path is slow</li>
+        <li>"Urgent" used to bypass review weekly</li>
+        <li>Nobody owning the release, so forward-merges never happen</li>
+        <li>Branches kept open for months because stories are too big</li></ul></div>
+</div>
+<p>If you recognise more than two of these, the branching model is not your bottleneck. Fix the bottleneck, then adopt
+   the model — in that order, or the model gets blamed and abandoned.</p>
+
+<h3>Anti-patterns</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Anti-pattern</th><th>Why it hurts</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Cherry-picking as the normal release mechanism</strong></td><td>You ship commits that were never tested together, and history becomes a fiction. If you need it routinely, your branch model is wrong</td></tr>
+    <tr><td><strong>Long-lived feature branches</strong></td><td>Metadata conflicts grow superlinearly with age. Six-week branches are the single biggest source of merge pain</td></tr>
+    <tr><td><strong>Profiles in version control</strong></td><td>Permanent, meaningless conflicts that train people to resolve diffs carelessly — including the ones that matter</td></tr>
+    <tr><td><strong>Text-merging flows</strong></td><td>Produces a deployable but subtly broken flow. Treat them as unmergeable</td></tr>
+    <tr><td><strong>main not equal to production</strong></td><td>Destroys the value of every tag, rollback and audit answer you have</td></tr>
+    <tr><td><strong>Skipping the forward-merge after a hotfix</strong></td><td>The next release silently reverts the fix. Automate the check</td></tr>
+    <tr><td><strong>A branch per developer</strong></td><td>Integration never happens until the end, which is the problem branching was supposed to solve</td></tr>
+    <tr><td><strong>Deploying everything, every time</strong></td><td>Slow, and it overwrites undocumented production changes you haven't captured yet</td></tr>
+    <tr><td><strong>No drift detection</strong></td><td>Your repo is a hopeful story about the org rather than a description of it</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="worked">Worked example: a fortnightly train</h2>
+<ul class="steps">
+  <li><b>Monday, week 1</b> — <code>release/2026.04</code> cut from <code>develop</code>, deployed to UAT. <code>develop</code> reopens immediately for the next cycle.</li>
+  <li><b>Week 1</b> — devs work on <code>feature/*</code> branches off <code>develop</code>, each with a scratch org. PRs into <code>develop</code> need static analysis, a delta validation against integration, and one review.</li>
+  <li><b>Week 1, Thursday</b> — a UAT defect on in-scope work. <code>bugfix/*</code> off <code>release/2026.04</code>, merged to the release branch and immediately merged back into <code>develop</code>.</li>
+  <li><b>Week 2, Tuesday</b> — production defect, unrelated. <code>hotfix/*</code> off <code>main</code>, validated against production, deployed, tagged <code>v2026.03.1</code>. <code>main</code> forward-merged into <code>develop</code> <em>and</em> <code>release/2026.04</code> the same day.</li>
+  <li><b>Week 2, Wednesday</b> — release dry run: validation-only deploy of the delta against production, plus a rehearsal of the config-data migration.</li>
+  <li><b>Week 2, Thursday evening</b> — merge <code>release/2026.04</code> → <code>main</code>, quick-deploy the validated build, tag <code>v2026.04.0</code>, merge <code>main</code> → <code>develop</code>, delete the release branch.</li>
+  <li><b>Friday</b> — drift check green, release notes generated from the ticket ids in the merge commits, retro on anything that needed a manual step.</li>
+</ul>
+
+<!-- ============================================ -->
+<h2 id="interview">Interview questions</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Why can't you just use GitFlow as written on Salesforce?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>You can use the topology, but three platform realities change the practice. <strong>Branches can't be
+built in isolation</strong> — code only compiles and tests inside an org, so every meaningful gate needs an org to
+validate against. <strong>Changes arrive outside git</strong>, because admins click-build directly in orgs, so retrieval
+and drift detection are first-class parts of the model rather than edge cases. And <strong>some metadata won't
+merge</strong> — profiles, layouts and flows are large shared XML files, so you need ignore rules, merge drivers and
+ownership conventions that a normal codebase never needs.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> What's the single most important invariant in your branch model?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>main</code> equals production. Nothing else is deployed there, every release is a tagged
+commit on it, and nobody pushes to it directly.</p>
+<p>That one rule is what makes hotfixes safe (branch from main and you can't accidentally ship unreleased work), makes
+rollback meaningful (deploy the previous tag), and makes audit questions answerable. Once main and production diverge,
+every other guarantee in the pipeline becomes a guess.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Walk me through a production hotfix.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Branch from <code>main</code> — never develop, which holds unreleased work. Fix it with a test that
+fails without the fix. Validate against production with a check-only deployment and specified tests, then deploy (ideally
+a quick deploy of that validated build) and tag it.</p>
+<p>Then the step people skip: <strong>forward-merge <code>main</code> into <code>develop</code> and into every open
+<code>release/*</code> branch</strong>, same day. Miss it and the next release deploys the old broken code over your fix.
+I'd automate a CI check that fails when main contains commits missing from those branches, because discipline alone
+doesn't survive a busy month.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Two developers changed the same flow on different branches. What happens?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Git will merge the XML line by line and produce a flow that deploys but is subtly broken — missing
+connectors, duplicated elements, generated coordinates interleaved. It will pass a deployment and fail in behaviour, which
+is the worst possible outcome.</p>
+<p>Prevention: mark flow files unmergeable in <code>.gitattributes</code> so a conflict is forced rather than auto-merged;
+assign <strong>one owner per flow per release</strong>; and split large flows into subflows so two streams of work aren't
+in the same file. If two people genuinely must change one flow, they do it sequentially — second person rebases and
+reapplies in the builder.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> Should profiles be in version control?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Generally no. A profile is one enormous XML file describing permissions across every object,
+field and tab, so two unrelated features both rewrite it and you get constant meaningless conflicts. Worse, people learn
+to resolve those diffs carelessly — and then do the same on a conflict that mattered.</p>
+<p>The pattern: keep profiles minimal (login hours, defaults), move everything else to <strong>permission sets and
+permission set groups</strong>, which are small, purposeful and mergeable, and <code>.forceignore</code> the profiles. The
+tradeoff is that profile changes are then managed deliberately per org, so that has to be documented rather than
+forgotten.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> How do you handle an admin who changed production directly?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Detect, capture, then remove the incentive. <strong>Detect</strong> with a nightly job that retrieves
+production metadata and diffs it against <code>main</code>, failing loudly — plus a weekly Setup Audit Trail review.
+<strong>Capture</strong> by retrieving the change into a <code>config/*</code> branch and PR-ing it into main like any
+other change, then merging down to develop and open release branches so the next deployment doesn't revert it.</p>
+<p>Then the actual fix: people bypass the process when the process is slow. Give admins a <em>sanctioned</em> fast path —
+a hotfix branch with a twenty-minute pipeline — and lock down metadata-edit permissions in production only once that path
+genuinely works. Locking the door before building the corridor just moves the problem somewhere you can't see it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> Delta or full deployments?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Delta for speed and a scoped blast radius: generate the manifest from the diff between the last
+release tag and HEAD, validate it, then quick-deploy. Full deployments get slower as the org grows and overwrite
+undocumented production changes — occasionally useful, rarely what you want every release.</p>
+<p>The catch is that delta deployments <em>hide</em> drift rather than steamrolling it, so the mature setup is
+<strong>delta deployments plus scheduled drift detection</strong>. You get fast releases and a separate honest signal about
+whether git still describes the org.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> When would you choose trunk-based development?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>When three things are true: the team is mostly developers with real test coverage, you have working
+<strong>feature flags</strong> so incomplete work can merge switched off, and the business does <em>not</em> require a
+frozen scope signed off in UAT. Package-based development makes it considerably more practical, since each package is a
+versioned artefact you can choose not to promote.</p>
+<p>In most enterprise Salesforce programmes at least one of those fails — usually the UAT sign-off requirement — so
+GitFlow with release branches is the honest answer. Adopting trunk-based without flags just produces long-lived branches
+with a trunk-based label on them.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> How do you branch for a six-month programme running alongside BAU?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A long-lived <code>project/*</code> branch with its own org, and a <strong>mandatory scheduled merge
+from develop</strong> — weekly at minimum, in the sprint plan, with someone's name on it. The failure mode is always the
+same: the merge is deferred because it's painful, which makes it more painful, until re-integration becomes its own
+project with its own budget.</p>
+<p>Better, where the domain allows: decompose the programme's work into <strong>unlocked packages</strong> so it ships
+incrementally behind flags instead of accumulating on a branch. If that's not possible, at least keep the programme's
+changes narrow and own the conflict-prone components explicitly, because profiles, layouts and flows are where a six-month
+branch actually dies.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> Your repo has no version control today. What's your first week?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Baseline first: retrieve production into <code>main</code>, accept that it's ugly, tag it, and convert
+to source format with the hostile metadata in <code>.forceignore</code>. Trying to make the baseline beautiful is how this
+exercise burns three months.</p>
+<p>Then a <strong>read-only pipeline</strong> — PR validation that deploys nothing, plus nightly drift detection. That
+builds trust and shows you the real volume and shape of change before you block anybody's work. Automating deployment
+comes tier by tier afterwards, production last, and locking down production edit rights comes last of all, once the
+sanctioned fast path is genuinely fast.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="check">Quick check</h2>
+
+<div class="quiz">
+  <div class="q-text">1. You branch a hotfix from <code>develop</code> instead of <code>main</code>. What's the risk?</div>
+  <button class="opt">The hotfix won't deploy</button>
+  <button class="opt" data-correct="1">You ship unreleased work to production along with the fix</button>
+  <button class="opt">Tags stop working</button>
+  <div class="explain"><code>develop</code> contains everything merged for future releases. Hotfixes always branch from <code>main</code>, which equals production.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">2. Why are flow files treated as unmergeable?</div>
+  <button class="opt">They're binary files</button>
+  <button class="opt" data-correct="1">A line-by-line XML merge produces a flow that deploys but behaves incorrectly</button>
+  <button class="opt">Salesforce blocks merged flows at deployment</button>
+  <div class="explain">Git will cheerfully interleave two flow definitions. The result passes deployment and fails in behaviour — the worst kind of bug. Force a conflict and take one side.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">3. After deploying a hotfix to production, what must happen the same day?</div>
+  <button class="opt">Refresh all sandboxes</button>
+  <button class="opt" data-correct="1">Forward-merge <code>main</code> into <code>develop</code> and every open <code>release/*</code> branch</button>
+  <button class="opt">Delete the release branch</button>
+  <div class="explain">Otherwise the next release deploys the old code over your fix. Automate a check that fails when main has commits missing downstream.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">4. Cherry-picking is your normal way to assemble a release. What does that tell you?</div>
+  <button class="opt">The team is working efficiently</button>
+  <button class="opt" data-correct="1">The branch model is wrong — you're shipping combinations that were never tested together</button>
+  <button class="opt">You need more sandboxes</button>
+  <div class="explain">Routine cherry-picking means scope isn't controlled at the branch level. Use release branches (choose what merges) or feature flags (ship it off) instead.</div>
+</div>
+
+<div class="quiz">
+  <div class="q-text">5. Delta deployments are fast and low-risk. What do they fail to give you?</div>
+  <button class="opt">Test execution</button>
+  <button class="opt" data-correct="1">Confidence that git still matches the org — they leave untouched metadata alone</button>
+  <button class="opt">Destructive change support</button>
+  <div class="explain">Full deployments enforce git-as-truth by overwriting. Delta deployments don't, so pair them with scheduled drift detection.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Branching Strategy</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

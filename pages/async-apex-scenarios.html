@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Asynchronous Apex · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>Async Apex</span></div>
+  <h1>Asynchronous Apex — 100 Scenarios</h1>
+  <p class="lede">Choosing the right async tool, batch internals, chaining, finalizers, idempotency, limits that are
+     org-wide, and monitoring work that nobody is watching.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on
+    <a href="async-apex.html">Asynchronous Apex</a> and its <a href="async-apex.html#advanced">Advanced</a> section.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="choosing">Choosing the right tool (1–14)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> You need one callout after a record saves.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A Queueable enqueued from the trigger, or a platform event with a subscriber. You cannot call out from a trigger, and you
+cannot call out after DML in the same transaction.</p>
+<p>Queueable is preferable to <code>@future</code> for new code: it returns a monitorable job Id, takes complex types, chains, and supports
+finalizers.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> You need to process 8 million records overnight.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Batch Apex with a <code>QueryLocator</code> — it streams rows outside the 50,000-row transaction limit and chunks them for
+you.</p>
+<p>Tune scope to the work per record: 200 is the default, but drop to single digits if each record does a callout or heavy
+computation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> You need stage A, then B, then C, each potentially long.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A Queueable chain: each link does one stage and enqueues the next, carrying small state in instance fields rather than
+statics.</p>
+<p>Persist progress durably if the sequence matters across failures — a chain that dies between links leaves no evidence unless you wrote
+some.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> You need the same work to run every night at 02:00.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Schedulable Apex, scheduled with a cron expression — usually a thin class whose <code>execute</code> immediately starts a
+batch.</p>
+<p>Keep the schedulable trivial: its own limits are modest, and separating scheduling from processing makes the processing testable on its
+own.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> Fan out independent work across many consumers.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Platform events: publish once, let subscribers process in parallel in their own transactions with fresh limits.</p>
+<p>Beware the allocation cost — delivery to each subscriber consumes allocation, so ten subscribers multiply consumption — and never assume
+ordering.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> <code>@future</code> or Queueable?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Queueable for anything new. <code>@future</code> cannot take sObjects or complex types, returns no job Id, cannot chain, and has no
+finalizer support.</p>
+<p>Keep <code>@future</code> only in existing code, or when you specifically want a simple fire-and-forget with no
+monitoring.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> Work must finish before the user's next action.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Then it cannot be async — async offers no timing guarantee. Either do it synchronously (within limits) or change the UX to reflect
+reality: show a pending state and refresh when complete.</p>
+<p>Promising "it will be done in a second" with async work is how you get support tickets about data that is merely
+late.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> You need to process a 200MB file.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Not in Apex. Heap is 12MB async, so the file cannot be loaded. Options: Bulk API from the client, middleware doing the
+transformation, or chunked upload where each chunk is processed separately.</p>
+<p>If the file must land in Salesforce first, store it and process in slices with an offset you persist.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> An integration needs a callback when processing finishes.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Do the work in Batch Apex and make the callout from <code>finish()</code>, or publish a completion platform event the integration
+subscribes to.</p>
+<p><code>finish()</code> runs once after all chunks, which makes it the natural completion hook — including for reporting partial
+failures.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> Which async option gives you the most limit headroom?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>All async contexts get 60s CPU, 12MB heap and 200 queries — but <strong>row and DML-row limits do not increase</strong>, which is the
+detail people get wrong.</p>
+<p>Batch Apex is the only option that genuinely escapes the row limit, because the locator streams rather than loading.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> You need parallelism, not just asynchrony.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Several batch jobs partitioned by a hash of the Id, or multiple Queueables enqueued at once — co-ordinated by a controller that knows
+when all have finished.</p>
+<p>Watch record contention: parallel jobs touching children of the same parents will fight over locks, and you may finish slower than serial. See
+<a href="data-management.html#advanced">skew</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> Work must be retried automatically on failure.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Finalizer-based retry for Queueables (with an attempt cap), or <code>EventBus.RetryableException</code> for platform event
+subscribers.</p>
+<p>Both need a limit and a dead-letter destination. Unbounded retry consumes your daily async allocation and turns one failure into an
+outage.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> A nightly job must not overlap with itself.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check for an existing in-flight job before starting: query <code>AsyncApexJob</code> for Processing/Queued instances of the class and
+exit if one exists.</p>
+<p>Without that, a job that runs long gets a second instance the next night, and two copies processing the same records produce duplicate side
+effects.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> The business asks for "real-time" processing of 50,000 daily records.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Decompose the requirement: 50,000 a day is less than one a second, so event-driven processing within seconds is achievable and batch
+would not be.</p>
+<p>Platform events per record with an idempotent subscriber, plus a nightly reconciliation to catch anything the stream
+missed.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="batch">Batch Apex (15–32)</h2>
+
+<details class="acc"><summary><span class="q-num">15</span> A batch job fails at 95% after four hours.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Design so that cannot waste the run: persist a <strong>high-water mark</strong> so a re-run resumes, and check remaining limits mid-chunk
+so the job re-enqueues the remainder instead of dying.</p>
+<p>Also use partial-success DML with an error log so one bad record costs that record, not the chunk.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> One chunk fails. Does the job stop?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No — remaining chunks continue, and the job completes with an error count. That is usually desirable but means silent partial
+failure.</p>
+<p><code>finish()</code> must report it: read <code>AsyncApexJob.NumberOfErrors</code> and your own error log, and notify someone. A job that
+"completed" having failed 400 records is the dangerous case.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">17</span> Your batch needs state across chunks.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>Database.Stateful</code> preserves instance variables between <code>execute</code> calls — but it serialises the whole instance
+between chunks, so keep the state tiny (counters, not collections).</p>
+<p>For anything substantial, persist to a record instead; stateful batches with large state are slow and can exceed serialisation
+limits.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> You need to batch over data a query cannot produce.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>Iterable&lt;SObject&gt;</code> instead of a <code>QueryLocator</code> — but it loads into heap, so cap the size
+deliberately.</p>
+<p>Common for parsing a file or wrapping an API result. If the source is large, chunk at the source rather than building one huge
+iterable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">19</span> Each record needs a callout. What scope?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Implement <code>Database.AllowsCallouts</code> and use a very small scope (1–10), because callout limits are per execution, not per
+job.</p>
+<p>If the remote API supports batching, send many records per call instead — that is usually an order of magnitude faster and kinder to their rate
+limits.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> Batch job throws on the first chunk with a query timeout.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The <code>start()</code> query itself is unselective. The locator still has to resolve the query plan, so an unindexed filter over tens
+of millions of rows can time out before any chunk runs.</p>
+<p>Lead with an indexed selective filter, or chunk by Id range (PK-chunking style) across multiple job runs.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">21</span> Two batch jobs on related data deadlock.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>They lock the same parents in different orders. Deadlock is an ordering problem.</p>
+<p>Sort the query by parent Id so chunks group children of the same parent, reduce scope, and consider serialising the jobs rather than running them
+concurrently.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> How do you test a batch job?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Inside <code>Test.startTest()</code>/<code>stopTest()</code>, call <code>Database.executeBatch</code> with a scope — one
+<code>execute</code> runs per chunk within the test.</p>
+<p>Assert the data outcome, and assert <code>finish()</code> behaviour separately by calling it directly or by checking its side
+effects.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> A batch job must process newest records first.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Add <code>ORDER BY CreatedDate DESC</code> to the <code>start()</code> query. Ordering is respected, which matters when you may not finish
+the whole set.</p>
+<p>If order matters because of dependencies between records, batch is usually the wrong tool — consider a sequenced
+chain.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> You need to abort a running batch.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>System.abortJob(jobId)</code>, or the Apex Jobs page. Chunks already committed stay committed — there is no rollback.</p>
+<p>Which is why long batches should write progress and be safely re-runnable: aborting mid-way must leave a recoverable
+state.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> Jobs are stuck in Holding and the window is passing.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The Flex Queue — more batch jobs than the concurrent limit. You can reorder the queue; you cannot increase the concurrency.</p>
+<p>Consolidate jobs, stagger schedules, and treat a growing Holding count as the early warning that the nightly window no longer
+fits.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> How do you know a batch job is slower than it used to be?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Record duration yourself — write start and end times plus record counts to a job-log record each run, and report on the trend.</p>
+<p><code>AsyncApexJob</code> holds the completion data for a while but not a usable history. Without your own log, "it is getting slower" is an
+impression.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> Your batch recalculates everything nightly and takes six hours.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Process only what changed: filter on <code>SystemModstamp</code> since the last successful run (persisted), with a periodic full
+reconciliation.</p>
+<p>Incremental plus occasional full is almost always the right shape, and it is what keeps the window viable as data
+grows.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> A batch must skip records another process is editing.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Use a status or lock field the other process sets, and filter on it — a database row lock will not help across separate
+transactions.</p>
+<p>Handle the stale-lock case: if a process dies holding the flag, you need a timeout so records are not excluded
+forever.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> The batch's <code>finish()</code> needs to start another batch.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Legitimate and common: chain batches from <code>finish()</code> so stage two begins when stage one completes.</p>
+<p>Guard against loops (a batch that re-enqueues itself unconditionally) and record which stage ran, so a failure midway through a chain is
+diagnosable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> You need to batch over Big Object data.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Standard batch locators do not apply the same way. Use async SOQL to write results into another object, or query along the composite
+index in slices.</p>
+<p>Which is why the Big Object's index design matters so much up front — it determines whether the data is processable at all. See
+<a href="data-management.html#advanced">Big Objects</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> Scope 200 fails on CPU but scope 50 succeeds. Is that fine?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It works, but it is a signal: per-record cost is high, so the job will become fragile as logic grows.</p>
+<p>Reduce scope as a short-term fix, then look at what is expensive per record — usually a query or describe call that should have been done once
+per chunk.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> A batch job silently stopped running weeks ago.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check <code>CronTrigger</code> — a deployment or an abort left the schedule broken, and nothing alerts on absence.</p>
+<p>Add a heartbeat: the job writes a completion record, and a separate check alerts if none appeared today. Alerting on absence rather than on
+errors is what catches this class of failure.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="queueable">Queueable &amp; finalizers (33–50)</h2>
+
+<details class="acc"><summary><span class="q-num">33</span> A Queueable disappeared with no log and no error.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>It hit an uncatchable limit. Attach a <strong>Finalizer</strong>: it runs after the job even on an unhandled exception, in a fresh context
+with its own small allocation, so it can log the failure.</p>
+<p>Without one, limit breaches vanish. This is the single most valuable reliability addition to async Apex.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> Your finalizer re-enqueues and loops forever.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Carry an attempt counter in the job's constructor and cap it. Also halve the scope on each retry so a deterministic failure isolates
+itself rather than repeating identically.</p>
+<p>Unbounded retry burns the daily async allocation and converts one failure into total async
+unavailability.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> How much work should a finalizer do?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Very little: log, alert, perhaps re-enqueue. Its limits are small and it runs in a failure context.</p>
+<p>Business logic in a finalizer is logic that only executes when something went wrong — the worst possible place for
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> Chaining works in production, fails in tests.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Tests permit one level of chaining. Assert the first link's work and that the next job was enqueued; test later links as separate
+units.</p>
+<p>That constraint is a useful design pressure — each link should be independently testable
+anyway.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> How deep can a Queueable chain go?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Effectively unlimited in production (bounded by the daily async allocation), tightly limited in tests.</p>
+<p>Depth is rarely the constraint; the real risks are an accidental infinite chain and consuming your async allocation. Carry a hop counter and
+cap it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> A Queueable needs a callout.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Implement <code>Database.AllowsCallouts</code>. Set an explicit timeout on the request, and remember the cumulative 120-second callout
+budget per transaction.</p>
+<p>Classify the response: 2xx success, 409 as already-processed, 429/5xx as retryable, 4xx as your bug and dead-letter it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> You enqueue 100 Queueables from one transaction and it fails.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>There is a cap on jobs added per transaction (and only one from within a Queueable). Enqueue one job that processes the collection, or
+chain.</p>
+<p>Fan-out of that shape is usually better expressed as a batch job or as platform events.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> Queueable state is lost between links.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Each link is a new transaction and a new instance, so statics reset. State must be passed through the constructor (and it must be
+serialisable) or persisted to a record.</p>
+<p>Keep constructor state small — large collections serialised between links are slow and can exceed
+limits.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">41</span> You need a job Id to show progress to the user.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>System.enqueueJob()</code> returns the <code>AsyncApexJob</code> Id — return it to the client, which polls
+<code>AsyncApexJob</code> for status.</p>
+<p>That is also why Queueable beats <code>@future</code>: you cannot monitor what you cannot
+identify.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> Async work runs twice and duplicates records.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Make it idempotent: a unique External Id on created records, insert with <code>allOrNone = false</code>, and treat
+<code>DUPLICATE_VALUE</code> as "already done".</p>
+<p>The unique index is the guarantee; a pre-check query is only an optimisation and does not hold under
+concurrency.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> A static recursion guard does not work across async hops.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Each hop is a new transaction, so statics are fresh. Guards cannot span transactions.</p>
+<p>Use a durable marker on the record — a processed flag or timestamp — when the guarantee must
+persist.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> You need to run async work as a specific user.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Async runs as the enqueuing user (platform event subscribers run as Automated Process). You cannot choose arbitrarily.</p>
+<p>If the context matters, pass the relevant user Id and do explicit permission checks, or trigger the work from a scheduled job owned by a
+dedicated service user.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> Mixed DML error inside a Queueable.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The same rule applies in async: setup objects (User, Group, PermissionSetAssignment) cannot be mixed with non-setup objects in one
+transaction.</p>
+<p>Split across two Queueables, or chain them. The separate transaction is in fact the standard way to resolve mixed
+DML.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> You need to process records in a guaranteed order.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Async gives no ordering guarantee across jobs, and events are not reliably ordered. Enforce order explicitly with a sequenced chain, each
+link handling one ordered slice.</p>
+<p>Or remove the ordering requirement by making the operations commutative and idempotent, which is usually the more robust
+design.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> Queueable fails with "Too many queueable jobs added".<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>You enqueued more than permitted from a single transaction, or more than one from inside a Queueable.</p>
+<p>Enqueue a single job that iterates, or restructure as a chain where each link adds exactly
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> How do you dead-letter work that cannot succeed?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A custom object holding the payload, the error, the attempt count and a correlation id — inspectable, reportable and
+replayable.</p>
+<p>A log line is not a dead-letter queue. If nobody can see what failed and re-run it, the failure is
+permanent.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> A Queueable needs to update records another transaction holds.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It will fail on a lock. Retry with backoff via the finalizer, and reduce the window by sorting DML consistently and keeping transactions
+short.</p>
+<p>Persistent contention usually means data skew rather than a concurrency bug — check whether one parent or one owner is
+involved.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> Should every Queueable have a finalizer?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Any Queueable whose failure matters, which is nearly all of them. The cost is a few lines; the benefit is knowing when it
+died.</p>
+<p>Make it part of your async template so it is the default rather than something to
+remember.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="limits-async">Limits &amp; scale (51–66)</h2>
+
+<details class="acc"><summary><span class="q-num">51</span> "Make it async" did not fix the row limit.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Async doubles CPU, heap and query <em>count</em>, but total query rows (50,000) and DML rows (10,000) are unchanged.</p>
+<p>Only Batch Apex with a locator escapes the row limit, because it streams. Moving a 200,000-row query into a Queueable changes
+nothing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> All async work stopped mid-afternoon.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The daily async execution allocation — org-wide and licence-scaled — is exhausted, most often by an uncapped retry
+loop.</p>
+<p>Cap retries, back off, dead-letter, and monitor the allocation with an alert rather than discovering it when everything
+halts.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> Users report errors when your integration runs.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The concurrent long-running request limit: ten synchronous requests over five seconds per org, shared with interactive
+users.</p>
+<p>Move integration work async or use Continuations. This limit's symptom appears nowhere near its cause, which is what makes it so hard to
+diagnose.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> You cannot schedule a new job.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Org-wide scheduled job limit reached — commonly from scheduling one job per region or entity.</p>
+<p>Use one scheduled job that iterates, and audit <code>CronTrigger</code> for abandoned schedules from old
+projects.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> Batch jobs are limited to a few concurrent. How do you go faster?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Reduce total work (incremental processing), make each record cheaper, or partition into fewer, larger, better-tuned jobs rather than
+many small ones competing for the same concurrency.</p>
+<p>More parallelism also means more lock contention, so measure — serial sometimes finishes
+sooner.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> Heap exceeded in an async job.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>12MB is not much once you select 60 fields across several objects. Query fewer fields, avoid parallel copies of collections, null out
+large structures, and prefer a locator over a list.</p>
+<p>Deserialising a large JSON payload is another frequent cause — parse once and
+discard.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> How do you check limits mid-job and stop gracefully?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Compare <code>Limits.getCpuTime()</code> and heap against <code>Limits.getLimitX()</code> inside the loop, and when you cross a threshold,
+record the high-water mark and re-enqueue the remainder.</p>
+<p>The job then completes in two passes instead of failing at
+95%.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> Platform event allocation disappeared overnight.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Both publishing and delivery <em>per subscriber</em> consume allocation, so several subscribers multiply consumption.</p>
+<p>Consolidate subscribers, keep payloads thin, and review whether every subscriber needs every event. See
+<a href="integration-events.html#advanced">allocations</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> Email notifications from async jobs stop sending.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Daily email limits are org-wide and fail quietly. A per-record notification from a batch will exhaust them.</p>
+<p>Batch the notifications into a digest, or use platform events and custom notifications which do not share that
+cap.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> A job needs to finish within a two-hour window and does not.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Reduce the work (incremental, filtered), reduce per-record cost, then parallelise with partitioning — in that order, because parallelism
+adds contention.</p>
+<p>Also check whether the window is competing with other scheduled jobs for batch concurrency; staggering can recover an hour with no code
+change.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> An async job triggers automation that triggers more async work.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A cascade that can consume your allocation and run for hours, invisible in any single debug log because each hop is its own
+transaction.</p>
+<p>Guard with durable markers, a hop counter you persist, and a circuit breaker you can alert on. Then question whether the cascade is
+necessary.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> How do you size scope for a batch that does DML?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Work backwards from DML rows per chunk: 10,000 is the cap, so a job inserting five children per record cannot use scope 2,000.</p>
+<p>Then check CPU and heap headroom at that scope and leave margin — a chunk running at 90% of CPU will fail when the data gets slightly
+heavier.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> You need to know your org's async headroom.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The Limits API (or <code>/limits</code> via REST) reports daily async executions, API calls, storage and more. Query it on a schedule and
+alert at a percentage.</p>
+<p>These are the limits that fail silently rather than throwing — nobody notices until work stops
+happening.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> A managed package's async jobs compete with yours.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>They share your org-wide batch concurrency, flex queue and daily allocation. Their nightly job can push yours into Holding.</p>
+<p>Stagger your schedules around theirs, and raise it with the vendor if their job is uncontrollable — with evidence from the Apex Jobs
+history.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> Is it better to run one big job or many small ones?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Few, well-tuned jobs. Many small jobs compete for limited batch concurrency, multiply monitoring surface, and increase lock
+contention.</p>
+<p>Partition only when a single job genuinely cannot fit the window, and partition by a key that avoids shared parents.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> How do you design async work that scales with data growth?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Make it incremental (process only what changed, with a persisted watermark), bounded (explicit limits you chose), resumable (high-water
+marks), and observable (duration and volume logged per run).</p>
+<p>Those four properties mean the job degrades gracefully and visibly as data grows, rather than failing suddenly one
+Tuesday.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="monitor">Monitoring &amp; testing (67–82)</h2>
+
+<details class="acc"><summary><span class="q-num">67</span> Nobody knew a job had been failing for a month.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Query <code>AsyncApexJob</code> on a schedule for Failed/Aborted and alert. The Apex Jobs UI is for humans and nobody looks at it.</p>
+<p>Also alert on <em>absence</em> — a job that normally completes daily and did not should page someone, because a broken schedule throws no
+error.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> <code>NumberOfErrors</code> is 400 but you do not know why.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It is only a count. Your own error log, written per chunk with the record Id, status code and message, is what makes it
+actionable.</p>
+<p>Publish it as a platform event so the log survives a rollback within the
+chunk.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> A job's debug log is empty.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Trace flags are per user, and async work may run as a different user — platform event subscribers run as Automated Process.</p>
+<p>Set the trace flag on the correct user, and build structured logging so you are not dependent on catching a trace at the right
+moment.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> How do you test a finalizer?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Call the <code>execute(FinalizerContext)</code> method directly with a test double for the context where possible, asserting the logging
+and re-enqueue decisions.</p>
+<p>You cannot easily force an uncatchable limit breach in a test, so test the finalizer's <em>logic</em> as a unit rather than trying to reproduce
+the failure.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">71</span> How do you test a scheduled job?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>System.schedule()</code> inside the test and assert on <code>CronTrigger</code>, and separately call the <code>execute</code> method
+directly to test the logic.</p>
+<p>Keeping the schedulable trivial makes this easy — a schedulable that only starts a batch needs almost no
+testing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> Your async test passes but production behaves differently.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Tests run everything synchronously inside <code>startTest</code>/<code>stopTest</code>, with one chaining level and clean data. Production
+has concurrency, real volumes, other automation and partial failures.</p>
+<p>Supplement unit tests with a scenario test in a Full sandbox at realistic volume — particularly for anything with lock or ordering
+sensitivity.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> How do you test platform event subscribers?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Publish the event, then <code>Test.getEventBus().deliver()</code> to force synchronous delivery, then assert the subscriber's
+effect.</p>
+<p>Also test the retry path by making the handler throw, and assert your dead-letter behaviour — the failure path is where event-driven designs
+break.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> You need to prove idempotency in a test.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Run the operation twice in the test and assert the state after the second run is identical to after the first — same record count, same
+field values.</p>
+<p>That single test prevents most duplicate-side-effect incidents from retries and
+redelivery.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> A job is slow but you cannot tell which part.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Instrument stages: capture <code>Limits.getCpuTime()</code> deltas per phase and log them with record counts.</p>
+<p>Combined with the query timings in a debug log, that tells you whether the cost is query, computation or DML — which determines completely
+different fixes.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> How do you alert when a job takes twice as long as usual?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Write duration to a job-log record each run, then a scheduled check compares the latest against a rolling average and raises a
+notification.</p>
+<p>That catches degradation before it becomes a missed window, which is far better than discovering it when the window
+fails.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">77</span> Apex exception emails go to a developer who left.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Set the Apex exception recipients to a monitored distribution list, and build real alerting off your error log rather than relying on
+email at all.</p>
+<p>Single-person notification is a guaranteed future gap and one of the most common findings when an org changes
+hands.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> You need a dashboard for async health.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Build it from your own job-log object plus <code>AsyncApexJob</code> queries: jobs completed today, failures, average duration, records
+processed, oldest unprocessed item, allocation consumed.</p>
+<p>"Oldest unprocessed item" is the single most useful number — a rising value is the earliest signal that something is
+wrong.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">79</span> How do you replay failed work?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Store enough in the dead-letter record to reconstruct the operation — payload, target Ids, parameters — and provide a button or a batch
+that re-submits selected rows.</p>
+<p>Replay must be idempotent, because some of what you replay may have partially
+succeeded.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> A deployment broke your schedules again.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Make schedule setup an idempotent Apex method run as a documented post-deployment step, which aborts and recreates
+everything.</p>
+<p>Then verify <code>CronTrigger</code> state after each release. Treating schedules as deployable configuration rather than manual setup is the
+fix.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">81</span> How do you test behaviour under concurrency?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Not in unit tests — they are single-threaded. Use a sandbox: run two Bulk API loads simultaneously against related data and observe lock
+errors and duplicates.</p>
+<p>Then verify your idempotency and lock-ordering defences actually hold. Concurrency bugs are only reproducible under real
+concurrency.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> Your async code has 90% coverage and still fails in production.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Coverage measures executed lines, not scenarios. Async failures come from volume, concurrency, partial failure, retries and limit
+exhaustion — none of which a typical unit test exercises.</p>
+<p>Add tests for: a chunk that fails, a repeated run (idempotency), and an empty input. Then scenario-test at volume in a
+sandbox.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="judgement">Judgement (83–100)</h2>
+
+<details class="acc"><summary><span class="q-num">83</span> A stakeholder wants instant processing; you know it must be async.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Decompose "instant": must the user see it before finishing their task (then it is synchronous, within limits), or must it merely happen
+quickly (events, seconds)?</p>
+<p>Then make the asynchrony visible in the UX — a pending state that resolves — rather than pretending it is
+instant.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> Should business logic live in the async job or a service?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A service the job calls. The job owns scheduling, chunking and error handling; the service owns the logic and is testable without
+async.</p>
+<p>Logic embedded in <code>execute()</code> can only be tested through the async harness, which is slower and
+weaker.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> You are asked to process everything in real time "to be safe".<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Real-time processing is more expensive, more fragile and harder to recover than batch. "To be safe" usually argues for the
+opposite.</p>
+<p>Ask what decision depends on the freshness. If none does today, nightly batch plus the option to add events later is the cheaper and more
+reliable start.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> How do you choose between events and a scheduled job?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Events for freshness and decoupling, accepting at-least-once delivery, no ordering and a retention window. Scheduled jobs for
+completeness, ordering and easy reasoning.</p>
+<p>Mature designs use both: events for immediacy, a scheduled reconciliation for correctness. See
+<a href="integration-events.html#advanced">delivery semantics</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> A job must not run during business hours.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Schedule it outside them, and add a guard in the job that exits if it finds itself running inside them — schedules get changed by
+accident.</p>
+<p>Also consider the user impact of the work itself: heavy DML during the day causes lock contention for interactive
+users.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> How do you migrate a synchronous process to async safely?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Extract the logic into a service first (testable synchronously), then add the async wrapper, then switch the caller behind a feature
+flag.</p>
+<p>Run both paths in parallel in a sandbox and compare outputs before cutting over. The UX change — results arriving later — usually needs more
+attention than the code.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> Users complain data "takes a while to appear".<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>That is async working as designed, poorly communicated. Show a pending state, a last-updated timestamp, or a progress indicator driven
+by the job Id.</p>
+<p>A visible "processing, updated at 14:32" eliminates most of these complaints without any change to the
+processing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> An async job writes to records users are editing.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>You will get lock errors and you may overwrite user edits. Decide the conflict rule: skip records modified recently, write only to
+fields users do not touch, or notify rather than overwrite.</p>
+<p>Silently overwriting user input is the worst outcome and the easiest to ship
+accidentally.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> How do you make async failures visible to the business?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Surface them as data, not logs: a dead-letter object with a list view and a report, plus a count on an operational dashboard.</p>
+<p>Business users will chase failures they can see. Nobody chases a log nobody can
+read.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> A job processes 100 records a night and you built it as a batch.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Over-engineered — a scheduled Queueable or even synchronous processing would do, with less monitoring surface.</p>
+<p>Batch earns its complexity above the row and transaction limits. Below them it is extra machinery to operate for no
+benefit.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> You need to coordinate async work across two orgs.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>No distributed transaction exists. Design for eventual consistency with idempotent operations, correlation ids, and compensating actions
+for partial failure.</p>
+<p>Then add reconciliation comparing counts and checksums between the orgs — the only way to detect divergence. See
+<a href="integration-patterns.html#advanced">consistency models</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> Async work must respect the user's permissions.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It runs as the enqueuing user, so sharing applies if your class declares it — but verify, because async entry points frequently end up in
+system mode.</p>
+<p>Declare <code>with sharing</code> and use <code>USER_MODE</code> explicitly rather than relying on inherited
+context.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> You inherit async code with no error handling.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Add observability before changing behaviour: finalizers, structured logging, a job-log record per run. You cannot improve what you cannot
+see.</p>
+<p>Then address the loudest failure mode. Rewriting first and instrumenting later means you will not know whether the rewrite
+helped.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> How much retry is too much?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Beyond about three attempts with backoff, a failure is usually deterministic and retrying just consumes allocation.</p>
+<p>Cap it, dead-letter, and alert. Infinite retry is how a single malformed record takes down an org's async
+capacity.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> A job is business-critical. What does that change?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>It needs: a finalizer, structured logging, a dead-letter path, alerting on failure <em>and</em> on absence, a documented runbook for
+re-running it, and a tested resume mechanism.</p>
+<p>"Business-critical" should mean those six things exist — not simply that someone would be upset if it
+failed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> Async or middleware for heavy integration processing?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Middleware, usually, for transformation and orchestration of large volumes — it has better memory, retry and observability than Apex, and
+it does not consume your org's limits.</p>
+<p>Keep Apex for logic that genuinely needs Salesforce context. "We did it in Apex because that is where the data is" is how orgs hit limit walls
+at scale.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> What is the most common async design mistake?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Assuming it will succeed. Async work is retried, redelivered, interrupted and run concurrently — and most code is written as though it runs
+once, in order, successfully.</p>
+<p>Idempotency plus observability converts that assumption from a hope into something you can
+verify.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit worth adopting for all async work?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Write the <strong>failure path first</strong>: the finalizer, the log, the dead letter, the alert — before the happy path.</p>
+<p>It takes an hour, it forces you to decide what "failed" means, and it is the difference between a job you operate and a job you
+hope about.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="async-apex.html">Asynchronous Apex</a>, the <a href="scenarios.html">scenario index</a>, or
+    <a href="testing-scenarios.html">Testing — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Async Apex — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

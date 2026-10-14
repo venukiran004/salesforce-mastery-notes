@@ -99,6 +99,8 @@ const SITE = [
     items: [
       { f: "pages/devops.html", t: "Deployment & DevOps", i: "🚢",
         k: "change sets sfdx sf cli metadata api unlocked package scratch org vs code git ci cd deployment validation quick deploy ant migration tool" },
+      { f: "pages/branching-strategy.html", t: "Branching Strategy", i: "🌿", pill: "new",
+        k: "branching strategy git branch model gitflow trunk based development org branching package based feature branch release branch hotfix forward merge main develop uat integration environment mapping branch protection pull request pr gates code review delta deployment sfdx-git-delta destructive changes drift detection config drift back propagation setup audit trail profiles in version control merge conflict flow xml unmergeable gitattributes forceignore permission sets feature flags custom permission custom metadata hierarchy custom setting release tagging rollback cherry pick parallel releases project branch unlocked package decomposition migration baseline ci authentication jwt pipeline naming conventions" },
       { f: "pages/debugging.html", t: "Debugging & Troubleshooting", i: "🐞",
         k: "debug log trace flag finest cumulative limit usage code unit started developer console checkpoint heap dump execute anonymous replay debugger apex log analyzer error lookup null pointer list has no rows setup audit trail optimizer health check apex exception email error log" },
       { f: "pages/governance.html", t: "Governance & Ecosystem", i: "🏛️",

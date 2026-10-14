@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Triggers &amp; Order of Execution · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>Triggers</span></div>
+  <h1>Triggers &amp; Order of Execution — 100 Scenarios</h1>
+  <p class="lede">Context variables, the save order and its re-entry cases, recursion, bulkification, partial success,
+     frameworks and the special objects — as production situations.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on
+    <a href="apex-triggers.html">Triggers &amp; Order of Execution</a> and its
+    <a href="apex-triggers.html#advanced">Advanced</a> section.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="context">Context variables (1–12)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> You need the old value of a field in an after-update trigger.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>Trigger.oldMap.get(record.Id).Field__c</code>. <code>Trigger.old</code> is a list in the same order as
+<code>Trigger.new</code>, but the map is safer because you are matching by Id rather than trusting index alignment.</p>
+<p>Both are null on insert, and <code>Trigger.new</code> is null on delete — so a handler that does not check its context will
+throw.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> <code>Trigger.new</code> is null and your code throws on delete.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>On delete there is no new version, so only <code>Trigger.old</code> and <code>Trigger.oldMap</code> are populated.
+On insert the reverse applies — no <code>old</code>, and Ids only exist in the <em>after</em> context.</p>
+<p>A handler framework that dispatches to explicit <code>beforeInsert</code>/<code>afterDelete</code> methods removes this class of
+bug entirely, which is most of its value.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> You try to set a field in an after-insert trigger and get an error.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>Trigger.new</code> records are read-only in <em>after</em> contexts. Same-record field updates belong in
+<strong>before</strong> triggers, where you mutate the in-memory record and the platform saves it with no extra DML.</p>
+<p>If you genuinely must update in after context, you need an explicit DML — which re-fires the triggers and is usually the wrong
+answer.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> You need the record Id to create a child, but you are in before-insert.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Ids do not exist until after the insert. Anything needing the parent Id — children, shares, related records — belongs
+in <strong>after</strong> insert.</p>
+<p>That split is the simplest rule of thumb for choosing context: before for same-record values, after for anything involving the Id or
+related records.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> How do you tell an insert from an update in a combined trigger?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>Trigger.isInsert</code> / <code>isUpdate</code> / <code>isDelete</code> / <code>isUndelete</code>, combined with
+<code>isBefore</code> / <code>isAfter</code>.</p>
+<p>Better: one trigger per object that immediately dispatches to a handler with explicit context methods, so the branching lives in one
+place and each method has a clear contract.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> <code>Trigger.size</code> is 200 but you expected 10,000.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>The platform chunks DML into batches of 200, each its own trigger invocation — and a Data Loader job arrives as separate
+transactions entirely.</p>
+<p>So your trigger must be correct per chunk and must not assume it sees the whole job. Any cross-batch aggregation needs to happen elsewhere
+(a batch job, or a reconciliation pass).</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> <code>Trigger.isExecuting</code> — when is it useful?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It tells a shared class whether it was invoked from trigger context, which is occasionally useful for logging or for
+choosing a bulk-safe path.</p>
+<p>It is not a recursion guard, and using it to branch business logic is usually a sign the class is doing too much — a service called from
+both a trigger and a UI should behave the same way.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> You need to detect that a specific field changed.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Compare new against old for each record:
+<code>record.Status__c != Trigger.oldMap.get(record.Id).Status__c</code>.</p>
+<p>Do it per record in a loop, not once for the batch — a batch where one record changed and 199 did not is the normal case, and acting on all
+200 is a common bug.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> Your trigger fires on every update even when nothing relevant changed.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Add an explicit change check and build a filtered collection of only the records that need work — then do nothing (and return
+early) when it is empty.</p>
+<p>That is both a correctness fix and a performance fix: it stops cascading automation and keeps the transaction cheap when a bulk load touches
+unrelated fields.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> Can you access a related record's fields from <code>Trigger.new</code>?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Not reliably — <code>Trigger.new</code> contains only the fields of the record itself, not populated relationship fields.</p>
+<p>Query for what you need: collect the parent Ids into a set, query once, and build a map. Attempting <code>record.Account.Name</code> in a
+trigger returns null and is a classic beginner bug.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> You need to stop a delete from happening.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>addError()</code> on the record in <strong>before delete</strong>, iterating <code>Trigger.old</code>.</p>
+<p>Write the message for the user ("Cannot delete an invoice that has been posted"), and remember cascade deletes from a master-detail parent also
+run this trigger — which is where "why can't I delete the account" originates.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> Should you ever have two triggers on one object?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No — their execution order is not guaranteed, so behaviour becomes dependent on an implementation detail.</p>
+<p>One trigger per object, delegating to a handler. If a managed package adds its own, you cannot control that ordering either, which is another
+reason to keep your own logic in one place and thin.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="order">Order of execution (13–28)</h2>
+
+<details class="acc"><summary><span class="q-num">13</span> Your trigger appears to run twice on one save.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A <strong>workflow field update</strong> re-fires before and after triggers on that record once. Validation rules do not
+re-run by default, which is why the second pass behaves slightly differently.</p>
+<p>Other causes: roll-up recalculation saving the parent, an after-save flow updating its own record, or assignment rules changing the owner.
+Guard by record Id rather than with a blunt boolean.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> A validation rule rejects a value your trigger just set.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Correct ordering: before-save flows, then before triggers, then validation rules. So a before trigger's value is
+validated — which is usually what you want.</p>
+<p>If your logic is in an <em>after</em> trigger, it runs after validation and cannot influence it. Move defaulting earlier.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> Logic keyed on OwnerId sees the wrong owner.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Assignment rules run <em>after</em> your before triggers, so a before trigger sees the pre-assignment owner.</p>
+<p>Put owner-dependent logic in an after trigger, or in a separate async step. This is a frequent cause of notifications going to the wrong
+person on case creation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> Updating a child causes the parent's triggers to fire.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Roll-up summary recalculation saves the parent, which runs the parent's triggers. This is how cross-object trigger storms
+start.</p>
+<p>It is also why implicit parent locking exists: child DML locks the master-detail parent, which is the root cause of most
+<code>UNABLE_TO_LOCK_ROW</code> errors.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">17</span> Where do before-save flows sit relative to triggers?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Before-save flows run <strong>before</strong> before-triggers. They are also substantially faster than an after-save flow
+for same-record field updates because there is no additional save.</p>
+<p>Practical rule: same-record field defaults in a before-save flow, cross-object work in after-save or Apex.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> When do platform events published in a trigger actually fire subscribers?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>With publish-after-commit (the usual choice), after the transaction commits — so subscribers run in a separate transaction with
+fresh limits and no access to your static state.</p>
+<p>That makes events a clean way to do post-commit work and to escape mixed-DML restrictions. Publish-immediately fires even if you later roll
+back, which is only appropriate for telemetry.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">19</span> A CDC subscriber sees a child change before its parent.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Change events are not ordered across objects. Use the transaction key in the event header to group changes that happened
+together, and design consumers to tolerate out-of-order arrival or to query current state.</p>
+<p>Also handle <strong>gap events</strong> — ignoring them silently loses changes. See <a href="integration-events.html#advanced">CDC fine
+print</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> Entitlement and escalation rules interfere with your trigger logic.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>They fire inside the same save, after triggers — so fields they set are not visible to your trigger, and fields you set can
+change their behaviour.</p>
+<p>Sequence deliberately: if your logic must react to the escalation outcome, it belongs in a later step (an async job or an event
+subscriber).</p></div></details>
+
+<details class="acc"><summary><span class="q-num">21</span> Deleting a parent runs delete triggers you did not expect.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Cascade delete on master-detail deletes children and runs their delete triggers. Archiving logic routinely forgets this and
+either double-processes or fails.</p>
+<p>Make delete handlers tolerant and idempotent, and consider whether the relationship should restrict deletion instead.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> Two record-triggered flows on an object run in an unexpected order.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Within the same object and timing, order is unspecified unless you set the flow's <strong>trigger order</strong>
+explicitly.</p>
+<p>Set it, document it, and ideally converge on one entry point per timing. Relying on observed order is relying on something that can change
+between releases.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> Does a roll-up field update fire the parent's before trigger?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The parent is saved, so yes — its triggers run. That is why a parent trigger that recalculates something from children can
+end up in a loop with the roll-up.</p>
+<p>Guard by checking whether the fields you care about actually changed, and never react to fields the platform itself maintains unless you mean
+to.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> Your logic must run after everything else in the save.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>There is no "last" hook. The closest are an after trigger (late in the save, but before roll-ups and some rules) or a
+post-commit mechanism — a platform event published after commit, or an async job.</p>
+<p>If the requirement is genuinely "after the whole transaction settles", post-commit is the honest answer, and it means accepting a short
+delay.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> Does <code>Database.update</code> with partial success still fire triggers?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Yes — for the records that are processed. Failed records do not get saved, so their after-trigger logic does not run, but the
+successful ones proceed normally.</p>
+<p>That is why partial-success DML plus <code>addError</code> interact subtly: in a partial-success context, an error on one record removes that
+record rather than the whole operation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> Why does a user see different behaviour than an integration?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Different entry points mean different automation applies: assignment rules and auto-response run on UI-created cases but can be
+skipped by API depending on headers; validation rules differ if you scoped them; and the running user's sharing and FLS differ.</p>
+<p>Log <code>Request.getCurrent().getQuiddity()</code> so "it behaves differently from the API" becomes provable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> Someone asks you to recite the order of execution. What matters?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The sequence matters less than the <em>consequences</em>: before-save flows → before triggers → validation → save → after
+triggers → after-save flows → roll-ups → commit, with workflow field updates causing one re-entry.</p>
+<p>What interviewers want is the practical conclusions: why same-record updates go in before context, why assignment rules surprise you, and why
+your trigger can run twice.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> A field is empty in your after trigger but populated on the record afterwards.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Something later in the save set it: a roll-up, a workflow field update, an escalation or entitlement rule, or an after-save
+flow.</p>
+<p>Read the <code>CODE_UNIT_STARTED/FINISHED</code> tree in a debug log to see the real sequence. Reasoning from configuration is slower and
+frequently wrong, because orgs contain automation nobody documented.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="bulk">Bulkification (29–44)</h2>
+
+<details class="acc"><summary><span class="q-num">29</span> Your trigger throws "Too many SOQL queries: 101".<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A query inside a loop. Collect the Ids into a <code>Set</code> first, query once outside the loop, and build a
+<code>Map</code> for lookups.</p>
+<p>The limit counts <em>queries</em>, not rows, so one query returning 10,000 rows is fine and 101 queries returning one row each is not.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> "Too many DML statements: 151".<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>DML inside a loop. Accumulate records into a list and issue one statement after the loop.</p>
+<p>If you need to insert into several objects, build one list per object and issue one statement each — four statements, not four hundred.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> Your code works for 200 records but the business loads 50,000.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It arrives as 250 chunks of 200 in separate transactions, so per-transaction limits are fine — but anything accumulating in a
+static across chunks, or any cross-record aggregation, will be wrong.</p>
+<p>Also watch for lock contention between chunks on shared parents, and for row limits if your trigger queries broadly per chunk.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> A trigger calls a method that queries — and that method is called in a loop.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The query is still in a loop; moving it into a method only hides it. This is the most common form of the bug in
+"clean-looking" code.</p>
+<p>Change the method's signature to take a <em>collection</em> and return a map. Bulk-safe interfaces force bulk-safe callers.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">33</span> You need to query related records for 200 parents.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>One query with <code>WHERE ParentId IN :parentIds</code>, then group into a <code>Map&lt;Id,
+List&lt;Child__c&gt;&gt;</code> in a single pass.</p>
+<p>That map-building pattern is the backbone of bulk Apex — once you have it, most trigger logic becomes a loop over parents with a map
+lookup.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> Nested loops over two collections blow CPU.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Quadratic behaviour: 200 × 200 is 40,000 iterations, and it grows fast.</p>
+<p>Replace the inner loop with a <code>Map</code> lookup keyed on whatever you were matching. Almost every nested loop in Apex can become a map
+build plus a single pass.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> A trigger makes a callout and fails.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>You cannot call out from a trigger synchronously (and you cannot call out after DML in a transaction at all).</p>
+<p>Publish a platform event or enqueue a Queueable (or <code>@future(callout=true)</code>) and do the callout there. That also gives you retry and
+error handling, which a trigger callout would not.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> Your trigger sends an email per record.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Email limits are per transaction and daily, and one send per record will hit both. Build a list of
+<code>SingleEmailMessage</code> and send once with <code>Messaging.sendEmail(list)</code>.</p>
+<p>Better still, question whether email is right at all — for high volume, platform events or custom notifications scale and do not share a daily
+cap with everything else.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> You need to process only records whose status changed to Closed.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Build a filtered collection in one pass: for each record, compare against <code>Trigger.oldMap</code> and add to a working
+list only on the transition.</p>
+<p>Then return early if the list is empty. That single habit prevents a large amount of unnecessary work and cascading automation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> A heap error in a trigger processing 200 records.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Something is loading too much: a query selecting every field, a large related collection per record, or accumulated strings.</p>
+<p>Query only rendered/needed fields, avoid <code>FIELDS(ALL)</code>, and do not hold parallel copies of collections. 6MB synchronous is not much
+when you select 80 fields across several objects.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> How do you keep a trigger fast when the org has 12 other automations?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Your trigger shares the transaction's CPU with every flow, validation rule, roll-up and managed package on that save — so being
+efficient is necessary but not sufficient.</p>
+<p>Keep your handler thin, push heavy work async, and campaign to consolidate the other automations. Read
+<code>CUMULATIVE_LIMIT_USAGE</code> to see who is actually spending the budget.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> Should a trigger handler query in every context?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No — query lazily and only when the filtered working set is non-empty. A trigger that queries unconditionally costs a query on
+every save, including the 199 saves that needed nothing.</p>
+<p>At scale that is the difference between a save that is fast and one that is not, and it compounds with every other automation on the
+object.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">41</span> Your trigger needs data from a related object five levels up.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>SOQL allows five levels of parent traversal in the SELECT, so often one query suffices — but deep traversal costs work per
+row.</p>
+<p>If you need it repeatedly, consider stamping the value closer with automation so the trigger can read it directly. Denormalisation is
+legitimate when it is a decision.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> You must process 100,000 related records from a trigger.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Not in the trigger. Row and DML limits make it impossible, and even if it fit, you would be holding a user's save open.</p>
+<p>Enqueue a Queueable or Batch Apex from the trigger and process asynchronously, with a high-water mark so a failure resumes. See
+<a href="async-apex.html#advanced">chunking strategies</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> Your trigger logic is correct but slow because of a describe call.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>getGlobalDescribe()</code> is expensive and should essentially never appear in a trigger path, let alone in a loop.</p>
+<p>Cache describe results in a static map on first use, and prefer targeted describes (<code>Account.SObjectType.getDescribe()</code>) over
+indexing into a global one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> How do you write a bulk test that actually tests bulk?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Insert 200 records in one DML, with <em>variation</em> — some meeting the criteria, some not, some with null fields, some
+referencing the same parent.</p>
+<p>200 identical records passes trivially and proves little. The variation is what finds the index-alignment bugs and the "acted on all 200"
+bugs.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="recursion">Recursion &amp; guards (45–58)</h2>
+
+<details class="acc"><summary><span class="q-num">45</span> Your static boolean guard skips records in a legitimate second batch.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A transaction updating 400 records through two DML statements hits your trigger twice legitimately — and
+<code>alreadyRan</code> silently skips the second 200.</p>
+<p>Guard by <strong>record Id</strong>: keep a static <code>Set&lt;Id&gt;</code> of processed records and filter against it, returning an empty
+working set when appropriate. That stays correct under both shapes.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> You get "maximum trigger depth exceeded".<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Logic is re-triggering itself — typically an after trigger updating records that fire the same trigger again, or two triggers
+updating each other's objects.</p>
+<p>Fix with an Id-based guard, or by moving same-record updates into before context so no second save occurs. Then verify with a debug log that
+the recursion is genuinely gone rather than merely deeper.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> You need exactly two passes, not one and not infinite.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A depth counter: increment on entry, decrement on exit, and refuse beyond your maximum. That expresses "up to N passes" rather
+than "once".</p>
+<p>Make sure the decrement happens even on exception (or reset the counter at a known boundary), or one failure leaves the guard permanently
+closed for the transaction.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> Two triggers on different objects update each other.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A cross-object loop, which is harder to see because each trigger looks reasonable alone.</p>
+<p>Break it with an Id-based guard shared between them (a single static registry), or by having one side publish an event instead of writing
+directly. And add a circuit-breaker counter you can alert on.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> Static state persists in a way that surprises you across a transaction.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Statics live for the whole transaction, so a guard set during the first DML affects the second — which is sometimes exactly
+what you want and sometimes the bug.</p>
+<p>Be explicit about scope: Id-based sets for "do not reprocess this record", depth counters for "limit passes", and a reset hook for
+tests.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> An async job re-enters your trigger and the guard does not help.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Async work runs in a <strong>new transaction</strong>, so statics are fresh. A guard cannot span transactions.</p>
+<p>Use a field on the record (a processed flag or timestamp) when the guarantee must survive the transaction boundary, and make the handler
+idempotent so a repeat is harmless.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">51</span> A platform event subscriber loops with the publisher.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The subscriber's write re-triggers the publishing logic, which publishes again — and because each hop is a separate
+transaction, no static guard sees it.</p>
+<p>Break the cycle with a durable marker: a flag or source field on the record saying "this change came from the subscriber", checked by the
+publisher. And add a counter you can alert on, because this loop is invisible in a single debug log.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> You need to disable a trigger for one data load.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A <strong>bypass switch</strong>: a hierarchy custom setting or custom permission checked at the top of every handler, enabled
+for the load user only.</p>
+<p>Build it before you need it. "We commented out the trigger in production" is not a plan, and deactivating a trigger is a metadata change
+requiring a deployment.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> Who should be allowed to use the bypass?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A named integration or migration user, and administrators during an incident — not a general permission.</p>
+<p>Make its use visible: log when the bypass is active, and report on it. An undetectable bypass becomes a permanent exception that explains a
+year of data-quality problems.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> Should the bypass be per-object or global?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Per-object (ideally per-handler) so you can disable the minimum. A global switch disables validation you still wanted and makes
+the blast radius unnecessarily wide.</p>
+<p>A custom setting with a checkbox per object, plus a global override for emergencies, covers both needs.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> A flow and a trigger both react to the same change and conflict.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Decide ownership per field and per behaviour, then remove the duplicate. Two automations maintaining the same field is a loop
+waiting to happen and a debugging nightmare.</p>
+<p>If both must exist, make the ordering explicit (before-save flow then trigger) and document which owns what.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> How do you detect a runaway automation loop in production?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A counter: increment a static or a custom setting per execution and publish a platform event when it exceeds a threshold, so you
+get an alert rather than a user complaint.</p>
+<p>Because async hops create new transactions, loops can run for hours and are invisible in any single debug log — which is why the counter has
+to be durable, not static.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> Your guard breaks a test that runs two DML operations.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>That is the guard working as written — and a signal it is too blunt. The test is simulating a legitimate real-world shape.</p>
+<p>Switch to an Id-based guard, and add a <code>@TestVisible</code> reset method so tests can clear state deliberately rather than working around
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> Is recursion always a bug?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No. One extra pass caused by a roll-up or a field update is normal platform behaviour, and some designs legitimately need a second
+pass to settle derived values.</p>
+<p>The bug is <em>unbounded</em> recursion, or logic that is incorrect when it runs twice. Idempotent handlers make recursion a performance
+consideration rather than a correctness one.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="errors">Errors &amp; partial success (59–72)</h2>
+
+<details class="acc"><summary><span class="q-num">59</span> Field-level or record-level <code>addError</code>?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Field-level (<code>record.Field__c.addError(...)</code>) whenever one field is at fault — the message appears next to the input,
+which is a much better experience.</p>
+<p>Record-level for cross-field rules where no single field is wrong. Either way, write the message for the user and say what to change.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> One <code>addError</code> kills a 200-record integration load.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>In an all-or-none DML, any error fails the whole operation. In a partial-success DML
+(<code>Database.insert(records, false)</code>), <code>addError</code> removes only that record.</p>
+<p>So the integration should use partial success and log the failures — and your trigger should error per record rather than throwing an
+exception, which fails everything regardless.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> A trigger throws an unhandled exception in production.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The user sees a stack trace with internal class names, and the save fails. Both are avoidable.</p>
+<p>Catch, log via a platform event (so the log survives the rollback), and <code>addError</code> with a user-facing message. Unhandled exceptions
+also email the Apex exception recipient — make sure that is a monitored address.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> Should a trigger catch exceptions from a service it calls?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Catch to add context and decide the user-facing behaviour, then either <code>addError</code> or re-throw. Never swallow.</p>
+<p>The question to answer explicitly: should this failure block the save? Data-integrity failures should; a failed nice-to-have enrichment should
+not, and should instead queue for retry.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> You need to log errors but the transaction rolls back.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A log row written with DML is rolled back with everything else — which is why so many orgs have an error log that is empty
+precisely when it matters.</p>
+<p>Publish a <strong>platform event</strong> instead; event publication survives the rollback, and a subscriber writes the durable log. See
+<a href="debugging.html#advanced">production debugging</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> How do you report which of 200 records failed and why?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Iterate <code>Database.SaveResult[]</code> by index against the input list, and for each failure capture the status code, message
+and fields from <code>getErrors()</code>.</p>
+<p>Write them with the record Id and a correlation id. A count without causes is almost useless when the integration owner asks at
+09:00.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> A savepoint rollback leaves side effects behind.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Rollback undoes database changes only — not static state, not sent emails, not callouts made, not platform events published
+immediately.</p>
+<p>Savepoints also consume DML statement limits. Use them sparingly and never as a substitute for designing the operation to be
+idempotent.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> Should the trigger validate, or should a validation rule?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Validation rule when it is formula-expressible on the record and admins should be able to see and change it. Trigger when it needs
+related data, bulk context, or a message the rule cannot produce.</p>
+<p>Pick one home per rule. Duplicated validation means three places to change and inconsistent behaviour between UI and API.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> An integration needs failures to be data, not exceptions.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Use partial-success DML, write failures to an error object or event with enough context to retry, and return a structured result
+to the caller rather than throwing.</p>
+<p>"Fail the record, not the batch" is the general rule — one bad row should never cost you 199 good ones.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> How do you make a trigger handler idempotent?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Key side effects on something durable: a processed flag or timestamp on the record, or an existence check against the records you
+would create (with a unique key on them).</p>
+<p>Then running twice changes nothing the second time. That property is what makes retries, async redelivery and recursion safe rather than
+dangerous.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> A duplicate-value error on insert — is that a failure?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Often it is the <em>success</em> signal in disguise: the unique constraint prevented a duplicate, meaning the work was already
+done.</p>
+<p>In idempotent integration code, treat <code>DUPLICATE_VALUE</code> on your idempotency key as "already processed" and continue, rather than
+alerting.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> You need to notify someone when a trigger fails, without emailing a departed developer.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Set the Apex exception email recipients to a monitored distribution list, and build your own alerting off the error log (a report
+subscription with a conditional alert, or an integration to your alerting tool).</p>
+<p>Single-person notification is a guaranteed future gap, and it is one of the most common findings when an org changes hands.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">71</span> Errors in an after trigger confuse users.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>addError</code> in after context still rolls the save back, but the message can be attributed oddly in the UI.</p>
+<p>Validate in before context wherever possible, and reserve after-trigger errors for cases that genuinely cannot be known earlier (something
+requiring the record Id).</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> A managed package trigger errors on your save.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>You cannot modify it. Determine what it objects to from the error and the cumulative limits log, and adjust your data or
+sequencing.</p>
+<p>If it is a limits problem, slim your own logic and move work async to free budget. If it is a validation problem, the vendor's configuration
+usually has a switch — and if not, that is a support case with evidence.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="frameworks">Frameworks &amp; special objects (73–86)</h2>
+
+<details class="acc"><summary><span class="q-num">73</span> What is the minimum viable trigger framework?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>One trigger per object with all contexts declared, delegating immediately to a handler class with explicit
+<code>beforeInsert</code>, <code>afterUpdate</code> and so on.</p>
+<p>Add a bypass check and an Id-based recursion guard, and you have 90% of the value of any published framework with none of the onboarding
+cost.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> When is a metadata-driven dispatch framework worth it?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>When admins or consultants genuinely need to reorder or disable logic without a deployment — a packaged product, or a large org
+with many teams writing handlers for one object.</p>
+<p>The cost is real: dispatch via <code>Type.forName</code> makes stack traces less direct and behaviour depends on data. Log which handlers ran,
+or debugging becomes archaeology.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> A framework gives you ordering. How do you decide the order?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>By dependency, documented: validation first (fail fast before doing work), then defaulting, then derived values, then
+cross-object side effects, then notifications.</p>
+<p>Write the reason next to each registration. Ordering that exists only as numbers is ordering nobody can safely change.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> Is the Domain/Selector/Service pattern worth it for a small org?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually not in full. For two developers and a dozen classes, the layering costs more than it returns.</p>
+<p>Adopt the <strong>selector</strong> first — centralising queries pays off immediately and independently. Add services when more than one entry
+point needs the same logic, and domain classes only if the object's behaviour genuinely justifies it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">77</span> A platform event trigger behaves unlike a normal trigger.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It is after-insert only, runs as the <strong>Automated Process</strong> user in its own transaction with fresh limits, and has
+no access to the publisher's static state.</p>
+<p>So: set your trace flag on that user to debug it, pass everything needed in the payload, and make it idempotent because delivery is
+at-least-once.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> How do you retry a failed platform event subscriber?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Throw <code>EventBus.RetryableException</code> to ask the bus to redeliver, up to a limited number of attempts — and count them
+via <code>EventBus.TriggerContext.currentContext().retries</code> so you can stop and dead-letter rather than looping.</p>
+<p>Beyond the retry limit the event is discarded, so anything that must not be lost needs its own durable record.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">79</span> A CDC trigger receives only some fields.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>CDC payloads contain the <em>changed</em> fields plus a header. If you need full state, query the record — but be aware it may
+have changed again since.</p>
+<p>Use the transaction key to group related changes, and handle gap events explicitly or you will silently lose changes.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> A trigger on Task cannot determine the parent type.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>WhatId</code> and <code>WhoId</code> are polymorphic. Resolve the type at runtime with
+<code>((Id) task.WhatId).getSObjectType()</code>, or use <code>TYPEOF</code> in the query.</p>
+<p>Never assume the parent type from current usage — someone will relate a Task to a Case next quarter and your logic will throw or silently do
+the wrong thing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">81</span> A User trigger causes a mixed DML error.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Setup objects (User, Group, PermissionSetAssignment) cannot be modified in the same transaction as non-setup objects.</p>
+<p>Split the work: do the non-setup part asynchronously, or publish an event. In tests, wrap the setup-object work in
+<code>System.runAs</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> Triggers on FeedItem or ContentDocumentLink behave oddly.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>These objects have unusual sharing and delete semantics, and behave differently for different user types — particularly external
+and guest users.</p>
+<p>Test with real user contexts rather than as an administrator, including a community user if relevant. Assumptions that hold for an admin
+frequently do not hold here.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">83</span> You need trigger logic that only runs for one record type.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Filter on <code>RecordTypeId</code> while building your working set — resolved by developer name at runtime, never
+hard-coded.</p>
+<p><code>Schema.SObjectType.Account.getRecordTypeInfosByDeveloperName()</code> gives you the Id without coupling your code to an org-specific
+value.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> Logic must differ between UI and API saves.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>Request.getCurrent().getQuiddity()</code> tells you the entry point, so you <em>can</em> branch — but ask whether you
+should.</p>
+<p>Diverging behaviour by channel is a frequent source of "works in the UI, breaks for the integration" confusion. Prefer one behaviour, with
+explicit bypasses for named integration users where genuinely required.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> How do you unit test a trigger handler without DML?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Call the handler method directly with in-memory sObjects and injected dependencies (a stubbed selector), asserting the outcome on
+the collection.</p>
+<p>That requires the handler to accept collections and dependencies rather than reading <code>Trigger.new</code> internally — which is a design
+property worth having anyway. See <a href="testing.html#advanced">Stub API</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> A trigger must not run during a package upgrade's test execution.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Subscriber-org tests run on upgrade, and your trigger will fire against their data shapes.</p>
+<p>Make handlers tolerant of unexpected data, avoid assumptions about configuration rows existing, and never use <code>SeeAllData</code>. Provide
+a bypass the subscriber can use if your automation conflicts with their load processes.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="judgement">Judgement &amp; migration (87–100)</h2>
+
+<details class="acc"><summary><span class="q-num">87</span> You inherit an object with 14 automations.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Document before changing: a debug log of one save gives the real execution tree, including the automations nobody remembered.</p>
+<p>Then consolidate by risk — delete what is provably dead, migrate workflow rules and processes into flows, converge on one entry point per
+timing, move same-record updates to before-save. Incrementally, behind tests, so each step is attributable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> Trigger or record-triggered flow for new logic?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Flow for field updates, related-record creation and notifications that admins should own and see. Trigger for bulk-sensitive logic,
+complex data shapes, reuse across entry points, and anything needing real error handling.</p>
+<p>The deciding question is usually "who maintains this in two years?" — not which is technically capable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> A stakeholder wants logic in a flow so admins can change it; you want Apex.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Split it: the flow owns orchestration and the admin-tunable decisions; an <strong>invocable Apex action</strong> owns the complex,
+bulk-sensitive computation.</p>
+<p>Everyone gets what they need, and the flow stays small enough to read. That boundary is the most useful pattern in modern Salesforce
+automation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> Migrating a workflow rule to a flow changes behaviour.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Expected in two ways: workflow field updates re-fire triggers (and a before-save flow does not), and timing in the save order
+differs.</p>
+<p>So test the whole save path, not just the field value — particularly any trigger that was relying on the re-entry. Migrate one rule at a
+time.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> Your consolidation breaks something three weeks later.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>That is why consolidation ships incrementally: each change separately deployable and attributable, with tests capturing the prior
+behaviour first.</p>
+<p>If you cannot attribute it, you merged too much at once. Characterisation tests written <em>before</em> refactoring are what make this
+safe.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> How do you prove a trigger is bulk-safe in review?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Show the test: 200 records, with variation, asserting outcomes — plus the absence of SOQL and DML inside loops in the diff.</p>
+<p>Static analysis catches the mechanical cases automatically; the review question is whether the <em>test data</em> exercises the bulk path
+meaningfully.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> A trigger needs to call out and update records atomically.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>You cannot — callouts are not allowed from a trigger, and after DML you cannot call out in the same transaction at all. Atomicity
+across a remote system is not available regardless.</p>
+<p>Design for eventual consistency: commit locally, publish an event, make the remote call idempotent with a correlation id, and reconcile. See
+<a href="integration-patterns.html#advanced">consistency models</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> Your trigger is correct but the save takes four seconds.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Measure where it goes: <code>CODE_UNIT_STARTED/FINISHED</code> shows every trigger, flow and rule in the save, and
+<code>CUMULATIVE_LIMIT_USAGE</code> attributes CPU per namespace.</p>
+<p>Frequently your trigger is a small slice and the cost is elsewhere. Fixing your own code when a flow or package owns the time is wasted
+effort.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> You need to add logic to a managed package's object.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>You can write your own trigger on it (if the package permits), but ordering relative to the package's own trigger is not under
+your control.</p>
+<p>So make your logic independent of theirs where possible, test against upgrades, and prefer reacting to the committed outcome (an event, an
+async job) over racing them in the same save.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> Should every object have a trigger "just in case"?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No. An empty or near-empty trigger still costs execution and still needs test coverage, and it invites logic to accumulate
+without design.</p>
+<p>Add one when there is a reason. Scaffolding automation ahead of requirements is how orgs end up with fourteen automations nobody can
+explain.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> A reviewer says your handler is too long.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>They are usually right. A handler method should read as a short sequence of named steps — filter the working set, load what you
+need, compute, write.</p>
+<p>Extract each step into a method named for what it does. That also makes the bulk and failure tests easier to write, which is the real
+payoff.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> How do you decide what belongs in before versus after?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Before: same-record field values, validation, defaulting — no extra DML needed. After: anything requiring the record Id, related
+records, shares, or reacting to the saved state.</p>
+<p>If you find yourself doing DML on <code>Trigger.new</code> records in after context, the logic probably belongs in before.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> The business asks for "no automation on this object for the migration".<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Give them the bypass switch scoped to the migration user, then run a <strong>reconciliation pass</strong> afterwards to apply the
+derived values the automation would have set.</p>
+<p>Bypassing without reconciling imports incomplete data permanently, and it surfaces months later as a data-quality mystery.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit that most reduces trigger defects?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Building the <strong>filtered working set</strong> first, and returning early when it is empty. Almost every trigger bug —
+acting on all 200 records, cascading automation, unnecessary queries, recursion — is downstream of not doing this.</p>
+<p>Pair it with an Id-based guard and a bypass switch, and the object becomes genuinely safe to operate on at volume.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="apex-triggers.html">Triggers &amp; Order of Execution</a>, the
+    <a href="scenarios.html">full scenario index</a>, or <a href="flows-scenarios.html">Flow — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Triggers — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

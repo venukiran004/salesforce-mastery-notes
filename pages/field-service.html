@@ -189,6 +189,90 @@
 </ul>
 
 <!-- ============================================ -->
+<!-- ============================================ -->
+<h2 id="advanced">Advanced</h2>
+
+<p>Everything below is the step from "configured" to "working well". Each item links to the full treatment on
+   <a href="field-service-advanced.html">Field Service — Advanced</a>.</p>
+
+<h3>The five things that separate a good implementation from a working one</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Lever</th><th>Why it matters</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Travel calibration</strong></td><td>If the engine's travel estimates are wrong, every plan it produces is fiction and engineers quietly stop following the schedule — which is worse than a visibly bad plan, because nobody reports it</td><td><a href="field-service-advanced.html#optimization">Optimisation</a></td></tr>
+    <tr><td><strong>Status categories</strong></td><td>Custom appointment statuses must map to the right <em>category</em>, because the engine, Gantt and mobile app all key off the category, not your label</td><td><a href="field-service-advanced.html#status">Status transitions</a></td></tr>
+    <tr><td><strong>Pinning discipline</strong></td><td>Dispatchers who pin everything leave optimisation nothing to rearrange, then report that optimisation stopped working</td><td><a href="field-service-advanced.html#engine">Inside the engine</a></td></tr>
+    <tr><td><strong>Offline-safe validation</strong></td><td>Validation fires at <em>sync</em> time. Any rule a technician cannot satisfy offline sends a day's work into a sync-error queue they will not notice until tomorrow</td><td><a href="field-service-advanced.html#mobile">Mobile architecture</a></td></tr>
+    <tr><td><strong>Parts readiness</strong></td><td>There is no out-of-the-box rule for "only schedule to someone carrying the part" — so first-time fix depends on a decision you make explicitly, or lose by accident</td><td><a href="field-service-advanced.html#inventory">Parts &amp; inventory</a></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Beyond one engineer, one visit</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Requirement</th><th>Mechanism</th></tr></thead>
+  <tbody>
+    <tr><td>Two people who always work together</td><td><strong>Crew</strong> — one schedulable resource. Far easier to optimise</td></tr>
+    <tr><td>Two <em>different</em> specialists at the same time</td><td><strong>Complex work dependencies</strong> (same start), not a crew</td></tr>
+    <tr><td>Survey today, install next week, same engineer</td><td>Dependencies: start-after-finish plus same-resource</td></tr>
+    <tr><td>A three-day installation</td><td><strong>Multiday</strong> appointment, with the multiday rule enabled</td></tr>
+    <tr><td>Contractors who tell you capacity, not hours</td><td><strong>Capacity-based resources</strong> plus the capacity work rule</td></tr>
+    <tr><td>Fifteen short jobs at one site</td><td><strong>Appointment bundling</strong> — one visit, one arrival promise</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="callout warn">
+  <span class="c-ico">🔗</span>
+  <div class="c-body"><span class="c-title">Dependencies are data; enforcement is policy</span>
+    Creating dependency records does nothing on its own. The dependency rule must be in <strong>both</strong> the
+    scheduling policy and the optimisation policy — otherwise the engine schedules the install before the survey, or
+    overnight optimisation quietly undoes your manual fix. See
+    <a href="field-service-advanced.html#complex-work">Complex work</a>.</div>
+</div>
+
+<h3>Automating the dispatch day</h3>
+<ul>
+  <li><strong>Scheduling recipes</strong> auto-schedule new appointments, reshuffle for emergencies and fill gaps left by cancellations — configuration, not code. Enable one at a time and measure.</li>
+  <li><strong>Auto-dispatch</strong> releases work per territory within a horizon. Too early and the plan freezes before the day settles; too late and technicians start blind.</li>
+  <li><strong>Drip feed</strong> releases only the next few appointments — the standard answer to cherry-picking, and a change-management conversation rather than a technical one.</li>
+  <li><strong>Never call the scheduling API synchronously from a trigger.</strong> It is slow, effectively a round trip to the engine, and cannot be bulkified — use a recipe, a platform event or a Queueable. See <a href="field-service-advanced.html#apex">the FSL API</a>.</li>
+</ul>
+
+<h3>The deployment trap</h3>
+<div class="callout danger">
+  <span class="c-ico">🧳</span>
+  <div class="c-body"><span class="c-title">Most Field Service configuration is data, not metadata</span>
+    Scheduling policies, work rules, service objectives, territories, operating hours, shift patterns and the package
+    settings are <strong>records</strong>. Change sets and source deployments will not carry them, and their Ids differ in
+    every org — so <strong>never hard-code a policy Id</strong>; resolve it by name at runtime. You need a repeatable,
+    version-controlled data migration as part of your release process. See
+    <a href="field-service-advanced.html#deploy">deployment and environments</a> and
+    <a href="branching-strategy.html#merge-hell">why git will not help</a>.</div>
+</div>
+
+<h3>Where the money is</h3>
+<div class="flowchain">
+  <span class="chip g">① Avoid the visit</span><span class="arrow">→</span>
+  <span class="chip t">② Fix it first time</span><span class="arrow">→</span>
+  <span class="chip b">③ Cut travel</span><span class="arrow">→</span>
+  <span class="chip">④ Shave minutes on site</span>
+</div>
+<p>Ranked by return in most field service programmes. Teams almost always start at ④ because it feels technical, then
+   wonder why the business case never lands. Remote resolution and better triage (①) and the parts chain (②) are where
+   the large numbers live — <a href="field-service-advanced.html#customer">the customer-facing layer</a> covers the
+   first, <a href="field-service-advanced.html#inventory">inventory</a> the second.</p>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">Then read the deep page</span>
+    <a href="field-service-advanced.html">Field Service — Advanced</a> covers all of this end to end: the four-layer
+    architecture, the availability resolution stack, how a candidate slot is graded 0–100, every work rule and
+    objective, optimisation run types and the enhanced engine, bundling, the maintenance and entitlement chains, the
+    offline mobile architecture, the FSL Apex API, scale and sharing, an implementation blueprint and a sixteen-row
+    troubleshooting playbook.</div>
+</div>
 <h2 id="interview">Interview questions</h2>
 
 <details class="acc"><summary><span class="q-num">1</span> Work Order vs Service Appointment — why are there two objects?<span class="q-diff easy">Easy</span></summary>
