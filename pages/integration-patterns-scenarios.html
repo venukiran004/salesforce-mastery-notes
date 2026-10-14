@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Integration Patterns · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>Patterns</span></div>
+  <h1>Integration Patterns — 100 Scenarios</h1>
+  <p class="lede">Choosing a pattern from requirements, consistency models and compensation, latency budgets, data
+     ownership, middleware, throttling, observability and the architecture conversations that decide everything.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on <a href="integration-patterns.html">Patterns
+    &amp; Approach</a> and its <a href="integration-patterns.html#advanced">Advanced</a> section.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="selection">Pattern selection (1–18)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> A user clicks a button and needs a credit score before continuing.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Request and reply</strong> — the caller waits because the answer determines what happens next.</p>
+<p>Budget the latency explicitly, set a timeout, and decide what happens when the remote system is slow or down: block, or proceed with a
+default.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> An order must be sent to the ERP, but the user should not wait.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Fire and forget</strong> — publish a platform event or enqueue async work, and let the user's save complete.</p>
+<p>Then you owe the design a retry path, a dead letter and a reconciliation, because nobody is watching the
+result.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Nightly customer master updates from the ERP.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Batch data synchronisation</strong> — Bulk API with upsert on an External Id, scheduled.</p>
+<p>Cheapest to build and operate, easiest to re-run, and perfectly adequate when the business genuinely only needs daily
+freshness.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Users need to see live stock levels from the warehouse.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Data virtualisation</strong> — Salesforce Connect external objects, or a callout rendered in a component. Nothing is
+stored.</p>
+<p>Accept that the warehouse's availability and latency become your page's. If that is unacceptable, cache a summary with a visible
+timestamp.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> A button must trigger a process in another system and show the result.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Remote call-in</strong> from the UI — an Apex callout invoked by the component, with the result rendered.</p>
+<p>If the remote process is slow, use a Continuation so you do not consume a long-running request slot, and show a progress
+state.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> An external system needs to create cases in Salesforce.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Remote process invocation</strong> inbound — an Apex REST endpoint with a business contract, idempotency key and
+validation.</p>
+<p>Not raw sObject access, which couples them to your schema and gives you nowhere to put logic or
+logging.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> Two systems both let users edit the same customer record.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Bidirectional sync, which doubles the complexity and demands conflict resolution. First challenge it: decide ownership
+<strong>per field</strong>, and most "bidirectional" requirements collapse into two one-way flows.</p>
+<p>If genuinely bidirectional: stable cross-system keys, explicit conflict rules, loop prevention markers, and
+reconciliation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> How do you choose between patterns in an interview?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Drive it in order: who owns the data, what latency the business actually needs (challenge "real-time"), volume and shape, the consistency
+requirement and what compensates for failure — <em>then</em> the pattern and the technology.</p>
+<p>Naming MuleSoft or platform events in the first thirty seconds skips every decision that
+matters.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> The business says "real-time". What do you ask?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Decompose into a number: must the user see it before finishing the task (~2 seconds), within seconds but nobody waiting, within minutes, or
+is overnight fine?</p>
+<p>Very often the real requirement is "I do not want to explain stale data", which a visible last-synced timestamp solves more cheaply than any
+architecture.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> One pattern or several for one integration?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Several is normal and healthy: events for freshness, batch for completeness, request-reply for the one interactive
+lookup.</p>
+<p>Insisting on a single pattern for everything produces either excessive cost or inadequate
+guarantees.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> You are asked to replace nightly batch with events.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Ask what decision improves with fresher data. If none does, the batch is cheaper to run, easier to debug and simpler to
+recover.</p>
+<p>If freshness genuinely matters, add events <em>alongside</em> the batch rather than replacing it — the batch becomes your
+reconciliation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> A partner can only send files.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>File-based batch: they drop a file, middleware or a scheduled job picks it up, validates and loads via Bulk API.</p>
+<p>Build in a manifest or checksum so a truncated file is detected, and an error file they can act on — file integrations fail silently more than
+any other kind.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> Should Salesforce be the orchestrator?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Rarely for multi-system processes. Apex has tight limits, poor retry primitives compared with middleware, and no good way to model long-running
+sagas.</p>
+<p>Let middleware orchestrate and let Salesforce own the customer-facing process and
+data.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> How do you integrate with a system that has no API?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Options in order of preference: a database view exposed through middleware, file exchange, an RPA or screen-scraping layer (last
+resort).</p>
+<p>Be explicit about the fragility of the last option, and isolate it behind a facade so replacing it later does not touch
+Salesforce.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> A requirement needs data from four systems on one page.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Four synchronous callouts is four latencies and four availability dependencies. Prefer one aggregating call to middleware that fans out and
+composes.</p>
+<p>Or pre-compute the aggregate asynchronously and render it with a freshness
+timestamp.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> When is point-to-point acceptable?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>One producer, one consumer, a stable contract, and no expectation of more consumers. Then middleware is ceremony.</p>
+<p>It stops being acceptable at the third consumer of the same data, or when the system of record is likely to be
+replaced.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">17</span> How many integrations is too many point-to-point?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The arithmetic answers it: n systems point-to-point tends toward n² connections to maintain, each with its own auth, error handling and
+monitoring.</p>
+<p>Somewhere in the high single digits, a hub or API layer becomes cheaper than the
+mesh.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> A stakeholder wants the "simplest possible" integration.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Agree, and define simple as <em>simplest to operate</em>, not fastest to build. Nightly batch with reconciliation is usually simpler to run
+than a real-time stream.</p>
+<p>The complexity you remove at build time often reappears at 3am.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="consistency">Consistency &amp; compensation (19–36)</h2>
+
+<details class="acc"><summary><span class="q-num">19</span> Can you have a transaction across Salesforce and an ERP?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No. There is no distributed transaction, so atomicity across systems is not available.</p>
+<p>You choose an inconsistency to live with: eventual consistency with reconciliation, or compensating actions for
+failure.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> Step three of a four-step process fails.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>You need a <strong>compensating action</strong> for steps one and two — the business-level reverse of each.</p>
+<p>Design those at design time; asked in production it becomes a data-repair project. And each compensation must itself be idempotent, because it
+will be retried.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">21</span> What does eventual consistency mean in practice?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The systems converge after a bounded delay, and a reconciliation repairs anything that did not.</p>
+<p>Make the delay explicit and visible to users — a last-synced timestamp turns "the data is wrong" into "the data is from two minutes
+ago".</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> A finance team insists both systems must always match.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Explain what is achievable: they will match within a defined window, and a reconciliation proves it daily with an exception
+report.</p>
+<p>That is usually what they actually need — evidence of correctness, not instantaneous equality, which no distributed system
+provides.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> Where should the compensation logic live?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>With the orchestrator — typically middleware, which can hold saga state across systems and retry each step
+independently.</p>
+<p>Modelling a saga in Apex is possible and awkward; the limits and the lack of durable workflow state work against
+you.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> How do you detect divergence?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Business-level reconciliation: counts and checksums per period compared between systems, with an exception report of the
+differences.</p>
+<p>Comparing logs tells you what you sent; comparing counts tells you what arrived. Only the second catches silent
+loss.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> Reconciliation found divergence. Who fixes it?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Decide in advance: automatic repair where the source of truth is unambiguous, human review where it is a genuine conflict.</p>
+<p>And name the owner. A reconciliation exception report with no owner accumulates for months and then nobody trusts
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> What is an idempotency key, concretely?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A value the caller generates that uniquely identifies the <em>intent</em> — not the attempt. The receiver stores it and returns the same result
+for a repeat.</p>
+<p>Enforce it with a unique database constraint, which is the only guarantee that holds under
+concurrency.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> A timeout occurred mid-process.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Unknown outcome, not failure. The remote step may have succeeded.</p>
+<p>Query by correlation id to determine the true state before deciding to retry or compensate. Assuming failure is how duplicate payments
+happen.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> Read-your-writes consistency — when does it matter?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>When the user who made the change would be confused not to see it — their own order, their own case update.</p>
+<p>Achieve it by updating locally first and syncing outward, so the initiating user sees it immediately even though others see it
+later.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> Last-write-wins is proposed. Is it acceptable?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Sometimes, if the business accepts that a concurrent edit can be silently overwritten — and if "last" is determined by a reliable
+timestamp.</p>
+<p>It is unacceptable for anything where both edits carry intent (two people adding different notes). Then you need field-level ownership or
+merge.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> Clock differences break your last-write-wins rule.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Do not trust client or remote clocks for ordering. Use a server-assigned version number or sequence per record.</p>
+<p>Clock skew between systems is routine and produces conflict resolution that is wrong in a way nobody
+notices.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> How do you prevent an update loop in two-way sync?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A source marker: each system stamps which system originated the change, and ignores inbound changes it caused.</p>
+<p>Alternatively compare values and skip no-op updates — but the marker is more reliable because a no-op can still differ in
+formatting.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> Deletes are not handled in your sync design.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The commonest gap. Decide whether a delete propagates, soft-deletes, or is ignored — and remember Salesforce deletes are recoverable from the
+recycle bin while the downstream hard delete may not be.</p>
+<p>Soft delete plus a status field is usually the safest default for synced
+data.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">33</span> A merge in Salesforce breaks downstream references.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Merging deletes the losing records, so external systems holding their Ids now point at nothing.</p>
+<p>Publish a merge event carrying both the surviving and the merged Ids so consumers can re-point. Very few designs handle this, and it surfaces as
+mysterious orphans.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> Partial success on a 200-record inbound batch.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Return per-record results so the caller knows exactly which failed and why, and process the rest.</p>
+<p>All-or-nothing on a large batch means one bad row blocks 199 good ones, and the caller has no way to make
+progress.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> How do you handle an out-of-order update?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Carry a version or source timestamp in the payload and reject anything older than what you already hold.</p>
+<p>That makes the operation safe regardless of arrival order, which is far more robust than trying to guarantee
+ordering.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> The business asks what happens if an integration fails.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Answer in their terms: what the user sees, what data is affected, how long until it self-heals, and what manual step exists if it does
+not.</p>
+<p>If you cannot answer those four, the failure handling is not designed — it is
+hoped.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="latency">Latency, volume &amp; throttling (37–54)</h2>
+
+<details class="acc"><summary><span class="q-num">37</span> How do you set a latency budget?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Work backwards from the user experience: total acceptable time, minus your own processing, leaves the remote call's budget — which becomes the
+timeout.</p>
+<p>Then verify the remote system's realistic p99 fits inside it. If it does not, the pattern is
+wrong.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> A remote system's p99 is 8 seconds.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Too slow for a synchronous user path, and it will consume concurrent long-running request slots that interactive users
+share.</p>
+<p>Make it asynchronous with a pending state, or use a Continuation if it must be user-initiated and
+synchronous.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> Your integration degrades the UI for everyone.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The concurrent long-running request limit — ten synchronous requests over five seconds per org, shared with real users.</p>
+<p>This is the single most important reason to keep integration work asynchronous, and its symptom appears nowhere near its
+cause.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> A partner floods your API.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Rate-limit at the gateway, give each consumer its own integration user so you can attribute and cap them individually, and return 429 with
+<code>Retry-After</code>.</p>
+<p>Inside the org, bound page sizes and reject oversized payloads rather than trying to process
+them.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">41</span> You are the noisy neighbour on someone else's API.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Respect their rate limits proactively: cap your concurrency, batch payloads, back off on 429 with jitter.</p>
+<p>Getting throttled or blocked by a partner is slower to resolve than designing within their limits in the first
+place.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> What is backpressure and do you have it?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The consumer controlling how much it receives. Pub/Sub API provides it; CometD does not; a REST endpoint has none unless you implement rate
+limiting.</p>
+<p>Without backpressure, a fast producer plus a slow consumer means a growing backlog and eventually lost
+data.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> A brief outage turned into a long one.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Retry storm: everything retried simultaneously the moment the system came back.</p>
+<p>Exponential backoff <strong>with jitter</strong>, plus a circuit breaker that fails fast during the cooling period, prevents your recovery from
+causing a second outage.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> How does a circuit breaker work here?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>After n consecutive failures, stop calling and fail fast for a cooling period, then allow a trial call before fully
+reopening.</p>
+<p>Store the state where all transactions can see it (a custom setting or record), since statics do not span
+transactions.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> Volume grew 10× and the integration broke.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually per-record calls that were fine at low volume. Move to batch payloads or Bulk API, and process
+incrementally.</p>
+<p>Also check your API allocation consumption — growth often hits the org-wide limit before it hits any code
+limit.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> How do you plan for growth?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Measure current volume and allocation consumption, project it, and identify which limit you reach first and when.</p>
+<p>Most integration limit incidents are visible six months ahead if anyone is
+looking.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> A nightly window no longer fits.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Make the job incremental (process only what changed since a persisted watermark), reduce per-record cost, then stagger against other scheduled
+work.</p>
+<p>Parallelising adds lock contention, so measure rather than assuming it
+helps.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> Should you throttle your own outbound calls?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Yes — cap concurrency deliberately (batch scope, number of parallel jobs) rather than discovering the remote system's limit by being
+rejected.</p>
+<p>It also makes your load predictable, which is what makes capacity conversations with the other team
+possible.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> Large payloads are causing failures.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Page the remote API, request fewer fields, accept gzip, and bound inbound payloads with a clear rejection.</p>
+<p>If a single logical payload is genuinely huge, the transformation belongs in middleware, not in Apex heap.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> Caching remote data — when is it right?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>When the data is read far more than it changes, and you can define a freshness requirement and an invalidation
+strategy.</p>
+<p>Without invalidation you have created a second system of record that silently diverges — which is worse than the latency you were
+avoiding.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">51</span> Users complain data is stale.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Show them how stale: a last-synced timestamp on the page. It converts an unbounded complaint into a factual statement they can
+evaluate.</p>
+<p>Frequently that is sufficient, and it is dramatically cheaper than reducing the sync
+interval.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> You need sub-second response from a slow system.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>You cannot make their system faster, so change the architecture: pre-compute and cache what the UI needs, with a defined refresh and a visible
+freshness indicator.</p>
+<p>Or reduce what the UI needs synchronously to the one value that genuinely gates the user's next
+step.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> How do you measure integration latency properly?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Log duration per hop with the correlation id, then report p50, p95 and p99 — averages hide the tail that users actually
+notice.</p>
+<p>Separate your processing from remote wait time, so you know whether to optimise your code or escalate to the other
+team.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> A requirement needs both low latency and completeness.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Use both patterns: events for immediacy and a periodic batch for completeness, with the batch acting as
+reconciliation.</p>
+<p>Trying to get both guarantees from one mechanism is what produces fragile, over-engineered
+designs.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="ownership">Data ownership &amp; MDM (55–72)</h2>
+
+<details class="acc"><summary><span class="q-num">55</span> Who owns the customer record?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Decide per <strong>field</strong>, not per object — the ERP may own billing address and credit terms while Salesforce owns relationship
+data and preferences.</p>
+<p>Write it down in a field-level ownership matrix. It is the single most useful artefact in any integration
+programme.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> Both systems create customers independently.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>You need a matching strategy and cross-system keys, or you will accumulate duplicates on both sides.</p>
+<p>Either nominate one system as the creator (the other requests creation), or implement real matching with a human review queue for
+ambiguity.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> There is no stable key between systems.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Then you are doing fuzzy matching, and fuzzy matching produces both duplicates and wrong merges.</p>
+<p>Establish a key: have one system generate it and the other store it. That one-off exercise is cheaper than permanent matching
+ambiguity.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> Where should the External Id live?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>On both sides: Salesforce holds the remote system's key in an External Id field, and ideally the remote system holds the Salesforce
+Id.</p>
+<p>That makes upserts idempotent in both directions and makes reconciliation
+possible.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> A canonical data model is proposed.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Valuable with several systems exchanging the same concepts — it decouples each system's schema from every other.</p>
+<p>It is overhead for two systems. And a canonical model nobody governs becomes a third schema to
+maintain.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> Is Salesforce the right MDM hub?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Sometimes for customer data where Salesforce has the richest view — but it is not an MDM tool: no survivorship engine, limited matching, and
+storage costs.</p>
+<p>Data Cloud or a dedicated MDM platform is usually the better hub, with Salesforce as a
+consumer.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> How do you handle reference data (countries, currencies)?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>One owner, distributed outward — ideally as Custom Metadata so it deploys with releases, or synced from a single
+source.</p>
+<p>Reference data maintained independently in each system diverges within months and produces reporting nobody can
+reconcile.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> A field means different things in each system.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A semantic mismatch, which is worse than a format mismatch because the mapping looks correct.</p>
+<p>Document the meaning, not just the mapping — "Status = Active means billing is live, not that the customer is engaged" — and transform
+explicitly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> Picklist values differ between systems.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A mapping table, owned by one side and version-controlled — ideally Custom Metadata so it deploys and is
+testable.</p>
+<p>And handle the unmapped value explicitly: log it and route for review rather than silently dropping or defaulting
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> An unmapped enum value arrives.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Do not throw and do not silently default. Log it with the value, route the record to an exception queue, and alert.</p>
+<p>External systems add values without telling you, so this path <em>will</em> be
+exercised.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> How much transformation belongs in Salesforce?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>As little as possible. Middleware has better tooling, memory and observability for mapping and transformation, and it does not consume your
+limits.</p>
+<p>Keep Salesforce logic to what needs Salesforce context.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> A downstream system needs a field you are about to rename.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>If you exposed raw sObjects, the rename is a breaking change you cannot see the consumers of.</p>
+<p>This is the argument for DTOs and business contracts: your schema becomes an implementation detail you can change
+freely.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> How do you track who consumes what?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A register: integration name, direction, objects and fields, consumer, owner, auth method, schedule and API version.</p>
+<p>Without it you cannot assess the impact of any change, and every schema change becomes a
+gamble.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> Two teams both claim to own the same data.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>This is the actual integration problem, and it is organisational. Escalate to a decision rather than engineering around
+it.</p>
+<p>Building a bidirectional sync to avoid the conversation gives you a permanent technical cost and the conversation
+anyway.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> How do you handle historical data at cutover?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Decide explicitly how much comes across. Full history is usually unnecessary, expensive and slows the migration.</p>
+<p>Keep the rest in a read-only archive or the legacy system. This decision saves more migration time than any technical
+optimisation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> Data quality in the source is poor.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Integrating it faithfully propagates the problem. Decide what you reject, what you cleanse in transit, and what you accept with a quality
+flag.</p>
+<p>And feed the exceptions back to the source owner — otherwise you become the permanent cleansing
+layer.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">71</span> Should you integrate or consolidate?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>If two systems serve the same purpose for the same users, consolidation may be cheaper long-term than permanent
+integration.</p>
+<p>Integration is often the default because it avoids a political decision — and then it is maintained for a
+decade.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> How do you know an integration is no longer needed?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Log usage and volume, and review the register annually against the business processes that justified each one.</p>
+<p>Orgs carry integrations for systems that were decommissioned years ago, because nobody can prove they are
+unused.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="observability">Middleware &amp; observability (73–88)</h2>
+
+<details class="acc"><summary><span class="q-num">73</span> What does an API-led layering actually buy you?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>System APIs isolate each system of record, process APIs hold orchestration, experience APIs shape per consumer — so replacing a back-end
+system touches only its System API.</p>
+<p>That is the whole payoff. For one point-to-point feed it is
+overhead.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> Middleware is proposed. How do you evaluate it?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Against the number of consumers, the transformation and orchestration needs, the retry and observability requirements, and whether a system of
+record is likely to change.</p>
+<p>Also honestly: who will operate it, and do they have the skills? Unowned middleware becomes a black
+box.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> Correlation ids — where do they come from?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Generated at the edge (the first system to handle the request), passed in a header at every hop, stored on the record, logged
+everywhere.</p>
+<p>Non-negotiable. Debugging a multi-system flow without one is guesswork, and adding it later means instrumenting everything
+again.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> What should you log, and what should you not?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Log direction, endpoint, status, duration, attempt, correlation id and record Id. Do <strong>not</strong> log sensitive
+payloads.</p>
+<p>Full payload logging creates a second copy of your data with weaker controls, and it is a finding in any security
+review.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">77</span> Which metric gives the earliest warning?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The age of the oldest unprocessed item. A rising number tells you something is wrong before any error appears.</p>
+<p>Error rate tells you about failures; freshness tells you about silent
+stalling.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> Why alert on absence?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Because the most dangerous integration failure is silence: a feed that normally delivers 5,000 records delivered zero, and nothing
+errored.</p>
+<p>Most monitoring only alerts on errors, which misses exactly this
+case.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">79</span> What belongs in an integration runbook?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>How to check health, where the logs are, how to find a record by correlation id, how to replay a dead letter, who owns the other end, and the
+credential expiry dates.</p>
+<p>Written before the incident, by the person who built it — not reconstructed at
+3am.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> How do you test an integration before go-live?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Unit tests with mocks for your logic, then a smoke suite (Postman via Newman) against a sandbox exercising the real contract and auth, then a
+volume rehearsal.</p>
+<p>And explicitly test the failure paths: timeout, 500, malformed payload, duplicate
+delivery.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">81</span> The other team's test environment is unreliable.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Build a mock service you control for your own development, and agree scheduled windows for genuine end-to-end
+testing.</p>
+<p>Document the dependency as a project risk — it affects your timeline and it is not a technical problem you can
+solve.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> How do you handle an integration incident?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Contain (stop the bleeding — pause the job, open the circuit breaker), assess scope with the logs and reconciliation, repair with replay,
+then fix forward.</p>
+<p>Containment first. Diagnosing while data continues to diverge makes the repair
+larger.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">83</span> A reconciliation shows 2% divergence every day.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A systematic issue, not noise: a data shape you reject, a mapping gap, a timing boundary, or a filter difference.</p>
+<p>Sample the divergent records and look for the pattern. Persistent divergence that gets repaired daily is a bug being
+masked.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> How do you monitor a third party's health?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Synthetic checks: a scheduled lightweight call that alerts on failure or slow response, independent of business
+traffic.</p>
+<p>Then you learn about their outage before your users do, and you have evidence for the
+conversation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> Observability costs effort. How do you justify it?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>In incident terms: time to detect, time to diagnose, time to repair — with examples from your own last few
+incidents.</p>
+<p>"We could not tell which records were affected" is an argument everyone
+understands.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> Should middleware own the retry logic?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually yes — it has better primitives than Apex, durable state and no governor limits.</p>
+<p>Keep retry in one place. Retry in both Salesforce and middleware produces duplicate attempts nobody
+predicted.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> Who should own an integration long-term?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A named team with the runbook, the monitoring and the credential calendar — not "whoever built it".</p>
+<p>Unowned integrations are the ones that break silently and take the longest to
+fix.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> How do you hand over an integration?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Register entry, contract documentation, runbook, monitoring dashboard, credential expiry dates, and a walkthrough of one real
+failure.</p>
+<p>The failure walkthrough is the part that makes the handover real.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="judgement">Judgement (89–100)</h2>
+
+<details class="acc"><summary><span class="q-num">89</span> You are handed an integration design to review. Where do you start?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Data ownership, then the latency requirement, then the consistency model and what compensates for failure.</p>
+<p>If those four are not answered, the technology choices cannot be evaluated — they are downstream of
+them.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> A design has no failure handling.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Ask the four questions: what does the user see, what data is affected, how long until it self-heals, what manual step exists.</p>
+<p>Those turn an abstract objection into a concrete gap the team can
+close.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> The simplest design is also the least impressive.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Take the simplest design. Nightly batch with reconciliation that runs for five years without incident is better engineering than an elegant
+event mesh nobody can debug.</p>
+<p>Operability is a design quality, and it is the one most often
+sacrificed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> A vendor insists on their integration pattern.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Understand the constraint behind it — often their product genuinely only supports one method.</p>
+<p>Then isolate it behind a facade so their pattern does not dictate your architecture, and document the risk if it is
+poor.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> How do you estimate integration work?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Separate the contract (usually well understood) from the unknowns: their environment availability, their data quality, their rate limits, and
+the failure handling.</p>
+<p>Price the unknowns as spikes. Integration estimates go wrong on the other team's readiness far more often than on your own
+code.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> Two systems have incompatible availability expectations.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Decouple them: a queue or event between the two, so the less available system does not take the other
+down.</p>
+<p>Synchronous coupling means your availability is the product of both systems', which is always worse than
+either.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> What is the most common integration design mistake?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Designing only the happy path — no idempotency, no retry classification, no dead letter, no reconciliation — and treating a timeout as a
+failure.</p>
+<p>Followed by accepting "real-time" without decomposing it, and exposing raw sObjects as an
+API.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> A stakeholder wants to skip reconciliation to save time.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Explain what it costs: without it, you cannot answer "is the data correct?" and the first divergence becomes an unbounded
+investigation.</p>
+<p>It is usually a day of work. Frame it as the thing that makes the integration
+defensible.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> How do you decide what not to integrate?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>If no decision or process in Salesforce depends on the data, do not bring it in — link to it, or report on it where it
+lives.</p>
+<p>Every integrated field is permanent cost: mapping, sync, storage, reconciliation and
+support.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> An integration has been "temporary" for three years.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Treat it as permanent and give it what permanent things need: an owner, a runbook, monitoring, documentation and a credential
+calendar.</p>
+<p>Or decommission it deliberately. The one thing not to do is continue pretending it is
+temporary.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> How do you explain your design to a non-technical sponsor?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>In outcomes: how fresh the data will be, what happens when something fails, how you will know, and how long recovery takes.</p>
+<p>They do not need the pattern names. They need to know the failure modes are designed for, which is the thing most designs cannot
+claim.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit that most improves integration design?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Writing the <strong>field-level ownership matrix</strong> before anything else. Who owns each field, in which direction it flows, and what
+happens on conflict.</p>
+<p>It is an afternoon of work, it resolves most design arguments, and it exposes the organisational decisions that are the real work
+hiding behind the technical ones.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="integration-patterns.html">Patterns &amp; Approach</a>, the
+    <a href="scenarios.html">scenario index</a>, or <a href="postman-scenarios.html">Postman — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Integration Patterns — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

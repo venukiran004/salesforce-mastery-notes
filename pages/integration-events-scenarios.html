@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Events, CDC &amp; Connect · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>Events &amp; CDC</span></div>
+  <h1>Events, CDC &amp; Connect — 100 Scenarios</h1>
+  <p class="lede">Delivery semantics, replay and retention, publish behaviour, retries, CDC gaps, Pub/Sub, schema
+     evolution, external objects, and the reconciliation nobody builds until it is too late.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on <a href="integration-events.html">Events, CDC
+    &amp; Connect</a> and its <a href="integration-events.html#advanced">Advanced</a> section.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="semantics">Delivery semantics (1–18)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> A subscriber processed the same event twice.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Delivery is <strong>at-least-once</strong>. Duplicates are part of the contract, not a bug.</p>
+<p>Consumers must be idempotent — a unique key on whatever you create, and a repeated event becomes a no-op.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> Events arrived out of order and your state is wrong.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Ordering is by <code>ReplayId</code> within a channel, but retries and redelivery break the logical sequence — and CDC is not ordered across
+objects at all.</p>
+<p>Never derive state from event order. Carry the authoritative values in the payload, or query current
+state.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Your subscriber was down for four days. What did you lose?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Everything beyond the retention window (commonly 72 hours for high-volume events, 24 for some channels) — permanently, with no error
+anywhere.</p>
+<p>Which is why every event-driven integration needs a <strong>reconciliation job</strong> that repairs state independently of the
+stream.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Publishing succeeded. Does that mean it was consumed?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No. Publishing means the bus accepted the event. There is no delivery receipt.</p>
+<p>If you need to know it was processed, the consumer has to tell you — a status field, a callback, or a reconciliation
+check.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> Can you ask the bus "what did I miss"?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Only positionally: resume from a stored <code>ReplayId</code>. There is no semantic "give me the changes I have not seen".</p>
+<p>So durable storage of the last processed replay id is mandatory, and a gap beyond retention is unrecoverable from the
+stream.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> Where should the replay id be stored?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Durably, on the consumer side — a database row, not memory. A restart otherwise replays from the beginning or skips
+ahead.</p>
+<p>Commit it only after the event is successfully processed, or you will skip events on a
+crash.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> You need guaranteed exactly-once processing.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Not available. What you can build is at-least-once delivery plus <strong>idempotent processing</strong>, which is operationally
+equivalent.</p>
+<p>Anyone insisting on exactly-once is usually asking for idempotency without the
+term.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> How long are events retained?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A limited window — commonly 72 hours for high-volume platform events and shorter for some channels. Verify for your channel type and
+release.</p>
+<p>Design the consumer's maximum acceptable downtime around it, and alert when the consumer falls
+behind.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> Standard-volume or high-volume events?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>High-volume is the modern default: better scale, replay support and retention. Standard-volume is legacy with tighter limits.</p>
+<p>Check what your org and channel support before designing around replay, since the behaviours
+differ.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> How do you detect that a consumer is falling behind?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Track the lag between the latest published replay id and your last processed one, and alert on it.</p>
+<p>Rising lag is your only warning before the retention window silently eats the
+backlog.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> A business owner asks whether events are reliable.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Honestly: reliable for freshness, not for completeness. They give decoupling and low latency; they do not guarantee ordering, exactly-once, or
+delivery after a long outage.</p>
+<p>Which is why the design pairs events with reconciliation. That framing prevents a false expectation you cannot
+meet.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> What belongs in an event payload?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Identifiers, a correlation id, a published timestamp, and the few fields the consumer needs to decide what to do.</p>
+<p>Fat events become a de facto API you cannot change, and they consume your allocation
+faster.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> Should events carry full record state?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Generally no — it couples consumers to your schema and goes stale immediately. Send a fact plus ids, and let consumers query if they need
+detail.</p>
+<p>The exception is when the consumer genuinely cannot query you (an external system with no access), where a self-contained payload is
+pragmatic.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> How do you make a consumer idempotent?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Derive a deterministic key from the event (correlation id, or source id plus operation), store it, and skip anything already
+processed.</p>
+<p>Enforce it with a unique constraint rather than a pre-check query, which does not hold under
+concurrency.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> Your reconciliation job found 40 missing records.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The system working as designed — the stream had a gap and reconciliation repaired it.</p>
+<p>Log the count as a metric: a rising number tells you the stream is degrading before anyone
+complains.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> How often should reconciliation run?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>From the business's tolerance for divergence: nightly for most, hourly where the data drives money or operations.</p>
+<p>Compare counts and checksums rather than re-sending everything, so the job stays cheap enough to run
+often.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">17</span> Is an event stream an audit trail?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No. Retention is short, delivery is at-least-once, and events can be missing.</p>
+<p>For audit use Field Audit Trail or an external store populated deliberately. Treating the bus as a system of record is a common and expensive
+mistake.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> How do you test a consumer's resilience?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Deliver the same event twice, deliver events out of order, deliver one with a missing optional field, and stop the consumer for longer than
+the retention window.</p>
+<p>Those four tests find almost every real event-driven
+defect.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="publish">Publishing &amp; transactions (19–34)</h2>
+
+<details class="acc"><summary><span class="q-num">19</span> Publish After Commit or Publish Immediately?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>After Commit for anything announcing a state change that must be real — the event only publishes if the transaction
+commits.</p>
+<p>Immediately only for telemetry where you want a record of the attempt even if the transaction rolls
+back.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> An event announced a change that was rolled back.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The event was configured to publish immediately. Consumers acted on something that never happened.</p>
+<p>Switch to after-commit, and make consumers tolerant — querying for current state is a good defence against this class of
+error.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">21</span> Do you need to check the publish result?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Yes — <code>EventBus.publish</code> returns <code>Database.SaveResult</code>, and publishing can fail (allocation, validation, size).</p>
+<p>Ignoring it means silently losing the event, which is the worst outcome in an event-driven
+design.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> What context does a platform event trigger run in?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>After-insert only, as the <strong>Automated Process</strong> user, in its own transaction with fresh limits and no access to the publisher's
+static state.</p>
+<p>Set trace flags on that user to debug it, and pass everything needed in the
+payload.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> Using events to escape mixed DML.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Legitimate and common: the subscriber runs in a separate transaction, so setup and non-setup objects can be handled
+separately.</p>
+<p>Just remember the subscriber is asynchronous, so the caller cannot depend on the result being
+immediate.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> A subscriber threw an exception. What happens?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Behaviour varies by channel: it may not be automatically redelivered, so an uncaught exception can simply lose the
+event.</p>
+<p>Catch, log durably, and decide explicitly between <code>EventBus.RetryableException</code> and
+dead-lettering.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> How do you retry inside a subscriber?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Throw <code>EventBus.RetryableException</code> to ask the bus to redeliver, and read
+<code>EventBus.TriggerContext.currentContext().retries</code> to count attempts.</p>
+<p>The retry limit is small, so what matters is stopping and recording rather than looping until the event is
+discarded.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> Events are published from a trigger in a loop.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Build a list and publish once — <code>EventBus.publish</code> accepts a collection.</p>
+<p>Per-record publishing in a loop burns allocation and DML-like statement budget
+unnecessarily.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> A subscriber loops with the publisher.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The subscriber's write re-triggers the publishing logic. Because each hop is a separate transaction, no static guard sees it and the loop is
+invisible in a single debug log.</p>
+<p>Break it with a durable marker — a source field saying "this came from the subscriber" — and a counter you can alert
+on.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> Can you publish from a subscriber?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Yes, and it is a legitimate choreography pattern — but it is also how cascades begin.</p>
+<p>Carry a hop count in the payload and refuse beyond a maximum, so a mistake is bounded rather than
+unbounded.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> An event-triggered flow processes events one at a time.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It may receive them individually or in batches depending on configuration and volume — design for both.</p>
+<p>Make the flow idempotent and avoid per-event DML where a collection would do, since a batch of events shares one
+transaction.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> Event publishing hit a limit.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Daily publish allocation, or the per-transaction publish limit. Both are real and the daily one is org-wide.</p>
+<p>Reduce event volume (publish a summary rather than per record), consolidate subscribers, and monitor the
+allocation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> Ten subscribers consume one event. What does that cost?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Delivery to <em>each</em> subscriber consumes allocation, so roughly ten times the consumption of one.</p>
+<p>Consolidate: one subscriber that fans out internally, or question whether all ten genuinely need every
+event.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> You need the publishing user's identity in the subscriber.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Put it in the payload. The subscriber runs as Automated Process and cannot infer who published.</p>
+<p>Same for any context you need — the subscriber has none of the publisher's transaction
+state.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">33</span> Should a platform event replace a trigger?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>For decoupling heavy post-commit work, yes — it gives fresh limits, isolation and natural retry.</p>
+<p>For same-record field defaults, no: a before-save flow or before trigger is immediate and far
+cheaper.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> How do you debug a subscriber that never runs?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Confirm the event actually published (check the <code>SaveResult</code> and your log), then set a trace flag on the <strong>Automated
+Process</strong> user — your own trace flag catches nothing.</p>
+<p>Then check whether the trigger is active and whether an exception is being swallowed
+somewhere.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="cdc">Change Data Capture (35–52)</h2>
+
+<details class="acc"><summary><span class="q-num">35</span> A CDC payload is missing most fields.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>By design — it contains only the <em>changed</em> fields plus a header listing them.</p>
+<p>If the consumer needs full state it must query, accepting that the record may have changed again
+since.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> You received a gap event. What now?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>CDC emits a gap event when it cannot produce a full change event — very large transactions, certain operations. Ignoring it
+<strong>silently loses changes</strong>.</p>
+<p>Handle it by querying the affected records (or triggering a targeted reconciliation) rather than treating it as
+noise.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> A child's change arrived before its parent's.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>CDC is not ordered across objects. Use the <strong>transaction key</strong> in the header to group changes that happened together, or query for
+current state.</p>
+<p>Designing a consumer that assumes parent-first ordering guarantees intermittent
+failures.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> What is the transaction key for?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It groups all change events from one Salesforce transaction, so a consumer can reassemble "these ten records changed
+together".</p>
+<p>Essential for keeping a downstream replica internally consistent rather than applying changes
+piecemeal.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> CDC or a platform event for a downstream replica?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>CDC if the consumer genuinely wants raw field-level changes and you accept exposing your schema.</p>
+<p>A platform event if you want a stable business contract you control. For replication specifically, CDC plus reconciliation is the common
+answer.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> You need CDC on 20 objects.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>CDC is enabled per object and the number is bounded by licence — so choose deliberately rather than enabling everything.</p>
+<p>Each enabled object also adds event volume against your
+allocation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">41</span> A CDC consumer sees deletes it cannot interpret.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The change type is in the header (create, update, delete, undelete). Handle all four explicitly.</p>
+<p>Undelete in particular is usually unhandled, which leaves downstream systems believing a restored record is still
+deleted.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> Does CDC fire for changes made by your own integration?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Yes — which is how echo loops form when the consumer writes back.</p>
+<p>Carry a source marker on the record and have the consumer ignore changes it caused, or filter on the publishing
+user.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> Can you filter which CDC events are published?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Channel configuration allows some filtering, which is worth using to reduce volume — but do not rely on it for
+security.</p>
+<p>The consumer should still validate what it receives, and your allocation benefits from publishing less in the first
+place.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> A CDC-driven replica has drifted.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Expected eventually: gap events, retention, out-of-order delivery and consumer bugs all contribute.</p>
+<p>Run a periodic full or delta reconciliation comparing counts and checksums, and repair differences. A replica with no reconciliation is a replica
+you cannot trust.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> How do you test CDC logic?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>Test.enableChangeDataCapture()</code> before the DML, then deliver the event bus and assert the subscriber's
+effect.</p>
+<p>Also test the gap-event branch explicitly — it is the one most likely to be
+unimplemented.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> CDC versus a nightly extract for a data warehouse.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>CDC for freshness; a nightly Bulk extract for completeness and simplicity.</p>
+<p>Mature pipelines use both: CDC to keep current, a periodic extract to guarantee the warehouse matches. Choosing only one means accepting either
+staleness or drift.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> You need to know who made the change.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>The CDC header includes the committing user, among other metadata.</p>
+<p>Useful for both loop prevention and audit-style downstream processing — but remember it is the user, not the business
+reason.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> CDC volume is consuming your allocation.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A chatty object — bulk loads and roll-up-driven updates generate a lot of change events.</p>
+<p>Narrow the enabled objects and fields, filter the channel, and consider whether a nightly extract would serve that object
+better.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> Does CDC capture changes made by a data load?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Yes, which can produce an enormous burst — and large transactions are exactly where gap events appear.</p>
+<p>For a migration, consider disabling the channel or suspending the consumer, then reconciling afterwards rather than streaming millions of
+changes.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> How do you resume a CDC consumer after downtime?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>From the stored replay id if it is still within retention; otherwise run a reconciliation to catch up, then resume from the current
+position.</p>
+<p>Attempting to replay beyond retention silently gives you partial
+data.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">51</span> A consumer must process CDC in order per record.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Within a channel, replay order gives you per-record sequence in normal operation — but redelivery breaks it.</p>
+<p>Make updates idempotent and last-write-wins by comparing a timestamp or version in the payload, rather than assuming arrival
+order.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> Is CDC suitable for triggering business processes?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It can be, but a <strong>platform event</strong> expressing the business fact is usually better — it is a contract you control, it carries
+intent, and it does not fire on every incidental field change.</p>
+<p>CDC triggering business logic tends to produce surprising behaviour when someone edits an unrelated
+field.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="pubsub">Pub/Sub, Streaming &amp; external consumers (53–70)</h2>
+
+<details class="acc"><summary><span class="q-num">53</span> Pub/Sub API or CometD for an external consumer?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Pub/Sub API</strong> (gRPC) — it is the current recommendation, supports flow control so a slow consumer is not drowned, uses Avro with
+explicit schema ids, and can publish as well as subscribe.</p>
+<p>CometD remains what <code>empApi</code> uses in the browser.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> Your consumer cannot keep up with the stream.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>With Pub/Sub API, use flow control — request only as many events as you can process, which is genuine
+backpressure.</p>
+<p>With CometD you must keep up or fall behind, which is one of the main reasons to
+migrate.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> You have run out of streaming connections.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>There is a bounded number of concurrent subscribers per org, and crashed consumers leave zombie connections consuming
+slots.</p>
+<p>Ensure clean disconnection, monitor active subscriptions, and consolidate consumers where
+possible.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> A browser component needs to react to server events.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>lightning/empApi</code> — subscribe in <code>connectedCallback</code> and <strong>unsubscribe in
+<code>disconnectedCallback</code></strong>, or you leak subscriptions.</p>
+<p>Handle the error channel too, and remember ordering is not
+guaranteed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> How does Avro schema evolution work here?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Each event carries a schema id the consumer resolves, so additive changes are handled gracefully if the consumer is written to
+tolerate them.</p>
+<p>Removing or retyping a field is still breaking — which is the same rule as any
+contract.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> You need to add a field to an existing event.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Additive changes are safe. Add it, and ensure consumers ignore unknown fields.</p>
+<p>What you cannot do is remove or retype a field — that requires a new event
+(<code>Order_Placed_v2__e</code>).</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> How do you version a platform event?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>In the event name, running both channels until consumers migrate. There is no in-place versioning.</p>
+<p>Log usage of the old channel so you know who is still subscribed before you retire
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> Never reuse a field name for a different meaning.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Correct — a consumer you forgot about is still reading it and will silently misinterpret the new semantics.</p>
+<p>Add a new field instead. Renaming semantics without renaming the field is one of the nastiest integration bugs because nothing
+errors.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> Relaying events to Kafka or EventBridge.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Supported patterns exist (event relay, or a Pub/Sub API consumer bridging into your bus), which is usually the right architecture for an
+enterprise estate.</p>
+<p>Then your idempotency and ordering concerns move to the bridge — they do not
+disappear.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> An external consumer needs to publish into Salesforce.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Pub/Sub API supports publishing, with batching — which is cleaner than having them call a REST endpoint that then
+publishes.</p>
+<p>Still validate in the subscriber: an inbound event is untrusted input like any other
+payload.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> How do you secure an event channel?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Through the subscribing user's permissions — access to the event object and the channel. Use a dedicated least-privilege integration user per
+consumer.</p>
+<p>And keep sensitive data out of payloads, because an event is visible to anyone who can subscribe to its
+channel.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> Should PII go in an event payload?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Prefer not to. Events are retained on the bus, delivered to every subscriber, and frequently logged by consumers — creating copies with weaker
+controls.</p>
+<p>Send identifiers and let authorised consumers fetch the detail through an API that enforces
+access.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> How do you monitor end-to-end event latency?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Include a published timestamp in the payload and record the processing time at the consumer, then report the difference.</p>
+<p>The platform will not tell you this, and "events feel slow" is unactionable without the
+number.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> A consumer's dead letters are piling up.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Something systematic — a schema change, a permission change, or a data shape you did not anticipate.</p>
+<p>Alert on dead-letter volume, not just existence, and make replay a one-click operation once the cause is
+fixed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> You need to fan one event out to several internal processes.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>One subscriber that dispatches internally is usually cheaper than several subscribers, because delivery allocation is per
+subscriber.</p>
+<p>It also gives you one place to handle errors, log and
+reconcile.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> Events or a callout for notifying one system?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A callout is simpler and gives you an immediate result and explicit retry control. Events are better when there may be more consumers later, or
+when you want to decouple deployment.</p>
+<p>For exactly one consumer with a stable contract, a callout from an async context is often the honest
+choice.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> How do you replay events for a new consumer?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Subscribe from the earliest available replay id — but that only reaches back to the retention window.</p>
+<p>For historical data, a one-off extract is the answer; the stream is for current changes, not
+backfill.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> A consumer needs events only for certain records.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Filter in the channel configuration where supported, or filter in the consumer — but prefer publishing a narrower event in the first
+place.</p>
+<p>Publishing everything and filtering at the edge wastes your allocation on events nobody
+wants.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="connect">Salesforce Connect &amp; external objects (71–84)</h2>
+
+<details class="acc"><summary><span class="q-num">71</span> When is Salesforce Connect the right answer?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>When the data must stay in the source system — volume, residency, or it changes constantly — and users need to see it in
+context.</p>
+<p>You avoid storage and sync entirely. The cost is that the remote system's availability and latency become
+yours.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> A page using external objects is slow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Every view is a live remote query. If the remote system is slow, the page is slow, and you have little control.</p>
+<p>Reduce the fields and rows displayed, and consider caching a summary locally for anything on a high-traffic
+page.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> You cannot report on external objects as expected.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Reporting support is limited and differs from standard objects — joins, roll-ups and some filters are unavailable.</p>
+<p>If reporting is a core requirement, replication into Salesforce or a warehouse is usually the better
+architecture.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> External object relationships behave oddly.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>External lookups and indirect lookups have their own semantics — indirect lookups match on an External Id, which must be unique and
+populated.</p>
+<p>Get the key strategy right first; relationship problems here are almost always key
+problems.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> Can you write to an external object?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Writeable external objects are supported with the right adapter and remote capabilities, but behaviour and error handling differ from local
+DML.</p>
+<p>Validate the write path thoroughly — partial failures and remote validation errors surface differently than
+expected.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> The remote system is down. What do users see?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Errors where the external data would be. Design the page so a failure degrades gracefully rather than breaking the whole
+record.</p>
+<p>That availability coupling is the main reason to choose replication over virtualisation for critical
+data.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">77</span> Sharing for external objects.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The sharing model is limited compared with standard objects — access is largely governed by the connection and object permissions rather than
+record-level sharing.</p>
+<p>If per-record access control is a requirement, virtualisation is probably the wrong
+approach.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> OData v2 or v4?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>v4 where the remote system supports it — better query capability and type handling.</p>
+<p>The decision is usually made by the remote system; confirm what it exposes before designing around a capability it does not
+have.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">79</span> A custom adapter is needed.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The Apex Connector Framework lets you build one for a non-OData source — powerful and a real maintenance commitment.</p>
+<p>Before committing, weigh it against a nightly extract or a middleware-provided OData facade, which are frequently
+cheaper.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> Cross-org Salesforce Connect.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Lets one org surface another's data as external objects — useful in a multi-org estate for read-mostly
+reference data.</p>
+<p>Same caveats apply: latency, reporting limits and availability coupling between the two
+orgs.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">81</span> Virtualise or replicate — how do you choose?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Virtualise when the data is large, changes constantly, must not be copied, and is viewed occasionally in context. Replicate when you need
+reporting, automation, offline access or reliable performance.</p>
+<p>Write the decision and its reason down — this one gets revisited and relitigated
+repeatedly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> Users complain external data is missing.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check the connection credentials, the remote system's filters, and whether the indirect lookup key is populated on both
+sides.</p>
+<p>Missing data in a virtualised model is usually a key-matching problem rather than an access
+problem.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">83</span> How do you monitor an external object connection?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Synthetic checks: a scheduled job that queries a known record and alerts on failure or slow response.</p>
+<p>Otherwise you learn about an outage from users, which for a virtualised integration is the normal
+outcome.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> Can you use external objects in flows and Apex?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>To a degree, with restrictions — and every access is a remote call, so loops over external objects are expensive and
+fragile.</p>
+<p>Treat them as read-mostly UI surfaces rather than as a foundation for
+automation.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="judgement">Judgement (85–100)</h2>
+
+<details class="acc"><summary><span class="q-num">85</span> Request-reply or event-driven for a new integration?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Request-reply when the caller needs the answer to proceed. Event-driven when the producer should not care who consumes, or when you want
+decoupling and resilience.</p>
+<p>Event-driven costs you ordering, delivery guarantees and easy debugging — which must be bought back with idempotency and
+reconciliation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> The business wants "event-driven architecture".<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Ask what problem it solves for them: decoupling teams, reducing point-to-point integrations, or freshness. Then design for that specific
+benefit.</p>
+<p>Adopting events as a style rather than for a reason produces a distributed system with all the costs and none of the
+payoff.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> How do you explain at-least-once to a stakeholder?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>"A message may arrive twice, so we make processing it twice harmless. That is cheaper and more reliable than trying to guarantee it arrives
+exactly once."</p>
+<p>Framing it as a design choice rather than a limitation usually ends the
+conversation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> A new consumer wants to subscribe to your event.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Treat it as a contract change: review the payload for anything they should not see, check your allocation can absorb the extra delivery, and
+document them as a consumer.</p>
+<p>Undocumented subscribers are why you cannot safely change an event
+later.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> You need to change an event's payload.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Additive only, or a new versioned event with both running. And you need to know who the consumers are — which requires having tracked
+them.</p>
+<p>This is why thin payloads matter: a small contract is one you can
+evolve.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> How do you decide the reconciliation strategy?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>From the cost of divergence. Financial data gets frequent checksums; a marketing preference gets a nightly count comparison.</p>
+<p>Also decide who is notified and what they do — a reconciliation report nobody reads is not
+reconciliation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> An event-driven design has become hard to debug.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Expected without discipline. Add correlation ids end to end, log publish and process with timestamps, document every publisher and subscriber,
+and keep payloads thin.</p>
+<p>Distributed systems are debuggable only to the extent you instrumented them in
+advance.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> A consumer team wants a field you consider internal.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Push back and understand the requirement — frequently they want a derived fact, not the raw field.</p>
+<p>Publishing an internal field makes it a contract forever. Publishing a named business fact leaves you free to change the
+implementation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> How do you stop event volume growing uncontrollably?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Publish business facts rather than every change, filter channels, consolidate subscribers, and review the top publishers
+monthly.</p>
+<p>Also check whether bulk loads are generating bursts nobody intended — that is the usual cause of a sudden
+step-change.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> You inherit an event-driven integration with no reconciliation.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Build reconciliation first, before changing anything — it will tell you how much divergence already exists, which is usually more than anyone
+expects.</p>
+<p>Then add monitoring for lag and dead letters, and document the publishers and
+subscribers.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> Should you use events inside a single org?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Yes, for decoupling post-commit work, escaping mixed DML, and getting fresh limits — all legitimate and
+common.</p>
+<p>But not as a substitute for a direct call where a direct call is simpler; indirection has a debugging
+cost.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> How do you document an event?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Name, meaning (the business fact it asserts), payload fields with types and semantics, publish behaviour, known consumers, and the version
+history.</p>
+<p>Undocumented events become folklore, and folklore cannot be
+changed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> A subscriber is modifying records the publisher owns.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A likely loop and an ownership-of-data problem. Establish which system owns which fields, and have the subscriber write only what it
+owns.</p>
+<p>Carry a source marker so each side can ignore changes it
+caused.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> What is the most under-built part of event-driven designs?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Reconciliation, followed by dead-letter handling and lag monitoring. Teams build the happy path and treat the gap as
+hypothetical.</p>
+<p>It is not hypothetical — the stream will have a hole in it, and "the event was lost" is not an explanation the business
+accepts.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> How do you explain the design to an architect reviewing it?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>State the semantics you rely on and the defences you built: at-least-once so consumers are idempotent; no ordering so state is carried in the
+payload; bounded retention so there is reconciliation; retries capped with a dead letter; correlation ids throughout.</p>
+<p>That sequence demonstrates you designed for the failure modes rather than the demo.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit that most improves event-driven work?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Building the <strong>reconciliation job at the same time as the publisher</strong> — not later, not when there is an
+incident.</p>
+<p>It forces you to define what "consistent" means, it catches bugs during development, and it is the only thing that makes an eventually-consistent
+design defensible.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="integration-events.html">Events, CDC &amp; Connect</a>, the
+    <a href="scenarios.html">scenario index</a>, or
+    <a href="integration-patterns-scenarios.html">Patterns — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Events &amp; CDC — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

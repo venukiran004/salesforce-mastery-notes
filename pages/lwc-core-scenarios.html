@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LWC Core · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>LWC Core</span></div>
+  <h1>LWC Core — 100 Scenarios</h1>
+  <p class="lede">Reactivity, lifecycle, shadow DOM, styling, conditional rendering, accessibility and performance — the
+     things that actually go wrong in components.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on <a href="lwc-core.html">LWC Core</a> and its
+    <a href="lwc-core.html#advanced">Advanced</a> section.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="reactivity">Reactivity (1–16)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> You push to an array and the UI does not update.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>LWC tracks <strong>reassignment</strong>, not mutation. <code>this.items.push(x)</code> mutates in place, so the framework sees no
+change.</p>
+<p>Reassign: <code>this.items = [...this.items, x]</code>. Almost every "my UI didn't update" bug is this one rule.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> Setting a nested object property does not re-render.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Same cause. <code>this.record.Name = 'x'</code> mutates. Spread a new object:
+<code>this.record = { ...this.record, Name: 'x' }</code>.</p>
+<p>For deeper nesting, spread each level — or restructure so the component holds flatter state, which is usually
+better.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Is <code>@track</code> still needed?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Rarely. Fields are reactive automatically; <code>@track</code> only adds deep observation of objects and arrays.</p>
+<p>Prefer the reassignment pattern over relying on it — it is clearer, it works everywhere, and it avoids surprising deep-mutation
+behaviour.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> A getter in your template runs dozens of times.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Getters referenced in the template are evaluated on <em>every</em> render pass. That is fine for cheap expressions and expensive for
+anything else.</p>
+<p>If the getter loops a large array, parses JSON or formats a thousand dates, compute once when the data changes and store the result in a
+field.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> A tracked property changes but a child does not update.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>You passed an object into the child and mutated it. The child's <code>@api</code> setter only fires on reassignment.</p>
+<p>Pass a new object reference, or pass primitives where practical — primitives make reactivity
+unambiguous.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> You need to react when a public property changes.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Use an <code>@api</code> getter/setter pair and do the work in the setter — but keep it light and idempotent, because the setter can fire
+more than once.</p>
+<p>Logic needing <em>two</em> properties belongs in <code>connectedCallback</code>, since setter order between properties is not
+guaranteed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> Setter order between two public properties is wrong.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>There is no guaranteed order. A setter that depends on another property already being set will intermittently see
+<code>undefined</code>.</p>
+<p>Store the values in the setters and do the combined work in <code>connectedCallback</code>, or guard with a check that both are
+present.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> A boolean public property receives the string "false".<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>HTML attributes are strings. A value from a template attribute or App Builder may arrive as <code>"false"</code>, which is
+truthy.</p>
+<p>Coerce explicitly in the setter, and document the expected type. This is a common source of inverted logic in configurable
+components.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> A computed class string does not update.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Build it in a getter that references reactive fields, and bind <code>class={computedClass}</code>.</p>
+<p>Assigning to <code>element.className</code> imperatively in <code>renderedCallback</code> works until the next render overwrites
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> Deleting an item from an array leaves stale UI.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Reassign with a filter: <code>this.items = this.items.filter(i =&gt; i.id !== id)</code>.</p>
+<p>If the rows still look wrong after that, the problem is your <code>key</code> — see the iteration section.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> You mutate an array returned from a wire adapter.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Wire results are immutable. Mutating them throws or silently fails depending on context.</p>
+<p>Copy before modifying: map into new objects. That is also the right place to shape the data for display rather than doing it in
+getters.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> A large object in state makes rendering slow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Deep reactive observation of a big structure is expensive, and spreading it on every change copies it.</p>
+<p>Hold only what the template needs, in a flat shape, and keep the raw payload in a non-reactive field if you must retain
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> You need state that does not trigger re-render.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Keep it in a field that the template never references — reactivity only matters for values the template reads.</p>
+<p>Useful for caches, timers, subscription handles and scroll positions.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> Two components share state and drift out of sync.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>There is no shared store by default. Options: lift the state to a common parent, use Lightning Data Service so both wire the same record
+(the cache becomes the channel), or use Lightning Message Service.</p>
+<p>LDS is the most elegant when the state <em>is</em> a record.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> You need a derived value used in three places in the template.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>One getter, referenced three times — but remember it evaluates on every render, so keep it cheap.</p>
+<p>If it is expensive, compute on change into a field. The template then reads a plain
+value.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> How do you debug a component that re-renders constantly?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Log in <code>renderedCallback</code> with a counter. A loop usually means you are mutating reactive state inside
+<code>renderedCallback</code>.</p>
+<p>Guard one-time DOM work with a boolean flag, and never assign to a tracked field in that
+hook.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="lifecycle">Lifecycle (17–32)</h2>
+
+<details class="acc"><summary><span class="q-num">17</span> <code>this.template.querySelector</code> returns null in the constructor.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>The DOM does not exist yet, and public properties are not set. The constructor is for initialising fields only.</p>
+<p>Do DOM work in <code>renderedCallback</code>, and data work in
+<code>connectedCallback</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> <code>connectedCallback</code> fires twice.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It can fire again if the component is moved in the DOM or re-inserted (tabs, conditional rendering).</p>
+<p>Make it idempotent, and tear down subscriptions, listeners and timers in
+<code>disconnectedCallback</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">19</span> An infinite loop in <code>renderedCallback</code>.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>You changed reactive state there, which triggers another render, which calls the hook again.</p>
+<p>Guard with a flag for one-time work, or move the logic to where the data changes rather than where it
+renders.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> An error in a child blanks the whole panel.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No error boundary. Implement <code>errorCallback(error, stack)</code> in a parent to catch child errors and render a fallback.</p>
+<p>Note it catches errors from <em>children</em> only — not from itself, and not from async callbacks, which need their own
+handling.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">21</span> <code>errorCallback</code> does not catch your fetch failure.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It does not catch errors thrown in promises or async callbacks. Handle those with <code>.catch</code> or try/catch around
+<code>await</code>.</p>
+<p>Then set component state to render an error message, so the user sees something meaningful rather than an empty
+space.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> Where should you fetch data?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>connectedCallback</code> for imperative fetches, or a <code>@wire</code> which handles it declaratively.</p>
+<p>Not the constructor (no properties yet), and not <code>renderedCallback</code> (fires repeatedly).</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> A component inside a closed accordion still fetches data.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It is constructed and connected even when not visible, so its <code>connectedCallback</code> runs.</p>
+<p>Lazy-load: only fetch when a public <code>isActive</code> property becomes true, or render the child conditionally so it is not created at
+all.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> You add a window listener and it leaks.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Anything added to <code>window</code> or <code>document</code>, plus <code>setInterval</code> and <code>empApi</code> subscriptions, must be
+removed in <code>disconnectedCallback</code>.</p>
+<p>Keep the handler reference in a field so you can remove exactly what you added — an anonymous function cannot be
+removed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> You need to focus an input after render.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>renderedCallback</code> with a one-time guard, using <code>this.refs</code> (with <code>lwc:ref</code>) or
+<code>this.template.querySelector</code>.</p>
+<p>Without the guard you will steal focus on every render, which is a genuinely irritating
+bug.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> A child's public method is undefined when the parent calls it.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The child is not rendered yet, or it is inside a conditional branch that is currently false, so <code>querySelector</code> returns
+null.</p>
+<p>Null-check, and call after the child exists — or better, drive the child through a property rather than reaching into it with a
+method.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> Should the parent call child methods or set properties?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Properties, usually — declarative, re-renders naturally and survives the child being re-created.</p>
+<p>Public methods are for genuine imperative actions (focus, reset, validate), and each one is a contract you then have to
+maintain.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> Data arrives after render and the template shows nothing.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Expected — render happens first. Show a loading state with <code>lwc:if</code> while the data is undefined.</p>
+<p>Three states deserve rendering: loading, error, and empty. Skipping them is the most common cause of a component that looks
+broken.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> How do you know a component has been destroyed?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>disconnectedCallback</code>. Use it to clean up, and set a flag so async callbacks that resolve afterwards do not try to update a
+dead component.</p>
+<p>Updating state after disconnect is harmless but can mask bugs; guarding makes the intent
+explicit.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> A timer keeps running after navigation.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>You did not clear it. Store the id and <code>clearInterval</code> in <code>disconnectedCallback</code>.</p>
+<p>In a console app where tabs persist, leaked timers accumulate across a working day and degrade the whole
+page.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> Component state resets unexpectedly.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It was destroyed and re-created — conditional rendering, a tab change, or a changed iteration <code>key</code> causing the engine to
+rebuild it.</p>
+<p>If the state must survive, lift it to the parent or persist it (per-viewer storage, or a record).</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> You need to run code once per component instance.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>connectedCallback</code> with an idempotency guard, since it can fire more than once.</p>
+<p>The constructor runs exactly once but has no properties or DOM, which usually makes it
+unsuitable.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="templates">Templates &amp; rendering (33–50)</h2>
+
+<details class="acc"><summary><span class="q-num">33</span> Rows get the wrong values after you delete one.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>You keyed the iteration on the index. Deleting row 2 shifts every later key, so the engine reuses the wrong DOM — input values jump to
+different rows.</p>
+<p>Always key on a stable business identifier.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> <code>if:true</code> versus <code>lwc:if</code>.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>lwc:if</code>/<code>lwc:elseif</code>/<code>lwc:else</code> are the modern directives; <code>if:true</code> is deprecated and
+evaluates falsy values differently.</p>
+<p>Migrate when you touch a template — the new form also avoids duplicating the negative condition.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> A conditional section flickers on load.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The condition is false initially and becomes true when data arrives, so the empty state renders first.</p>
+<p>Distinguish "loading" from "empty": render a spinner while the data is undefined, and the empty state only when it is an empty
+array.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> You need to render a component chosen at runtime.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>&lt;lwc:component lwc:is={ctor}&gt;</code> with a dynamically imported constructor.</p>
+<p>Useful for plug-in style UIs. Keep the set of possible components explicit rather than derived from user input, and handle the import
+failure.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> A slot's content is not styled by the child's CSS.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Slotted content lives in the <em>parent's</em> scope, so the child's styles do not apply to it and the child cannot query
+it.</p>
+<p>Style it in the parent, or expose styling hooks the parent can set. This surprises almost
+everyone.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> You need multiple insertion points for content.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Named slots: <code>&lt;slot name="header"&gt;</code> and the parent supplies <code>slot="header"</code>.</p>
+<p>Provide sensible default content inside the slot so the component is usable without the parent filling every
+slot.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> Rendering 5,000 rows is slow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A hand-rolled <code>for:each</code> creates 5,000 DOM subtrees. Use <code>lightning-datatable</code>, which handles large sets, or
+paginate.</p>
+<p>Virtualisation is not something to build yourself here unless you have a very specific need.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> You need to iterate with first/last awareness.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>iterator:it</code> gives you <code>it.first</code>, <code>it.last</code>, <code>it.index</code> and <code>it.value</code>.</p>
+<p>Useful for separators and conditional styling without precomputing flags in
+JavaScript.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">41</span> Template expressions cannot call a function with arguments.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Correct — templates support property access and getters only, not function calls with parameters.</p>
+<p>Precompute in JavaScript: map the array into objects that already contain the derived values the template
+needs.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> You need the index inside a nested iteration.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Nested <code>for:each</code> works, but each level needs its own item alias and a stable key.</p>
+<p>If the structure is complex, flatten it in JavaScript first — nested template logic becomes unreadable
+quickly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> Conditionally rendered components lose their state.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>lwc:if</code> destroys and re-creates, so state goes with it.</p>
+<p>If the state must survive, keep it in the parent, or hide with CSS instead (accepting that the component stays mounted and
+active).</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> How do you render raw HTML safely?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><code>lightning-formatted-rich-text</code>, which sanitises. Never set <code>innerHTML</code> from user or record content — that is the
+classic LWC XSS.</p>
+<p>If you need markup you control, build it with template elements rather than strings.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> You need two different layouts in one component.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Multiple templates: export several HTML files and return the right one from <code>render()</code>.</p>
+<p>Cleaner than one template full of conditionals when the layouts genuinely differ, and it keeps each template
+readable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> A base component's internals need styling.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Shadow DOM prevents it, and piercing selectors are unsupported and break between synthetic and native shadow.</p>
+<p>Use the component's documented <strong>styling hooks</strong> (CSS custom properties). If none exists, accept the default or build your
+own.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> You need a global style to reach inside your component.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>static renderMode = 'light'</code> renders without a shadow root, letting global CSS and third-party tools reach in.</p>
+<p>It gives up encapsulation, so use it deliberately — commonly for analytics or accessibility tooling that must traverse the
+DOM.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> <code>querySelector</code> cannot find an element in a child.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>this.template.querySelector</code> only sees your own shadow tree — by design.</p>
+<p>Communicate with the child through properties, public methods or events. Reaching into another component's DOM is a bug waiting for their next
+refactor.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> What is <code>this.refs</code> for?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>With <code>lwc:ref="name"</code> on an element, <code>this.refs.name</code> gives you a direct handle — cleaner and faster than a
+selector.</p>
+<p>Still only valid after render, so the same null-checking applies.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> Styles behave differently in a community than in the app.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Different theming context, and possibly different shadow DOM behaviour between runtimes.</p>
+<p>Use SLDS styling hooks rather than hard-coded values, and test in every runtime you ship to — including dark mode if
+supported.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="styling">Styling &amp; theming (51–64)</h2>
+
+<details class="acc"><summary><span class="q-num">51</span> Your component looks wrong in dark mode.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Hard-coded colours. Use SLDS styling hooks (<code>var(--slds-g-color-surface-1, #fff)</code>) with sensible fallbacks, so the component
+inherits the theme.</p>
+<p>Fixed hex values also break in Experience Cloud and after a brand
+change.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> You need consumers to be able to theme your component.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Expose your own CSS custom properties on <code>:host</code> with defaults, and document them.</p>
+<p>That gives consumers a supported surface instead of trying to pierce your shadow root — which will break on your next
+change.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> SLDS classes do not apply inside your component.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>SLDS utility classes generally work, but component-specific SLDS blueprints expect particular markup structures — partial markup gives
+partial styling.</p>
+<p>Prefer composing <strong>base components</strong>, which bring their own correct markup, accessibility and
+behaviour.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> Why prefer base components over custom markup?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>You inherit accessibility, keyboard behaviour, mobile layout, validation states and every future design-system update for
+free.</p>
+<p>Re-implementing <code>lightning-input</code> means owning all of that yourself,
+permanently.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> A base component's default width breaks your layout.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Wrap it in your own container and control the container's sizing with SLDS grid classes, rather than trying to restyle the component's
+internals.</p>
+<p>Layout belongs outside the component; appearance belongs to its styling
+hooks.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> You need a CSS file shared across components.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A CSS module imported in each component's stylesheet — the supported way to share styles without global
+leakage.</p>
+<p>Keep it to tokens and small utilities; a large shared stylesheet recreates the problems shadow DOM
+prevents.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> Fonts and images fail to load.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>CSP: external resources need CSP Trusted Sites entries, and stylesheets have their own restrictions.</p>
+<p>Bundle assets as static resources where possible — versioned, reviewable and offline-safe — rather than loading from a
+CDN.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> A third-party CSS framework fights SLDS.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Expect conflicts, specificity battles and an inconsistent look. Shadow DOM limits the damage but also limits the framework's
+usefulness.</p>
+<p>Usually the better answer is SLDS plus targeted custom CSS. Importing a whole framework into a Salesforce UI rarely pays for
+itself.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> Your component is unreadable at 200% zoom.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Fixed pixel sizing and fixed-height containers. Use relative units and allow content to reflow.</p>
+<p>200% zoom is an accessibility requirement, not an edge case, and testing it takes
+seconds.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> A table overflows on a phone.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Dense tables are hostile on small screens. Switch to a card layout below a breakpoint, or make the table horizontally scrollable with a
+visible affordance.</p>
+<p><code>lightning-datatable</code> handles some of this; a hand-built table handles
+none.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> Spacing is inconsistent across your components.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Use SLDS spacing utilities and spacing tokens rather than ad-hoc margins.</p>
+<p>Consistency comes from a shared scale, not from each developer choosing a pixel value that looks right in
+isolation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> You need to hide something visually but keep it for screen readers.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>slds-assistive-text</code> — visually hidden, still announced.</p>
+<p><code>display: none</code> removes it from the accessibility tree entirely, which is the opposite of what you
+want.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> Your component looks different in a console app.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Console apps have different available height, utility bars and tab chrome, and components are often narrower.</p>
+<p>Test in the actual app type you ship to. Designing only against a standard record page is how components break in
+console.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> How do you keep styling maintainable across 40 components?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Tokens via SLDS hooks, a small shared CSS module, base components for anything standard, and no hard-coded colours or spacing
+anywhere.</p>
+<p>Then a theme or brand change is a token change rather than forty
+edits.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="a11y">Accessibility (65–78)</h2>
+
+<details class="acc"><summary><span class="q-num">65</span> You built a clickable <code>div</code>. What is wrong?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No keyboard operability, no focus state, no role, no accessible name — it is invisible to keyboard and screen-reader
+users.</p>
+<p>If it behaves like a button, make it a <code>button</code>. That one change fixes four accessibility failures at
+once.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> An icon-only button has no label.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Add <code>alternative-text</code> (on base components) or <code>aria-label</code>. An icon alone announces as "button" with no
+purpose.</p>
+<p>This is the single most common accessibility omission in custom Salesforce
+UIs.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> A designer asks you to remove focus outlines.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Decline, and offer to restyle them instead. Without a visible focus indicator, keyboard users cannot tell where they
+are.</p>
+<p>A custom focus style that meets contrast requirements satisfies both the design and the
+requirement.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> A toast confirms a save but screen-reader users miss it.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Dynamic content needs an appropriate live region to be announced. Base component toasts generally handle this; hand-rolled
+notifications do not.</p>
+<p>Use the platform toast, or add a live region yourself for inline status
+messages.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> Validation errors are shown only in red text.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Colour alone is insufficient, and the error must be programmatically associated with the field so it is announced.</p>
+<p>Base input components do this via <code>setCustomValidity</code>/<code>reportValidity</code> — another reason to use
+them.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> A modal traps keyboard users.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A modal needs focus moved into it on open, focus <em>contained</em> within it, Escape to close, and focus returned to the trigger on
+close.</p>
+<p>That is a lot to get right — strong argument for the platform modal rather than a custom
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">71</span> Your headings are styled divs.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Screen-reader users navigate by heading structure, so styled divs remove their primary navigation
+mechanism.</p>
+<p>Use real <code>h1</code>–<code>h6</code> in a sensible hierarchy and style them, rather than the
+reverse.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> Tab order jumps around the page.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>DOM order does not match visual order, often because of CSS reordering — or someone used positive
+<code>tabindex</code>.</p>
+<p>Fix the DOM order; never use positive <code>tabindex</code> values. <code>tabindex="0"</code> and <code>-1</code> are the only ones you should
+need.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> How do you actually test accessibility?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Keyboard only (no mouse), a screen reader (NVDA or VoiceOver), 200% zoom, and an automated checker like axe.</p>
+<p>Automated tools catch perhaps a third of real issues; the keyboard pass finds most of the rest and takes two minutes per
+component.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> Contrast fails in dark mode only.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check both themes — 4.5:1 for body text, 3:1 for large text and UI boundaries.</p>
+<p>Using SLDS tokens rather than fixed colours generally gets you compliant values in both themes without separate
+work.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> A status is shown only by a coloured dot.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Colour alone excludes colour-blind users. Add text, an icon shape, or both.</p>
+<p>It also improves clarity for everyone — a red dot means nothing without a
+legend.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> Who is responsible for accessibility?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Whoever builds the component. Treating it as a later QA pass means it is never done, because retrofitting is far more expensive than
+building it right.</p>
+<p>Make it a line in the definition of done and in the PR
+checklist.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">77</span> A screen reader reads the table in a confusing order.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Missing table semantics — proper <code>th</code> elements with scope, a caption, and no layout-only tables.</p>
+<p>If you are using a table for layout, stop; use CSS grid or SLDS grid
+instead.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> Does accessibility apply to internal-only tools?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Yes — your colleagues include people who use keyboards, screen readers and magnification, and in many jurisdictions it is a legal
+obligation for internal systems too.</p>
+<p>It is also the cheapest usability work available: most accessibility fixes improve the experience for
+everyone.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="perf-judgement">Performance, security &amp; judgement (79–100)</h2>
+
+<details class="acc"><summary><span class="q-num">79</span> A record page feels slow and your component is suspected.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Measure before accepting the blame: the Lightning Usage App for EPT, then component-level instrumentation on the page.</p>
+<p>The slow component is frequently not the suspected one, and often the cost is the <em>number</em> of components rather than any single
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> Five components each call Apex on load.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Five round trips. Consolidate into one call returning a composite payload, or use LDS so they share the cache.</p>
+<p>This is usually the single biggest win available on a slow record
+page.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">81</span> A search box fires Apex on every keystroke.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Debounce — wait a few hundred milliseconds after typing stops before calling.</p>
+<p>Without it, a fast typist generates a dozen concurrent requests and you have built a denial-of-service against your own
+org.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> You deep-clone a large wire result on every render.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>JSON.parse(JSON.stringify(x))</code> on a big payload is a significant hidden cost, especially inside a getter.</p>
+<p>Shape the data once when it arrives, into exactly what the template needs.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">83</span> A third-party library must be loaded.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Bundle it as a static resource and load with <code>loadScript</code>/<code>loadStyle</code> in
+<code>renderedCallback</code> with a one-time guard.</p>
+<p>Versioned, reviewable, CSP-friendly and offline-safe — and re-test under Lightning Web Security, since libraries that failed under Locker often
+work now.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> An API key is needed in your component.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>It cannot live there — client code is public. Proxy the call through Apex with a <strong>Named Credential</strong>.</p>
+<p>A key in a component is a key in your git history and in every user's
+browser.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> You hide a button for unauthorised users. Is that enough?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No. The Apex method remains callable by anyone who can load the component, including guests on a public page.</p>
+<p>Enforce CRUD, FLS and sharing server side. Client-side checks are
+UX.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> A component must behave differently on mobile.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>@salesforce/client/formFactor</code> tells you Small, Medium or Large, and component visibility rules can hide it
+entirely.</p>
+<p>Prefer responsive CSS for layout and reserve form-factor branching for genuinely different
+behaviour.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> Your component works in the app and breaks in a community.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Different runtime (LWR versus Aura), different theming, guest-user context, and some APIs unavailable.</p>
+<p>Declare the right targets, avoid app-specific APIs, and test as an authenticated <em>and</em> a guest community
+user.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> A component needs to work offline.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Offline support means the GraphQL wire adapter and supported device capabilities — not arbitrary Apex, which requires a
+server.</p>
+<p>Design the data access around what is primed to the device. See
+<a href="field-service-advanced.html#mobile">offline architecture</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> How do you make a component configurable by admins?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Expose <code>@api</code> properties and declare them in the meta XML as design-time attributes, so App Builder shows them.</p>
+<p>Give sensible defaults and validate the values — an admin will eventually type something
+unexpected.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> You need to support an unknown object type.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Take the object API name as a design attribute and use a field set or the GraphQL adapter, rather than accepting arbitrary SOQL from the
+client.</p>
+<p>Generic components are useful; generic <em>queries</em> driven by client input are a security
+surface.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> How do you test an LWC?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Jest: mount the component, emit wire data, an error and an empty result in three tests, and assert the rendered DOM after awaiting a
+microtask.</p>
+<p>Those three cases catch most real defects and run in milliseconds with no
+org.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> A Jest test fails because of a missing module.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Salesforce-specific modules need stubs — configure <code>moduleNameMapper</code> in the Jest config for anything not provided by
+<code>sfdx-lwc-jest</code>.</p>
+<p>Once configured, it applies across the whole project rather than per
+test.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> How much Jest coverage is worth having?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Enough to cover the rendering states and the event contracts — data, error, empty, and that the right events fire with the right
+payloads.</p>
+<p>Chasing 100% on template bindings is low value; covering the three states is high
+value.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> Should business logic live in the component?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No — keep it in Apex (testable, reusable, enforceable) and keep the component to presentation and interaction.</p>
+<p>Logic in JavaScript cannot be reused by a flow, an integration or a trigger, and it is not where your security checks
+belong.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> A component has 800 lines of JavaScript.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It is doing too much. Split into a container that handles data and presentational children, and move shared helpers into an ES
+module.</p>
+<p>Smaller components are easier to test, reuse and reason
+about.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> Should you build a component or use a base one?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Base component unless it genuinely cannot do the job. You inherit accessibility, keyboard support, mobile behaviour and future design-system
+updates.</p>
+<p>Most custom re-implementations exist because nobody checked what the base component could already
+do.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> An LWC or a screen flow for a guided task?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Screen flow if admins should own and change the steps, and the UI needs are within its components. LWC when the interaction is bespoke or
+the UX must be tightly controlled.</p>
+<p>A flow with a custom LWC screen component is often the right middle
+ground.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> How do you hand a component over to another team?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Documented public API (properties, methods, events) in the component's own comments, design attributes in the meta XML, Jest tests showing
+intended usage, and the styling hooks you expose.</p>
+<p>The tests are the most honest documentation, because they cannot drift from the
+behaviour.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> What makes an LWC production-ready?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Three rendering states (loading, error, empty), server-side security enforcement, no hard-coded colours, keyboard operability and accessible
+names, cleanup in <code>disconnectedCallback</code>, debounced input, stable iteration keys, and Jest tests for the three
+states.</p>
+<p>That list is about an extra hour and prevents most component
+defects.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit that most improves components?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Rendering <strong>loading, error and empty</strong> states from the start, before the happy path.</p>
+<p>It forces you to handle the cases that actually occur in production, and it is the difference between a component users trust and one that looks
+broken whenever anything is slow.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="lwc-core.html">LWC Core</a>, the <a href="scenarios.html">scenario index</a>, or
+    <a href="lwc-advanced-scenarios.html">LWC Data &amp; Events — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · LWC Core — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

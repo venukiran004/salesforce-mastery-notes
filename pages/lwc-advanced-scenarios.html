@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LWC Data &amp; Events · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>LWC Data &amp; Events</span></div>
+  <h1>LWC Data &amp; Events — 100 Scenarios</h1>
+  <p class="lede">Wire service and cache invalidation, imperative Apex, LDS, GraphQL, component communication, navigation,
+     error shapes and client-side security.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on <a href="lwc-advanced.html">LWC Data &amp;
+    Events</a> and its <a href="lwc-advanced.html#advanced">Advanced</a> section.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="wire">Wire service (1–16)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> A wired property never populates.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Usually a reactive parameter that is still <code>undefined</code> — the wire does not fire until all <code>$</code>-prefixed parameters have
+values.</p>
+<p>Check that <code>recordId</code> is actually set (it is injected only on record pages), and render a loading state until the data
+arrives.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> <code>$recordId</code> versus <code>recordId</code> in a wire.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>The <code>$</code> makes it <strong>reactive</strong>: the wire re-runs when the value changes. Without it, the value is captured once at
+creation.</p>
+<p>Forgetting the <code>$</code> produces a component that never refreshes when the parent changes the
+input.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> You changed data in Apex and the wire still shows the old value.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The wire result is cached. For <code>@wire(apexMethod)</code>, call <code>refreshApex(this.wiredResult)</code> — passing the whole wired
+object, not <code>.data</code>.</p>
+<p>For <code>@wire(getRecord)</code>, call <code>notifyRecordUpdateAvailable([{recordId}])</code> so LDS knows that record is
+dirty.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> <code>refreshApex</code> does nothing.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>You passed <code>this.data</code> instead of the full wired result object. <code>refreshApex</code> needs the object the wire handed
+you.</p>
+<p>Use the function form of <code>@wire</code> and store the whole result in a field for exactly this
+reason.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> Which refresh mechanism for which situation?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Changed via LDS → nothing needed. Changed via Apex but read with <code>getRecord</code> →
+<code>notifyRecordUpdateAvailable</code>. Read with <code>@wire(apex)</code> → <code>refreshApex</code>. Called Apex imperatively → just call
+again.</p>
+<p>Changed by another user → nothing client-side will know; subscribe to an event or accept
+staleness.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> An Apex method cannot be wired.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>It must be <code>@AuraEnabled(cacheable=true)</code>, which also means it must not perform DML.</p>
+<p>If it writes, call it imperatively. The cacheable flag is a promise about side effects, not just a performance
+hint.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> Two components wire the same Apex method with the same parameters.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The result is served from cache, so you get one server call — which is a genuine benefit of wiring over imperative
+calls.</p>
+<p>It also means <code>refreshApex</code> in one component refreshes the shared cache entry both are
+reading.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> You need to wire with a parameter that is an object.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Reactive object parameters work but re-fire whenever the reference changes — so spreading a new object on every render causes a request
+storm.</p>
+<p>Prefer primitive reactive parameters, and construct them deliberately.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> A wire fires repeatedly in a loop.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Its reactive parameter is being reassigned on every render — commonly because it comes from a getter that builds a new object or
+array.</p>
+<p>Compute the parameter once into a field when the inputs change, not in a
+getter.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> You want the wire to re-run on demand.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Either change a reactive parameter, or use <code>refreshApex</code> on the stored result.</p>
+<p>There is no "re-run this wire" call — reactivity and explicit refresh are the two
+levers.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> You need data before first render.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Not possible — render happens first and the wire resolves afterwards. Design for a loading state.</p>
+<p>If you truly cannot render without it, render nothing but a spinner until the data is
+present.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> A wired error is an object you cannot read.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>LDS and Apex errors have different shapes — <code>error.body</code> can be an array, or contain <code>output.fieldErrors</code>, or be a plain
+message.</p>
+<p>Normalise once in a shared <code>reduceErrors</code> utility and reuse it everywhere.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> Should you use the property form or the function form of <code>@wire</code>?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Function form when you need to react to the data (transform it, store the result for <code>refreshApex</code>, handle the error
+explicitly).</p>
+<p>Property form only for the simplest cases where the template consumes it
+directly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> A wire works in the app and fails in a community.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Guest or external users may lack access to the object or the Apex class, and some adapters are unavailable in some
+runtimes.</p>
+<p>Test as the actual external persona and handle the error branch, which in a community is a realistic state rather than an
+edge case.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> How do you avoid a wire on a component that is not visible?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Render the component conditionally so it is not created, or gate the reactive parameter on an <code>isActive</code>
+property.</p>
+<p>A wire in an inactive tab still costs a server call, which multiplies across a busy record
+page.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> When is an imperative call better than a wire?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>When the call writes data, when it should only happen on user action, when you need the return value in sequence with other work, or when you
+need full control over timing and error handling.</p>
+<p>Wires are for declarative reads that should stay
+fresh.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="imperative">Imperative Apex &amp; LDS (17–34)</h2>
+
+<details class="acc"><summary><span class="q-num">17</span> An imperative call's error surfaces an internal class name.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>The Apex threw an unhandled exception. Throw <code>AuraHandledException</code> with a message written for the user, and log the detail
+server-side.</p>
+<p>An unhandled exception is both unhelpful and an information
+leak.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> You need to create a record with no Apex.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>createRecord</code> from <code>lightning/uiRecordApi</code>, or <code>lightning-record-edit-form</code> for a full form.</p>
+<p>LDS respects FLS and sharing automatically and updates the cache, so other components refresh themselves — which is why it beats Apex for
+simple CRUD.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">19</span> <code>lightning-record-edit-form</code> hides a field you need.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It respects field-level security, so an invisible field means the user lacks access — which is correct
+behaviour.</p>
+<p>If it is a layout question rather than FLS, specify the fields explicitly rather than relying on the
+layout.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> You need to update 50 records at once.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>LDS is single-record. Use an imperative Apex method taking a collection and doing one DML.</p>
+<p>Then refresh: <code>notifyRecordUpdateAvailable</code> for the affected Ids, or <code>refreshApex</code> on the list
+wire.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">21</span> When should you prefer LDS over Apex?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Single-record CRUD, where you want automatic FLS, automatic cache updates and no code to test.</p>
+<p>Apex when you need business logic, multiple records, complex queries, or aggregation — anything where the operation is more than reading or
+writing fields.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> <code>getRecord</code> does not return a field you asked for.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Either the user lacks FLS on it, or you requested it via <code>layoutTypes</code> rather than explicit <code>fields</code> and it is not on
+the layout.</p>
+<p>Prefer explicit field imports — they are checked at compile time and do not depend on layout
+configuration.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> Importing fields with <code>@salesforce/schema</code> — why bother?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>It creates a real dependency: the field cannot be deleted while the component references it, and typos fail at compile
+time.</p>
+<p>String field names fail silently at runtime, which is strictly worse.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> A field import blocks a field deletion you need.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>That is the feature working — it prevented you from breaking a component.</p>
+<p>Remove the reference, deploy, then delete the field. The dependency is a safety net, not an
+obstacle.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> You need to read a record the user cannot see.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>LDS will not do it — it respects sharing and FLS by design.</p>
+<p>That requires deliberate elevation in Apex (<code>without sharing</code>, small and reviewed), with the justification documented. If you find
+yourself wanting this often, the sharing model is probably wrong.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> A record form saves but a sibling component shows stale data.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>If the sibling uses LDS on the same record, it updates automatically. If it reads via Apex, it does not.</p>
+<p>Handle the form's success event and call <code>refreshApex</code> on the sibling's wire, or have both components use
+LDS.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> You need the picklist values for a field.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>getPicklistValues</code> with a record type Id (from <code>getObjectInfo</code>) — which correctly returns only the values available for
+that record type.</p>
+<p>Hard-coding picklist values in a component is a guaranteed future
+mismatch.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> Dependent picklists in a custom component.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><code>getPicklistValues</code> returns the controller values and the dependency mapping, which you then apply when the controlling field
+changes.</p>
+<p>It is fiddly — <code>lightning-record-edit-form</code> handles dependencies for free, which is usually the better
+answer.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> How do you handle a save that partially fails?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Return structured results from Apex (success and failure per record) rather than throwing, and render which rows failed and
+why.</p>
+<p>An all-or-nothing error message on a 50-row save gives the user no way
+forward.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> A user double-clicks Save and you get two records.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Disable the button on first click and re-enable on completion — and make the server-side operation idempotent with a client-generated
+key.</p>
+<p>Client-side disabling alone is not sufficient under a slow
+connection.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> You need optimistic UI updates.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Update local state immediately, call the server, and roll back the local change on failure — with a clear message.</p>
+<p>It improves perceived performance and adds real complexity, so reserve it for interactions where latency genuinely
+hurts.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> Should a component call several Apex methods on load?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Prefer one method returning a composite payload — fewer round trips and one error path.</p>
+<p>Three sequential awaits on load is three latencies added
+together.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">33</span> How do you cache an expensive Apex result client-side?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A <code>cacheable=true</code> wire gives you the platform's cache for free, keyed by parameters.</p>
+<p>For per-viewer convenience state (a chosen tab, a filter) <code>localStorage</code> is reasonable — wrapped in try/catch, because it can throw
+or come back empty.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> An imperative call resolves after the component is destroyed.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Harmless but it can mask bugs and waste work. Set a flag in <code>disconnectedCallback</code> and check it before updating
+state.</p>
+<p>It also prevents confusing console errors in a console app where tabs open and close
+frequently.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="graphql">GraphQL &amp; querying (35–46)</h2>
+
+<details class="acc"><summary><span class="q-num">35</span> When is the GraphQL wire adapter the right choice?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Read-only data across several related objects, with pagination and filtering, honouring FLS and sharing — and it is the
+<strong>offline-capable</strong> adapter for mobile.</p>
+<p>Essentially: when you would otherwise write an Apex method that only does
+SOQL.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> GraphQL or Apex for a list view component?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>GraphQL if it is a straightforward filtered read with paging — no Apex to write, test or secure.</p>
+<p>Apex if you need aggregation, complex joins beyond the adapter, or a payload shaped for a specific
+UI.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> A GraphQL query returns nothing for some users.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>It respects sharing and FLS, so missing data usually means missing access — which is correct.</p>
+<p>Verify by logging in as the user. This is a feature of the adapter, not a
+limitation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> You need aggregation in GraphQL.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Support is limited compared with SOQL. For meaningful aggregates, use Apex with an aggregate query, or pre-compute into a
+field.</p>
+<p>Trying to aggregate client-side over a paginated result set gives you a number that is wrong whenever there is more than one
+page.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> Pagination with GraphQL.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Cursor-based: request a page size and carry the cursor forward. It is one of the main reasons to choose the adapter — you do not implement
+paging yourself.</p>
+<p>Keyset paging is also what keeps it fast at depth, unlike
+<code>OFFSET</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> Offline support for a mobile component.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The GraphQL adapter plus whatever is primed to the device. Arbitrary Apex requires a server and will not work
+offline.</p>
+<p>Design the component's data access around primed data, and handle the offline state explicitly. See
+<a href="field-service-advanced.html#mobile">offline architecture</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">41</span> A GraphQL query is slow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Same underlying rules as SOQL: selectivity matters, and filters must be indexable.</p>
+<p>Request fewer fields, filter more selectively, and page smaller. The adapter does not exempt you from the query
+optimiser.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> You need data from an object the adapter does not support.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Fall back to Apex. Adapter coverage expands over releases, so check the current state rather than assuming.</p>
+<p>A mixed approach is fine — GraphQL where it fits, Apex where it does
+not.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> How do you handle a GraphQL error?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The wire gives you an <code>errors</code> structure that differs again from Apex and LDS shapes — add it to your normalising
+utility.</p>
+<p>Render a useful message and a retry affordance; a silent empty state is indistinguishable from "no
+data".</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> Should the component build its query dynamically?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Keep the shape static and parameterise the variables. A query assembled from user input is a client-controlled
+read.</p>
+<p>If admins need configurability, drive it from design attributes with an allow-listed set of fields, not from arbitrary
+input.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> Testing a GraphQL-wired component.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Register a test wire adapter and emit a representative response — plus an error and an empty result.</p>
+<p>Base the mock payload on a captured real response, or your test will pass against a shape the adapter never
+produces.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> Migrating an Apex read to GraphQL — worth it?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>If the Apex only does SOQL, yes: less code, automatic security, free paging and offline capability.</p>
+<p>If it does anything else, leave it. Migration for its own sake is churn.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="events">Component communication (47–66)</h2>
+
+<details class="acc"><summary><span class="q-num">47</span> A custom event does not reach the grandparent.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>By default events do not cross shadow boundaries. Either re-dispatch at each level, or set <code>bubbles: true, composed:
+true</code>.</p>
+<p>Re-dispatching is usually better design — each component declares its own API rather than letting events leak through
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> Your event name with a colon does not work.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Event names must be lowercase with no colons, hyphens are discouraged in the handler attribute mapping.</p>
+<p>Use a single lowercase word or concatenation: <code>rowselect</code>,
+<code>statuschange</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> Should you use <code>composed: true</code>?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Only when you genuinely need to cross shadow boundaries, and understand that it makes the event part of a much wider contract — anything
+above can listen.</p>
+<p>Default to non-composed and re-dispatch
+deliberately.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> Two unrelated components on a page need to talk.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Lightning Message Service — it works across LWC, Aura and Visualforce and across the whole page.</p>
+<p>Or, if the shared state is a record, have both wire it with LDS and let the cache be the channel, which needs no messaging at
+all.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">51</span> Your LMS message updates the wrong console tab.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>LMS is a page-wide broadcast, so a second instance of your component in another tab receives it too.</p>
+<p>Include a scope identifier (record Id, correlation key) in the payload and have subscribers ignore messages that are not
+theirs.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> You need to subscribe to a platform event in a component.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>lightning/empApi</code> — subscribe in <code>connectedCallback</code>, and <strong>unsubscribe in
+<code>disconnectedCallback</code></strong> or you leak subscriptions.</p>
+<p>Handle the error channel too, and remember events are not guaranteed to arrive in
+order.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> How do you know another user changed the record?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Nothing client-side will tell you. Publish a platform event or enable CDC and subscribe with <code>empApi</code>, then refresh.</p>
+<p>Otherwise accept staleness and show a "last updated" timestamp, which solves the actual user concern more cheaply than real-time
+sync.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> Parent needs to pass data to a child that is not rendered yet.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Set it as a property in the template — the value is applied when the child is created.</p>
+<p>Calling a method on a not-yet-rendered child returns null from <code>querySelector</code>, which is the usual symptom of reaching for the
+imperative approach too early.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> A child needs to tell the parent "I am valid".<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Either a public <code>validate()</code> method the parent calls before submitting, or an event the child fires on every change carrying its
+validity.</p>
+<p>The method is simpler for a form; the event keeps the parent's submit button state live without
+polling.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> You need to pass an object through an event.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Put it in <code>detail</code>. Across shadow boundaries the payload should be a plain, serialisable object — avoid passing live references the
+receiver might mutate.</p>
+<p>Treat the event payload as a contract and keep it
+minimal.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> An event handler fires twice.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Either you added the listener twice (<code>connectedCallback</code> firing again without cleanup), or the event bubbles and two ancestors
+handle it.</p>
+<p>Remove listeners in <code>disconnectedCallback</code>, and reconsider whether the event needs to
+bubble.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> You need to open a record page from a component.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>NavigationMixin</code> with a <code>standard__recordPage</code> page reference — never a hard-coded URL, which breaks across
+environments, communities and My Domain changes.</p>
+<p>Page references also work correctly in the mobile app and in
+console.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> Navigation works in the app but not in a community.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Some page reference types behave differently or are unsupported in Experience Cloud, and community URLs are structured
+differently.</p>
+<p>Use community-appropriate page references and test in the actual site — this is a frequent
+surprise.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> You need to open a sub-tab in a console app.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The Workspace API (<code>lightning/platformWorkspaceApi</code>) — open tabs, set labels, focus and close sub-tabs.</p>
+<p>Guard for the non-console case so the component still works on a standard record
+page.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> Closing a sub-tab after save does not work.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>You need the Workspace API and the correct tab Id, and the call must happen after the save completes.</p>
+<p>Also handle the case where the component is not in a console, where the API is unavailable and should degrade
+gracefully.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> How do you show a toast?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>ShowToastEvent</code> from <code>lightning/platformShowToastEvent</code> — and note it does not work in all contexts, notably some
+community runtimes.</p>
+<p>Provide an inline fallback message so feedback is never lost in a context where toasts are
+unavailable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> You need to pass state through navigation.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Page reference <code>state</code> parameters, read via <code>CurrentPageReference</code> on the destination.</p>
+<p>Keep it to identifiers — URL state is visible to the user and should never carry anything sensitive or
+authoritative.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> Deciding between events, LMS and LDS.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Within a component tree → events and properties. Across the page or across technologies → LMS with scoping. Shared record state → LDS,
+which needs no messaging.</p>
+<p>Choose the narrowest mechanism that works; broad broadcasting is harder to debug a year
+later.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> An event-driven design has become hard to follow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Too many broadcast events with implicit contracts. Document each event's name, payload and publisher/subscriber, and prefer explicit
+parent-child wiring where the relationship is structural.</p>
+<p>Events are for decoupling; using them where a property would do adds indirection without
+benefit.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> How do you test event firing?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>In Jest, attach a listener to the component, trigger the interaction, and assert the event name and payload.</p>
+<p>That makes the event an explicitly tested contract rather than an
+assumption.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="errors-sec">Errors &amp; security (67–84)</h2>
+
+<details class="acc"><summary><span class="q-num">67</span> Error objects differ depending on their source.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>LDS page-level errors arrive as <code>body</code> arrays; Apex DML errors as <code>body.output.fieldErrors</code> and
+<code>body.output.errors</code>; <code>AuraHandledException</code> as <code>body.message</code>.</p>
+<p>Write one <code>reduceErrors</code> utility and use it everywhere — hand-rolling the parsing per component guarantees inconsistent
+messages.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> A user sees "An internal server error occurred".<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>An unhandled Apex exception. Throw <code>AuraHandledException</code> with a sensible message and log the detail server-side with a
+correlation id.</p>
+<p>The user should learn what to do; the developer should get the stack
+trace.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> How should a component render an error?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Inline, in context, with a retry affordance where retrying makes sense — not only as a toast that disappears.</p>
+<p>And never leave the component blank: an empty panel is indistinguishable from a loading state that never
+finished.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> Field-level validation errors are not shown next to the fields.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Read <code>body.output.fieldErrors</code> and map each message to its input, or use
+<code>setCustomValidity</code>/<code>reportValidity</code> on base inputs.</p>
+<p>A single aggregated message at the top of a 20-field form is a poor
+experience.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">71</span> Does hiding a button protect the operation?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No — the Apex method remains callable by anyone who can load the component.</p>
+<p>Enforce CRUD, FLS and sharing server side. Client-side checks are user experience, not
+authorisation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> An <code>@AuraEnabled</code> method takes a SOQL filter string.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>That is a client-controlled query — a data-exfiltration surface regardless of intent.</p>
+<p>Accept typed parameters, allow-list field and object names, bound the rows, and add <code>WITH USER_MODE</code>. Never accept a
+filter.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> You render record data as HTML.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Use <code>lightning-formatted-rich-text</code>, which sanitises. Setting <code>innerHTML</code> from record or user content is the classic LWC
+XSS.</p>
+<p>Any field a user can type into is untrusted input, including a Case
+description.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> An external script will not load.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>CSP. Add a Trusted Site entry, or better, bundle the library as a static resource.</p>
+<p>Inventing a workaround to bypass CSP is a security finding, not a
+fix.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> A component on a public page worries you.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Every <code>@AuraEnabled</code> method it calls is reachable by anonymous visitors. Audit each one for CRUD/FLS enforcement, parameter
+validation and row bounds.</p>
+<p>Also check nothing in the path runs <code>without sharing</code> or as a system-context flow. See
+<a href="experience-cloud.html#advanced">guest hardening</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> How do you avoid leaking fields in a DTO?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Return purpose-built DTOs with only the fields the UI needs, rather than sObjects — <code>JSON.serialize</code> on an sObject includes
+everything populated.</p>
+<p>It also decouples your component from schema changes.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">77</span> You need to store user preferences client-side.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>localStorage</code> is acceptable for per-viewer conveniences (a chosen tab, a collapsed section) — wrapped in try/catch, because it can
+throw or return nothing in private browsing.</p>
+<p>Anything that must persist reliably or be read by anyone else belongs in a
+record.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> Lightning Web Security changed behaviour for a library.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>LWS replaced Locker with a different sandboxing model, and many libraries that previously failed now work — and a few behave
+differently.</p>
+<p>Re-test rather than relying on what was true under Locker, and check the migration
+notes.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">79</span> You need to call an external API directly from the browser.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Generally don't: CORS, CSP and credential exposure all argue against it.</p>
+<p>Proxy through Apex with a Named Credential, which also gives you logging, retry and a single place to rotate the
+secret.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> How do you handle a timeout on an imperative call?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Treat it as an <em>unknown outcome</em>, not a failure — the server may have succeeded. Do not blindly retry a write.</p>
+<p>Use an idempotency key so a retry is safe, or query to confirm before
+re-submitting.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">81</span> Logging errors from the client.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Send them to an Apex method that writes a durable log (or publishes a platform event) with the component name, the error and a correlation
+id.</p>
+<p>Browser console errors are invisible to you; a logged client error is the only way to learn about failures users never
+report.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> A component silently does nothing on error.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Someone swallowed the rejection. Every promise needs a <code>catch</code> that sets a visible error state.</p>
+<p>Silent failure is the worst outcome: the user thinks the action worked, and nobody ever
+investigates.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">83</span> How do you test the error path in Jest?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Emit an error through the registered test wire adapter, or reject the mocked imperative call, then assert the error UI
+renders.</p>
+<p>The error case is where components most often break and where tests are most often
+missing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> What belongs in a security review of a component?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Every <code>@AuraEnabled</code> method it calls (CRUD/FLS, parameter validation, row bounds, sharing mode), whether it is reachable by guests,
+any raw HTML rendering, any secret, and any client-side check mistaken for authorisation.</p>
+<p>Then: "who can cause this to run, and in whose context?"</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="judgement">Judgement (85–100)</h2>
+
+<details class="acc"><summary><span class="q-num">85</span> A record page has 12 custom components and is slow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Measure with EPT and component instrumentation, then reduce the number above the fold, consolidate Apex calls, and lazy-load what is in
+inactive tabs.</p>
+<p>Often the fix is information architecture rather than code — fewer things on load, more on
+demand.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> Should the component or the server shape the data?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The server, generally — one DTO shaped for the UI means less client work, smaller payloads and no duplicated logic across
+components.</p>
+<p>Client-side shaping also runs on every render if you put it in a
+getter.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> An admin asks for a "simple" configurable table.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check what <code>lightning-datatable</code> plus a Dynamic Related List already does — frequently the requirement is already
+met.</p>
+<p>A custom generic table is one of the most commonly rebuilt and most commonly regretted components in Salesforce
+projects.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> You are asked to replicate a standard page in LWC.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Push back and find out what the standard page cannot do. You will be re-implementing layouts, FLS, validation, related lists and
+accessibility, and then maintaining them.</p>
+<p>Custom UI is justified by genuinely different interaction, not by appearance
+preference.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> How do you keep components reusable?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Presentational components take data in via properties and emit events out; container components own the data access.</p>
+<p>A component that queries its own data is rarely reusable, because reuse almost always means a different data
+source.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> A component needs to work on a record page and standalone.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Accept the record Id as a public property with the <code>recordId</code> convention, so the record page injects it and a parent or page can
+pass it.</p>
+<p>Then handle the case where it is absent, rather than assuming the record-page
+context.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> How do you decide between a wire and a one-off fetch?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Does the data need to stay fresh and refresh when inputs change? Wire. Is it a snapshot taken on user action? Imperative.</p>
+<p>Writes are always imperative.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> A library would save you a week.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Weigh bundle size, CSP, LWS compatibility, accessibility and long-term maintenance — plus whether a base component already does
+it.</p>
+<p>Static-resource a vetted library when it genuinely earns its place; avoid pulling in a framework for one
+widget.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> You inherit a 1,500-line component.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Add Jest tests for the current rendering states first, then split: a container for data access and presentational children, with shared logic
+in a module.</p>
+<p>Refactoring untested UI is how you ship regressions nobody notices until a user
+complains.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> How do you handle a slow server call gracefully?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Show a spinner immediately, disable the triggering control, and keep the rest of the page usable.</p>
+<p>If it may take many seconds, show progress or move it to async work with a notification — rather than an indefinite
+spinner.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> Component works for you and fails for a user.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Almost always permissions: object or field access, or Apex class access on their profile.</p>
+<p>Log in as them and check. Then make the component render a clear message in that state instead of appearing
+broken.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> How do you document a component's API?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>JSDoc on public properties and methods, design attributes with descriptions in the meta XML, documented events, and Jest tests demonstrating
+usage.</p>
+<p>The tests are the documentation least likely to drift from
+reality.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> Business logic has ended up in JavaScript.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Move it to Apex: testable, reusable by flows and integrations, and the correct place for security enforcement.</p>
+<p>Keep the component to presentation and interaction. Logic in the client cannot be reused and cannot be
+trusted.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> You need to support a component for five years.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Base components over custom markup, SLDS tokens over hard-coded styles, schema imports over string field names, LDS over hand-written CRUD,
+and tests for the three rendering states.</p>
+<p>Each choice reduces the surface that platform changes can
+break.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> What is the most common data-layer mistake in LWC?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Not understanding cache invalidation — writing via Apex and expecting an LDS wire to notice, or passing <code>.data</code> to
+<code>refreshApex</code>.</p>
+<p>Closely followed by assuming client-side checks are security, and by shipping components with no error or empty
+state.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit that most improves LWC data handling?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Deciding, for every piece of data, <strong>who owns it and how it gets invalidated</strong> — before writing the component.</p>
+<p>LDS, wire plus <code>refreshApex</code>, or imperative on demand are three different contracts, and most data bugs come from mixing them without
+noticing.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="lwc-advanced.html">LWC Data &amp; Events</a>, the <a href="scenarios.html">scenario index</a>, or
+    <a href="integration-core-scenarios.html">Integration — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · LWC Data &amp; Events — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

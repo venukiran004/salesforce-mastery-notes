@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APIs &amp; Callouts · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>Integration</span></div>
+  <h1>APIs &amp; Callouts — 100 Scenarios</h1>
+  <p class="lede">Choosing an API, OAuth and Named Credentials, idempotency and retries, timeouts, bulk and composite,
+     exposing endpoints safely, versioning and observability.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on <a href="integration-core.html">APIs &amp;
+    Callouts</a> and its <a href="integration-core.html#advanced">Advanced</a> section.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="choose">Choosing an API (1–16)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> A partner needs to load 2 million records nightly.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Bulk API 2.0</strong>: they upload a CSV, Salesforce chunks and processes it asynchronously. Per-record REST calls would exhaust the
+daily API allocation and take hours.</p>
+<p>Give them an External Id to upsert against so re-running the job is safe.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> A partner wants to "submit an order" in one call.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>An <strong>Apex REST</strong> endpoint with a business contract — not raw sObject access. You then own validation, logic, logging and a stable
+interface that survives schema change.</p>
+<p>Exposing <code>/sobjects/Order</code> couples them to your field names, and renaming a field breaks a contract you did not know you
+had.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Create an account and three contacts atomically from outside.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Composite Graph</strong> (or sObject Tree) — one round trip, reference ids linking children to the parent, all-or-none per
+graph.</p>
+<p>Four separate REST calls give you four round trips and no atomicity.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> A client needs to read data shaped across several objects.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The <strong>GraphQL API</strong> lets the client shape its own reads, or a purpose-built Apex REST endpoint if you want to control the
+contract.</p>
+<p>GraphQL reduces your maintenance; a custom endpoint gives you a stable shape and a place to add
+logic.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> You need to query a remote system without storing the data.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Salesforce Connect</strong> external objects over OData — the data stays remote and is queried live.</p>
+<p>Accept the limitations: reporting, sharing and SOQL behaviour differ, and the remote system's availability becomes your page's
+availability.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> A custom client must respect layouts and FLS.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The <strong>UI API</strong> — it returns layout metadata, picklist values and record data with FLS applied, so you do not re-implement
+them.</p>
+<p>Building that yourself over the sObject API means duplicating platform behaviour you will get subtly
+wrong.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> Fire-and-forget notification to several systems.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Platform events</strong> — publish once, multiple subscribers consume independently.</p>
+<p>Remember delivery to each subscriber consumes allocation, and delivery is at-least-once with no ordering guarantee. See
+<a href="integration-events.html#advanced">Events</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> SOAP or REST for a new integration?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>REST, unless the counterparty mandates SOAP (common with older enterprise middleware and some finance systems).</p>
+<p>SOAP remains fully supported, and WSDL-generated Apex is occasionally the pragmatic choice — but it is more brittle to
+regenerate.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> Outbound Messages — when are they still appropriate?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Rarely. They are declarative, retry automatically and need no code, which is their appeal — but they are SOAP, tightly coupled to field
+sets, and awkward to version.</p>
+<p>For new work, platform events or an async callout give you far better control and
+observability.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> External Services versus hand-written Apex callouts.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>External Services generates invocable actions from an OpenAPI spec, which is excellent for admin-consumable integrations in
+Flow.</p>
+<p>Hand-written Apex when you need control over retries, error classification, payload shaping or anything the schema registration cannot
+express.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> You need a synchronous response inside a user's save.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Possible but risky: you cannot call out after DML, the transaction has a 120-second cumulative callout budget, and the user is
+waiting.</p>
+<p>Prefer validating synchronously with a fast call and doing the heavy work asynchronously. If latency is genuinely unavoidable, a Continuation
+avoids consuming a long-running request slot.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> Middleware or direct point-to-point?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Middleware once you have more than a couple of consumers of the same data, a system of record you expect to replace, or real transformation
+and orchestration needs.</p>
+<p>For a single simple feed it is ceremony. See
+<a href="integration-patterns.html#advanced">API-led layering</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> A partner can only poll. How do you limit the damage?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Give them a narrow, indexed, incremental query (changes since a timestamp they pass), cap the page size, and give them their own integration
+user so you can attribute and rate-limit them.</p>
+<p>Then measure their consumption against your daily API
+allocation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> You need to push data out when a record changes.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Change Data Capture if the consumer wants raw changes, or a platform event if you want to publish a business-meaningful fact with a shape you
+control.</p>
+<p>Prefer the event: a fact ("OrderShipped") is a contract you can keep; a field-level change stream exposes your
+schema.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> Connect REST API — what is it for?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Chatter, feeds, files, communities and user profiles — functionality the sObject APIs do not expose cleanly.</p>
+<p>If you are manipulating FeedItems or community content, this is the API that already knows the
+rules.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> How do you choose between all of these quickly?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Volume → Bulk. Multiple dependent writes → Composite Graph. A business operation → Apex REST. Client-shaped reads → GraphQL. Layout-aware
+client → UI API. Fire-and-forget → events. No storage → Salesforce Connect.</p>
+<p>Default to a <em>business contract</em> over table access whenever a partner is
+involved.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="auth">Authentication (17–32)</h2>
+
+<details class="acc"><summary><span class="q-num">17</span> Which OAuth flow for a CI pipeline?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>JWT bearer</strong> — a certificate on a Connected App and a key in CI secrets. No password, no refresh token to leak, no interactive
+step.</p>
+<p>Client credentials is the simpler modern alternative, tied to a nominated integration
+user.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> A vendor asks for the username-password flow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Decline. It stores a credential, bypasses MFA, and is being actively restricted on the platform.</p>
+<p>Offer JWT bearer or client credentials. If they genuinely cannot, that is a vendor risk to escalate rather than a configuration to
+make.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">19</span> A refresh token works for months then stops.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Refresh token policy on the Connected App — it may expire after a period of inactivity, or it was revoked, or the user was deactivated or
+had their password reset.</p>
+<p>Also check whether someone rotated the connected app's secret.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> You get 401 on every call despite a valid token.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Most commonly you are calling <code>login.salesforce.com</code> instead of the <code>instance_url</code> returned with the
+token.</p>
+<p>Then check scopes, IP restrictions on the Connected App, and whether the token has actually
+expired.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">21</span> How should an outbound callout authenticate?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A <strong>Named Credential</strong> with an External Credential — the endpoint and auth live in configuration, token refresh is handled, and
+your Apex calls <code>callout:My_Service/path</code> with no secret in sight.</p>
+<p>Rotation becomes a config change rather than a
+deployment.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> Named Principal or Per-User Principal?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Named Principal = one shared identity for the whole org, simple and appropriate for system-to-system. Per-User = each user authenticates
+individually, so the remote system sees who acted.</p>
+<p>Choose per-user when the remote system's own authorisation or audit depends on the
+identity.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> Who can use a Named Credential?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Access to the external credential is granted through <strong>permission sets</strong>, so you control which users and integration accounts can
+use it.</p>
+<p>That is a real improvement over the old model, and worth auditing — a credential available to everyone is a credential available to
+anyone.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> Secrets are currently in a custom setting.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Anyone who can read the setting can read the secret, and it is in your metadata and git history.</p>
+<p>Move to a Named Credential / External Credential, then rotate the secret — because the old one must be assumed
+compromised.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> Your integration certificate expires next month.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Rotate it with overlap: generate the new one, add it to the remote side, switch, then retire the old.</p>
+<p>Put every certificate expiry in a shared calendar with an owner. Expiry is the single most common cause of an integration outage, and it is
+entirely predictable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> An integration user should not be a human's admin account.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Correct — it breaks the day they leave, and it makes every audit trail ambiguous.</p>
+<p>Use a dedicated integration user with a least-privilege permission set, IP restrictions where egress is stable, and minimal OAuth
+scopes.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> How do you scope OAuth scopes properly?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Request the minimum: an API scope plus <code>refresh_token</code>/<code>offline_access</code> if needed. <code>full</code> is almost never
+justified.</p>
+<p>Scopes are a security control a reviewer will look at, and "the documentation said full" is not a
+justification.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> Credentials leaked. What is your order of action?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Revoke the tokens from the Connected App first (fastest), then rotate the certificate or secret, then update the pipeline's stored
+secret.</p>
+<p>Afterwards: move to JWT if you were not already, add IP restrictions, tighten scopes, and set refresh tokens to expire on inactivity rather
+than "until revoked".</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> An inbound caller must only see their own data.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Authenticate as a user whose <em>access is</em> the restriction — a per-partner integration user — and write the Apex
+<code>with sharing</code> so record access does the filtering.</p>
+<p>A <code>WHERE</code> clause on an elevated query means a bug there becomes a breach; sharing fails
+closed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> External Client Apps versus Connected Apps.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>External Client Apps are the newer, more granular framework — prefer them for new integrations.</p>
+<p>Understand both, because every existing org has Connected Apps and you will be auditing and migrating
+them.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> mTLS is required by the remote system.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Supported via certificate configuration on the Named Credential — you upload or generate the client certificate and the remote side trusts
+it.</p>
+<p>Plan the certificate lifecycle carefully: mTLS failures are opaque, and expiry takes the integration down with an unhelpful
+error.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> How do you test authentication without real credentials?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Mock the callout in Apex tests — the credential is never exercised, which is correct because tests must never make real
+calls.</p>
+<p>Verify the real auth with a Postman request or a post-deployment smoke test against a sandbox. See
+<a href="postman.html#advanced">Postman</a>.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="reliability">Idempotency, retries &amp; timeouts (33–52)</h2>
+
+<details class="acc"><summary><span class="q-num">33</span> A timeout occurred. Do you retry?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Not blindly — a timeout means you <strong>do not know</strong> whether the remote system succeeded. Treating it as failure and retrying is
+how duplicate orders get created.</p>
+<p>Query the remote system for your correlation id first, or make the operation idempotent so a retry is
+harmless.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> How do you make an inbound endpoint idempotent?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Require an idempotency key or external id on every request, upsert against a <strong>unique</strong> field, and return the <em>same</em>
+response for a repeated key rather than erroring.</p>
+<p>The unique index is the real guarantee; a pre-check query does not hold under
+concurrency.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> How do you make an outbound call idempotent?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Send your own correlation id, and persist the fact that you sent it <em>before</em> the callout.</p>
+<p>Then an unknown outcome can be resolved by querying rather than re-sending, and the remote system can deduplicate on the
+id.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> What timeout should you set?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Explicitly, always — the default is 10 seconds and the maximum is 120. Choose from the remote system's realistic p99, not
+optimism.</p>
+<p>And budget the <em>total</em>: three sequential 40-second timeouts exhaust the transaction's cumulative callout
+allowance.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> How should you classify HTTP responses?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>2xx success; 409 often "already processed" (treat as success for an idempotent write); 429 and 5xx transient (retry with backoff); other 4xx
+your bug (dead-letter, do not retry).</p>
+<p>Treating everything non-200 identically is why integrations either retry forever or lose
+data.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> How much retry is right?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Exponential backoff with jitter, about three attempts, then dead-letter. Beyond that a failure is usually deterministic.</p>
+<p>Jitter matters: synchronised retries from many records turn a brief outage into a longer
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> What is a dead-letter destination here?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A custom object holding the payload, endpoint, error, attempt count and correlation id — inspectable, reportable and
+replayable.</p>
+<p>A log line is not a dead-letter queue. If nobody can see what failed and re-run it, the failure is
+permanent.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> The remote system is down and you keep calling it.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Add a <strong>circuit breaker</strong>: after n consecutive failures, stop calling for a cooling period and fail fast.</p>
+<p>Store the breaker state somewhere all transactions can see (a custom setting or a record), since statics do not span
+transactions.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">41</span> A retry created a duplicate record.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The operation was not idempotent. Add a unique external id and upsert, then treat the duplicate-value error as "already
+done".</p>
+<p>Retry safety is a property you design in, not something you add after the first
+incident.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> You cannot call out after DML.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Correct — in one transaction, once you have done DML you cannot make a callout.</p>
+<p>Publish a platform event or enqueue a Queueable so the callout happens in a fresh transaction after commit. That is also where retry belongs
+anyway.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> A callout per record over 100,000 records.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Batch Apex with <code>AllowsCallouts</code> and a very small scope, since callout limits are per execution.</p>
+<p>Far better if the remote API supports a batch payload — one call per 200 records rather than 200 calls, which is also kinder to their rate
+limits.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> How do you handle a 429 from the remote system?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Respect <code>Retry-After</code> if present, back off, and reduce your concurrency — a 429 means you are the problem.</p>
+<p>Build the rate limit into your design (a cap on parallel batch jobs) rather than discovering it through
+rejection.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> Your integration silently stopped working.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Alert on <strong>absence</strong>, not just errors: a feed that normally delivers 5,000 records and delivered zero should page
+someone.</p>
+<p>Most monitoring only catches failures, and silence is the more dangerous failure
+mode.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> How do you know an integration is healthy?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Business-level reconciliation: orders in Salesforce yesterday versus orders in the remote system yesterday. Counts, not logs.</p>
+<p>Plus a freshness metric — the age of the oldest unprocessed item, which is the earliest warning you will
+get.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> A partial failure left systems inconsistent.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>There is no distributed transaction. You need a <strong>compensating action</strong> for every step with external side effects — and the
+compensation must itself be idempotent, because it will be retried.</p>
+<p>Design the reversal at design time; afterwards it is a data-repair
+project.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> How do you trace a request across systems?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A <strong>correlation id</strong> generated at the edge, passed in a header, stored on the record, and logged at every hop.</p>
+<p>Non-negotiable. Debugging a distributed flow without one is
+guesswork.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> What should an integration log contain?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Direction, endpoint, status, duration, attempt number, correlation id and the record Id — and <strong>not</strong> the sensitive
+payload.</p>
+<p>Logging full payloads creates a second copy of your data with weaker
+controls.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> A nightly job double-processed after a restart.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No high-water mark and no idempotency. Persist "processed up to here" and make each operation safe to repeat.</p>
+<p>Then a restart resumes rather than duplicating.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">51</span> You need exactly-once delivery.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>You cannot have it across systems. What you can have is <strong>at-least-once delivery plus idempotent processing</strong>, which is
+operationally equivalent.</p>
+<p>Anyone insisting on exactly-once is usually asking for idempotency without knowing the
+term.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> How do you replay failed messages?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Store enough in the dead-letter record to reconstruct the call, and provide a button or batch to re-submit selected rows.</p>
+<p>Replay must be idempotent, because some of what you replay may have partially
+succeeded.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="volume">Volume &amp; performance (53–68)</h2>
+
+<details class="acc"><summary><span class="q-num">53</span> A screen needs a 30-second callout.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Continuations</strong> — the request is parked server-side without holding a thread, and a callback resumes it, so it does not consume
+a concurrent long-running request slot.</p>
+<p>Up to three can be chained. Without it, a handful of such users degrades interactive performance for the whole
+org.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> Interactive users get errors while your integration runs.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The concurrent long-running request limit — ten synchronous requests over five seconds per org, shared with real
+users.</p>
+<p>Move integration work off the synchronous path. This limit's symptom appears nowhere near its
+cause.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> Your daily API allocation is exhausted by mid-afternoon.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Find the consumer from the API usage page or Event Monitoring — usually a polling integration.</p>
+<p>Replace polling with events or CDC, batch with Composite, and alert at a percentage of the limit rather than discovering it at
+100%.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> A 60MB response blows your heap.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Page the remote API, request only the fields you need, and accept gzip.</p>
+<p>If the remote system cannot page, the transformation belongs in middleware — Apex heap is 6MB synchronous, 12MB
+async.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> Compression — worth enabling?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Yes, for large payloads: accept and send gzip. It is often the easiest latency win available and costs almost nothing to
+configure.</p>
+<p>Verify the remote side honours it rather than assuming.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> How many records per Composite call?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Composite allows up to 25 subrequests; <code>composite/sobjects</code> handles up to 200 records of one object with an
+<code>allOrNone</code> flag.</p>
+<p>For more than that, Bulk API. Looping single-record REST calls for volume is the mistake to
+avoid.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> Bulk API parallel mode causes lock errors.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Chunks are contending on shared parents. Switch to serial — slower and it finishes, versus faster and it fails.</p>
+<p>Better still, <strong>sort the file by parent Id</strong> so children of the same parent land in the same chunk. That is the cheapest migration
+optimisation there is.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> A load triggers all your automation per row.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Triggers, flows, validation, roll-ups and sharing recalculation all run per record, which can multiply the load time by an order of
+magnitude.</p>
+<p>Use a bypass switch for the load user, then run a reconciliation pass afterwards to apply what was
+skipped.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> You need to extract 20 million rows.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Bulk API with <strong>PK chunking</strong>, which splits the query by Id ranges so each chunk is selective.</p>
+<p>A single unselective query over 20 million rows will time out before it returns anything.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> An integration is slow and you cannot tell why.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Log duration per hop with the correlation id. Usually it is remote latency, not your code — and you cannot fix what you have not
+attributed.</p>
+<p>Also check whether you are making N calls where one batched call would
+do.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> Should you cache remote data in Salesforce?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Only with a defined freshness requirement and an invalidation strategy — otherwise you have created a second system of record that silently
+diverges.</p>
+<p>Platform Cache for short-lived reference data; a record with a timestamp when users need to see how fresh it
+is.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> How do you rate-limit an inbound partner?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>At the gateway, not in Apex — and give each consumer its own integration user so you can measure and cap them
+individually.</p>
+<p>Inside the org, bound page sizes and reject oversized requests rather than trying to process
+them.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> An unbounded request payload crashes the transaction.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Cap the request size and the record count explicitly, and return a clear 400 when exceeded.</p>
+<p>"The partner sent 50MB" should be a documented rejection, not a heap
+failure.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> Sequential callouts are too slow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Reduce the number (batch the payload), or parallelise across separate async executions — Apex has no true concurrent HTTP within one
+transaction.</p>
+<p>And remember the cumulative 120-second budget applies to the whole
+transaction.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> How do you size a nightly integration window?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Measure a representative run, add headroom for growth, and check it does not collide with other scheduled jobs for batch
+concurrency.</p>
+<p>Then monitor the duration trend so you see the window closing months before it
+fails.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> The integration works in sandbox and is slow in production.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Real data volume, real query selectivity, real remote latency, real concurrency and real rate limits — sandbox mocks hide all of
+them.</p>
+<p>Run a timed rehearsal in a Full sandbox, and a post-deployment smoke test against the real
+endpoints.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="expose">Exposing endpoints (69–84)</h2>
+
+<details class="acc"><summary><span class="q-num">69</span> What does a good Apex REST endpoint look like?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A versioned path, a typed request and response DTO, explicit validation, meaningful HTTP status codes, logging with a correlation id, and
+CRUD/FLS enforcement — because Apex does not do it for you.</p>
+<p>And a documented contract the partner can build
+against.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> How do you version an Apex REST endpoint?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>In the URL from day one (<code>/orders/v1</code>), supporting the old version while consumers migrate.</p>
+<p>Adding versioning later means migrating every caller simultaneously, which is rarely
+possible.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">71</span> A partner complains your API broke.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check what changed: a field rename, a validation rule, a required field, a picklist value — all of which are breaking changes if you exposed
+raw sObjects.</p>
+<p>This is the argument for a business contract and DTOs: your schema can change without breaking anyone's
+integration.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> Which status codes should you return?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>200/201 success, 400 for a malformed or invalid request, 401/403 for auth and permission, 404 for not found, 409 for a conflict or duplicate,
+429 for rate limiting, 5xx only for your own faults.</p>
+<p>Returning 200 with an error body makes every consumer write special-case
+handling.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> Your endpoint returns the whole sObject.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It leaks fields the partner should not see and couples them to your schema.</p>
+<p>Return a DTO with exactly the fields in the contract — and enforce FLS, since serialising an sObject includes whatever happens to be
+populated.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> How do you validate an inbound payload?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Explicitly, before touching the database: required fields present, types and formats correct, enumerations allow-listed, collection sizes
+bounded.</p>
+<p>Return a 400 listing every problem, not just the first — partners debugging one error at a time is a poor
+experience.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> Should your endpoint accept a SOQL filter?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Never. That is a generic query endpoint with your integration user's privileges, regardless of intent.</p>
+<p>Accept typed parameters, allow-list sortable and filterable fields, and bound the
+rows.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> How do you handle authentication errors clearly?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>401 for "not authenticated", 403 for "authenticated but not permitted" — and a message that does not reveal whether a record
+exists.</p>
+<p>Distinguishing "no access" from "not found" in your messages can itself leak
+information.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">77</span> An endpoint needs to be callable by a guest.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Treat it as a fully public endpoint: rate limiting, CAPTCHA where appropriate, strict validation, bounded payloads, no
+<code>without sharing</code>, and no information disclosure in errors.</p>
+<p>Review the guest profile's permissions field by field. See
+<a href="experience-cloud.html#advanced">guest hardening</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> How do you document an API for a partner?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>An OpenAPI spec plus a Postman collection with example requests, error cases and auth setup.</p>
+<p>A working collection answers more partner questions than any prose document, and it doubles as your smoke
+test.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">79</span> You need to deprecate an endpoint.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Announce it, support both versions for a defined period, log usage of the old version so you know who is still calling, and chase them
+individually.</p>
+<p>Turning it off on the announced date without usage data is how you break a partner you forgot
+about.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> How do you test an endpoint end to end?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Apex tests for the handler logic (constructing <code>RestRequest</code>/<code>RestResponse</code>), plus a Postman collection run by Newman
+against a sandbox after deployment.</p>
+<p>Unit tests prove the logic; the smoke test proves the deployed system and the real
+auth.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">81</span> A partner needs bulk upload to your endpoint.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Accept a bounded collection (say 200 per request) with per-record results, so one bad record does not fail the batch — and point them at Bulk
+API for genuine volume.</p>
+<p>Per-record results plus idempotency keys make retries
+straightforward.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> Your API is used by a mobile app directly.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Public clients cannot keep secrets, so use authorization code with PKCE rather than embedding credentials.</p>
+<p>Also expect hostile input and version carefully — you cannot force app users to
+upgrade.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">83</span> How do you monitor an exposed endpoint?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Log every request with correlation id, status and duration, then report on volume, error rate and p95 latency by consumer.</p>
+<p>Alert on error-rate spikes and on volume dropping to zero — the second catches a partner whose job has
+broken.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> Security review of an endpoint you did not write.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Check: running user and its privileges, explicit CRUD/FLS enforcement, sharing keyword, parameter validation and allow-listing, row and payload
+bounds, error messages for information disclosure, and whether secrets appear anywhere.</p>
+<p>Then ask who can reach it — guest, partner, internal — because that determines
+priority.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="judgement">Judgement (85–100)</h2>
+
+<details class="acc"><summary><span class="q-num">85</span> The business asks for "real-time" integration.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Decompose it: must the user see it before finishing their task (under ~2 seconds, synchronous), within seconds but nobody waiting (events),
+within minutes (events plus reconciliation), or overnight (batch, far cheaper)?</p>
+<p>Often the real need is "I don't want to explain stale data", which a visible last-synced timestamp solves
+better.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> Who owns each field in a two-way sync?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Decide per <em>field</em>, not per object, and write it down — the ERP may own billing address while Salesforce owns
+preferences.</p>
+<p>Most "bidirectional" requirements collapse into two one-way flows once you do this, which is dramatically
+safer.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> A conflict rule was never agreed.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Then the rule is "whichever job ran last", which nobody can defend. Agree explicitly: last-write-wins, source-of-truth-wins per field, or
+raise for human review.</p>
+<p>Undecided conflict handling is a data-integrity incident with a future
+date.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> Deletes are not propagating.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Deletes are the hardest case and frequently unspecified. Decide whether a delete propagates, soft-deletes, or is ignored.</p>
+<p>Also remember Salesforce deletes can be undone from the recycle bin, so a propagated hard delete elsewhere may be
+irreversible.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> An integration has no documentation and its author left.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Reverse-engineer from the logs and the Connected App usage, then document the contract, the schedule, the credentials and their expiry, and
+the failure handling.</p>
+<p>Add monitoring and alerting first — an unmonitored integration you do not understand is the highest-risk thing in most
+orgs.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> How do you plan an integration cutover?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Run old and new in parallel where possible, compare outputs, then cut over with a tested rollback. Reconcile counts after the first full
+cycle.</p>
+<p>A big-bang switch with no comparison period means your first evidence of a problem is a business
+complaint.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> A vendor's API has no sandbox.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Build a mock service you control, and agree a test account or a dry-run mode with the vendor.</p>
+<p>Testing against production third-party systems is how test orders reach real customers — and it is a risk worth escalating in
+writing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> How do you decide synchronous versus asynchronous?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Is a user waiting on the result, and is the result needed to proceed? If not, asynchronous — which gives you retry, isolation and no
+user-facing latency.</p>
+<p>Synchronous integrations couple your availability to theirs, which is the cost people
+underestimate.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> The remote system's availability is worse than yours.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Then do not put it in a synchronous user path. Queue the work, degrade the feature gracefully, and show the user the operation is
+pending.</p>
+<p>A circuit breaker prevents their outage from consuming your async capacity as
+well.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> How do you cost an integration?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>API calls against your allocation, middleware licensing, storage if you persist the data, and the operational cost of monitoring and
+incidents.</p>
+<p>The last is routinely ignored and is frequently the largest over several
+years.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> A partner wants direct database access.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>There is none to give — no infrastructure or database access on a multitenant platform.</p>
+<p>Offer the right API for their need, and a business contract rather than table access. Explaining this early avoids a design built on a false
+premise.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> How do you keep an integration maintainable?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A documented contract, DTOs decoupled from schema, Named Credentials for config, correlation ids, structured logging, a dead-letter path, a
+reconciliation job, and an owner.</p>
+<p>Each is small. Together they are the difference between an integration you operate and one you
+fear.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> What is the most common integration design mistake?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Assuming success: no idempotency, no retry classification, no dead letter, no reconciliation — and treating a timeout as a
+failure.</p>
+<p>Followed closely by exposing raw sObjects and calling it an API.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> How do you handle an integration incident at 3am?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>With what you built beforehand: the correlation id, the integration log, the dead-letter queue, the runbook and the replay
+mechanism.</p>
+<p>If none of those exist, the incident is an investigation rather than a recovery — which is the argument for building them on day
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> You inherit 20 undocumented integrations.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Inventory first: which user, which Connected App, which API version, what schedule, what volume, who owns the other end.</p>
+<p>Then prioritise by blast radius, add monitoring, and document as you go. API version retirement dates give you a forced deadline for the
+oldest.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit that most improves integrations?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Designing for the <strong>second delivery</strong>: an idempotency key, classified retries, a dead letter, and a reconciliation
+job.</p>
+<p>Every integration is retried eventually. Making the second attempt harmless converts most future incidents into
+non-events.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="integration-core.html">APIs &amp; Callouts</a>, the <a href="scenarios.html">scenario index</a>, or
+    <a href="integration-events-scenarios.html">Events &amp; CDC — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Integration — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>
