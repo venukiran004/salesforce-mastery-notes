@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scenario Banks | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <span>Scenario Banks</span></div>
+  <h1>Scenario Banks</h1>
+  <p class="lede">1,500 scenario questions across 15 topics — situations to react to
+     rather than definitions to recite. Each bank is 100 questions in themed sections, with answers that give the
+     diagnostic order and the trade-off.</p>
+</header>
+
+<div class="grid g4">
+  <div class="card stat"><div class="num">15</div><div class="lbl">Banks</div></div>
+  <div class="card stat"><div class="num">1,500</div><div class="lbl">Scenarios</div></div>
+  <div class="card stat"><div class="num">104</div><div class="lbl">Sections</div></div>
+  <div class="card stat"><div class="num">90s</div><div class="lbl">Per answer</div></div>
+</div>
+
+<div class="callout tip">
+  <span class="c-ico">🎤</span>
+  <div class="c-body"><span class="c-title">How to use these</span>
+    Read the scenario, answer <strong>out loud in under ninety seconds</strong>, then open the answer. Knowing something
+    and explaining it under mild pressure are different skills, and only the second one is assessed in an interview.
+    If an answer surprises you, go back to the theory page rather than memorising the scenario.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="banks">All banks</h2>
+
+  <h3>Start Here</h3>
+  <div class="grid g2">
+    <a class="card mod-card" href="fundamentals-scenarios.html">
+      <div class="m-top"><div class="c-ico">☁️</div><h4>Fundamentals</h4><span class="m-num">100</span></div>
+      <p>Platform architecture, multitenancy, org strategy, licences, releases and record Ids — as situations you have to react to, not definitions to recite.</p>
+      <div class="m-tags"><span class="tag">10 sections</span><span class="tag">theory: <a href="fundamentals.html">Fundamentals</a></span></div>
+    </a>
+  </div>
+
+  <h3>Admin & Declarative</h3>
+  <div class="grid g2">
+    <a class="card mod-card" href="admin-scenarios.html">
+      <div class="m-top"><div class="c-ico">🧩</div><h4>Admin</h4><span class="m-num">100</span></div>
+      <p>Schema design, formulas and roll-ups, record types, validation, duplicates, queues, approvals and capture channels — as decisions you have to defend, not features to list.</p>
+      <div class="m-tags"><span class="tag">10 sections</span><span class="tag">theory: <a href="admin.html">Admin</a></span></div>
+    </a>
+    <a class="card mod-card" href="flows-scenarios.html">
+      <div class="m-top"><div class="c-ico">🌊</div><h4>Flow Builder</h4><span class="m-num">100</span></div>
+      <p>Entry conditions and re-entry, before versus after save, bulkification, fault handling, running context, Orchestrator, Apex boundaries, and the flows that become unmaintainable.</p>
+      <div class="m-tags"><span class="tag">6 sections</span><span class="tag">theory: <a href="flows.html">Flow Builder</a></span></div>
+    </a>
+    <a class="card mod-card" href="security-scenarios.html">
+      <div class="m-top"><div class="c-ico">🔐</div><h4>Security &amp; Sharing</h4><span class="m-num">100</span></div>
+      <p>"Why can they see this?" and "why can't they?" — object and field permissions, OWD, hierarchy, sharing rules, Apex sharing, external access, encryption and incident response.</p>
+      <div class="m-tags"><span class="tag">9 sections</span><span class="tag">theory: <a href="security.html">Security &amp; Sharing</a></span></div>
+    </a>
+  </div>
+
+  <h3>Apex Programming</h3>
+  <div class="grid g2">
+    <a class="card mod-card" href="apex-advanced-scenarios.html">
+      <div class="m-top"><div class="c-ico">🧠</div><h4>Advanced Apex</h4><span class="m-num">100</span></div>
+      <p>Patterns, dependency injection, dynamic Apex, caching, finalizers, sharing keywords, packaging and the design decisions that separate a codebase you can evolve from one you can only add to.</p>
+      <div class="m-tags"><span class="tag">7 sections</span><span class="tag">theory: <a href="apex-advanced.html">Advanced Apex</a></span></div>
+    </a>
+    <a class="card mod-card" href="apex-core-scenarios.html">
+      <div class="m-top"><div class="c-ico">📘</div><h4>Apex Core &amp; SOQL</h4><span class="m-num">100</span></div>
+      <p>Collections, SOQL behaviour at volume, DML and partial success, locking, security modes, numbers and dates — the situations that produce real defects rather than syntax questions.</p>
+      <div class="m-tags"><span class="tag">7 sections</span><span class="tag">theory: <a href="apex-core.html">Apex Core &amp; SOQL</a></span></div>
+    </a>
+    <a class="card mod-card" href="async-apex-scenarios.html">
+      <div class="m-top"><div class="c-ico">⏳</div><h4>Asynchronous Apex</h4><span class="m-num">100</span></div>
+      <p>Choosing the right async tool, batch internals, chaining, finalizers, idempotency, limits that are org-wide, and monitoring work that nobody is watching.</p>
+      <div class="m-tags"><span class="tag">6 sections</span><span class="tag">theory: <a href="async-apex.html">Asynchronous Apex</a></span></div>
+    </a>
+    <a class="card mod-card" href="governor-limits-scenarios.html">
+      <div class="m-top"><div class="c-ico">🚦</div><h4>Governor Limits</h4><span class="m-num">100</span></div>
+      <p>Which limit you actually hit, whether async helps, the org-wide ones that fail silently, how to measure before you breach, and how to design work that degrades gracefully.</p>
+      <div class="m-tags"><span class="tag">6 sections</span><span class="tag">theory: <a href="governor-limits.html">Governor Limits</a></span></div>
+    </a>
+    <a class="card mod-card" href="testing-scenarios.html">
+      <div class="m-top"><div class="c-ico">🧪</div><h4>Test Classes</h4><span class="m-num">100</span></div>
+      <p>Test data strategy, mocking, async and event testing, permissions, coverage that means something, and the failures that reach production with 90% coverage.</p>
+      <div class="m-tags"><span class="tag">6 sections</span><span class="tag">theory: <a href="testing.html">Test Classes</a></span></div>
+    </a>
+    <a class="card mod-card" href="apex-triggers-scenarios.html">
+      <div class="m-top"><div class="c-ico">⚡</div><h4>Triggers &amp; Order of Execution</h4><span class="m-num">100</span></div>
+      <p>Context variables, the save order and its re-entry cases, recursion, bulkification, partial success, frameworks and the special objects — as production situations.</p>
+      <div class="m-tags"><span class="tag">7 sections</span><span class="tag">theory: <a href="apex-triggers.html">Triggers &amp; Order of Execution</a></span></div>
+    </a>
+  </div>
+
+  <h3>UI Development</h3>
+  <div class="grid g2">
+    <a class="card mod-card" href="lwc-core-scenarios.html">
+      <div class="m-top"><div class="c-ico">🔷</div><h4>LWC Core</h4><span class="m-num">100</span></div>
+      <p>Reactivity, lifecycle, shadow DOM, styling, conditional rendering, accessibility and performance — the things that actually go wrong in components.</p>
+      <div class="m-tags"><span class="tag">6 sections</span><span class="tag">theory: <a href="lwc-core.html">LWC Core</a></span></div>
+    </a>
+    <a class="card mod-card" href="lwc-advanced-scenarios.html">
+      <div class="m-top"><div class="c-ico">🔶</div><h4>LWC Data &amp; Events</h4><span class="m-num">100</span></div>
+      <p>Wire service and cache invalidation, imperative Apex, LDS, GraphQL, component communication, navigation, error shapes and client-side security.</p>
+      <div class="m-tags"><span class="tag">6 sections</span><span class="tag">theory: <a href="lwc-advanced.html">LWC Data &amp; Events</a></span></div>
+    </a>
+  </div>
+
+  <h3>Integration</h3>
+  <div class="grid g2">
+    <a class="card mod-card" href="integration-core-scenarios.html">
+      <div class="m-top"><div class="c-ico">🌐</div><h4>APIs &amp; Callouts</h4><span class="m-num">100</span></div>
+      <p>Choosing an API, OAuth and Named Credentials, idempotency and retries, timeouts, bulk and composite, exposing endpoints safely, versioning and observability.</p>
+      <div class="m-tags"><span class="tag">6 sections</span><span class="tag">theory: <a href="integration-core.html">APIs &amp; Callouts</a></span></div>
+    </a>
+    <a class="card mod-card" href="integration-events-scenarios.html">
+      <div class="m-top"><div class="c-ico">📡</div><h4>Events, CDC &amp; Connect</h4><span class="m-num">100</span></div>
+      <p>Delivery semantics, replay and retention, publish behaviour, retries, CDC gaps, Pub/Sub, schema evolution, external objects, and the reconciliation nobody builds until it is too late.</p>
+      <div class="m-tags"><span class="tag">6 sections</span><span class="tag">theory: <a href="integration-events.html">Events, CDC &amp; Connect</a></span></div>
+    </a>
+    <a class="card mod-card" href="integration-patterns-scenarios.html">
+      <div class="m-top"><div class="c-ico">🗺️</div><h4>Integration Patterns</h4><span class="m-num">100</span></div>
+      <p>Choosing a pattern from requirements, consistency models and compensation, latency budgets, data ownership, middleware, throttling, observability and the architecture conversations that decide everything.</p>
+      <div class="m-tags"><span class="tag">6 sections</span><span class="tag">theory: <a href="integration-patterns.html">Integration Patterns</a></span></div>
+    </a>
+  </div>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">Each bank has a theory page</span>
+    The scenarios assume the concepts. Every bank links back to its module, and every module has an
+    <strong>Advanced</strong> section covering the depth these questions draw on.</div>
+</div>
+
+<div class="page-nav" id="pageNav"></div>
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Scenario Banks</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>
