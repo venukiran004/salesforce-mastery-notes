@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Postman · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>Postman</span></div>
+  <h1>Postman — 100 Scenarios</h1>
+  <p class="lede">Auth flows and token handling, environments and secrets, chaining and data-driven runs, the Salesforce
+     APIs worth having in a collection, Newman in CI, and troubleshooting what the response is actually telling you.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on <a href="postman.html">Postman In Detail</a>
+    and its <a href="postman.html#advanced">Advanced</a> section.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="auth">Authentication (1–18)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> You get 401 on every request despite a fresh token.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>You are calling <code>login.salesforce.com</code> instead of the <code>instance_url</code> returned with the token. That is the single most
+common Postman-against-Salesforce mistake.</p>
+<p>Capture <code>instance_url</code> into an environment variable in the token request's test script and use it as your base
+URL.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> Which auth flow should you use for interactive testing?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Postman's OAuth 2.0 helper with <strong>authorization code + PKCE</strong> — it opens a browser, you log in as yourself, and it stores the
+token.</p>
+<p>That also means you are testing with <em>your</em> permissions, which is useful to remember when something works for you and not for the
+integration user.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> You need to test as the integration user, not yourself.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Authenticate as that user — JWT bearer or client credentials tied to it — rather than as an admin.</p>
+<p>Most "works in Postman, fails in production" issues are permission differences between you and the integration
+user.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> A vendor asks for the username-password flow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Avoid it: it stores a credential, bypasses MFA and is being actively restricted on the platform.</p>
+<p>Use JWT bearer or client credentials. If you have legacy collections using it, treat migrating them as remediation
+work.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> How do you do JWT bearer in Postman?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Postman's sandbox cannot sign RS256 natively, so the practical approach is to generate the assertion outside Postman (a small script or your
+CI) and store it as a short-lived environment variable, then POST it to the token endpoint.</p>
+<p>For day-to-day interactive work, authorization code + PKCE is far less
+friction.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> Your token expires mid-run.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A collection-level pre-request script that checks a stored expiry and refreshes a minute before it lapses.</p>
+<p>Store <code>token_expires_at</code> when you obtain the token, and compare against <code>Date.now()</code> — never refresh on every request,
+which is wasteful and rate-limits you.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> Where should the refresh token live?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>In an <strong>environment</strong> variable of type secret, or Postman's vault — never in the collection, which gets exported, committed and
+shared.</p>
+<p>An exported collection containing a refresh token is a credential leak with a long
+life.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> You accidentally committed a collection with a token.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Treat it as compromised: revoke the token from the Connected App immediately, then rotate the client secret or
+certificate.</p>
+<p>Removing it from the repo is not sufficient — git history retains it, and revocation is the only action that actually
+closes it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> How do you avoid posting to production by mistake?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Separate environments per org, with the environment name visible, and a naming convention that makes production obvious
+(<code>PROD — DO NOT RUN</code>).</p>
+<p>Some teams also add a pre-request guard that fails the request if the base URL looks like production and a flag is not
+set.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> A Connected App's IP restrictions block Postman.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Your workstation is not in the permitted range. Either relax IP relaxation on that Connected App for testing, or test from a permitted
+network.</p>
+<p>Document the exception rather than leaving it relaxed
+permanently.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> 400 <code>invalid_grant</code> on the token request.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually a mismatch: wrong login URL for the org type (<code>test.salesforce.com</code> for sandboxes), wrong consumer key, expired assertion,
+or a user who cannot log in from there.</p>
+<p>The response body usually names the reason — read it rather than guessing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> Your sandbox token works and production fails.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Different login host, different Connected App, different user. Sandboxes use <code>test.salesforce.com</code> and have their own consumer
+key.</p>
+<p>Parameterise the login URL and consumer key per environment so switching is a dropdown rather than an
+edit.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> What OAuth scopes should the app request?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The minimum — an API scope plus <code>refresh_token</code>/<code>offline_access</code> if you need refresh.
+<code>full</code> is almost never justified.</p>
+<p>Scopes are a control a reviewer checks, and an over-scoped test app often becomes the production
+app.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> A request works in Postman and fails from your app.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Compare exactly: headers (content type, authorization), the base URL, the API version, and crucially the authenticated
+user.</p>
+<p>Postman's "Code" view gives you the equivalent request in your language, which usually reveals the
+difference.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> You need to test MFA-protected behaviour.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Interactive flows prompt for MFA in the browser; server-to-server flows (JWT, client credentials) bypass it by
+design.</p>
+<p>Which is exactly why those flows need certificate rotation, IP restrictions and minimal scopes as compensating
+controls.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> How do you share a collection with a partner safely?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Share the collection plus an environment <em>template</em> with empty secret values, and document how they obtain their own
+credentials.</p>
+<p>Never share a working environment. A collection with example requests and error cases answers more partner questions than
+documentation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">17</span> Postman stores your token but requests still fail intermittently.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Likely the token being refreshed in one environment while requests use another, or a stale <code>instance_url</code> after an org
+migration.</p>
+<p>Re-capture both <code>access_token</code> and <code>instance_url</code> together in the same
+script.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> Should Postman be your source of auth truth?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No — it is a client. The authoritative configuration is the Connected App or External Client App, and your pipeline's
+secrets.</p>
+<p>Keep the collection in version control alongside the code it tests, with secrets injected at
+runtime.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="env">Environments &amp; variables (19–34)</h2>
+
+<details class="acc"><summary><span class="q-num">19</span> What belongs in an environment versus the collection?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Environment: anything org-specific — base URL, login URL, consumer key, tokens, test record Ids. Collection: the requests, scripts and
+structure.</p>
+<p>That split is what lets one collection run against five orgs.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> You need a value available to every request.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A collection variable for non-secret defaults (API version), an environment variable for anything org-specific.</p>
+<p>Globals work but are invisible when debugging — avoid them for anything that
+matters.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">21</span> How do you pin the API version?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A variable (<code>{{apiVersion}}</code>) used in every URL, so bumping it is one change and you can test two versions by
+switching.</p>
+<p>Hard-coding <code>v62.0</code> in forty requests is how collections drift out of
+date.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> A variable is not resolving.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Scope: the environment is not selected, or a collection variable of the same name is shadowing it, or it was set as an "initial" value and never
+given a current one.</p>
+<p>The variable inspector shows the resolved value and its source — check there rather than
+guessing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> Initial versus current value — why does it matter?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Initial values are shared when you export or sync; current values stay local. That is the mechanism that keeps secrets out of shared
+collections.</p>
+<p>Put secrets in current values only, and leave the initial value
+blank.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> You need test record Ids that differ per org.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Environment variables, ideally populated by a setup request that queries for them rather than hard-coded by
+hand.</p>
+<p>Hard-coded Ids break after every sandbox refresh, which is the same problem as hard-coding them in
+Apex.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> How do you run the same collection against five orgs?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Five environments, one collection. Switch the environment and run.</p>
+<p>If that does not work, something org-specific has leaked into the collection — usually a hard-coded URL or
+Id.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> A secret must not appear in the run log.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Mark the variable as <strong>secret</strong> type so it is masked, and never log it in a script with
+<code>console.log</code>.</p>
+<p>In CI, inject it via <code>--env-var</code> from the pipeline's secret store rather than committing an environment
+file.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> Where do you set the base URL?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>From the token response's <code>instance_url</code>, captured into an environment variable — not typed by
+hand.</p>
+<p>That way an org migration or a My Domain change does not require editing every
+request.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> You need per-request dynamic values.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Postman's dynamic variables (<code>{{$guid}}</code>, <code>{{$timestamp}}</code>, <code>{{$randomInt}}</code>) — useful for unique external
+ids and idempotency keys.</p>
+<p>A fresh GUID per request is exactly what you want when testing an idempotent
+endpoint.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> How do you keep collections in version control?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Export the collection and an environment template as JSON, commit them beside the code they test, and inject real secrets in
+CI.</p>
+<p>That way the API contract and the implementation move together, and a contract change shows up in a
+diff.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> A teammate's run behaves differently.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Different environment values, a different authenticated user, or local current values that were never shared.</p>
+<p>Diff the resolved variables, and confirm which user each token belongs to — that accounts for most
+divergence.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> You need to clean up records a run created.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Accumulate created Ids into an environment variable and finish with a teardown request that deletes them.</p>
+<p>Non-negotiable against a shared sandbox: a scenario that leaves records behind makes the next run
+non-deterministic.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> Variables are getting out of hand.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Name them consistently with a prefix by purpose (<code>sf_</code>, <code>test_</code>, <code>tmp_</code>), and unset temporary ones in
+teardown.</p>
+<p>An environment with 60 half-remembered variables is as unmaintainable as any other
+configuration.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">33</span> How do you document a collection?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Descriptions on the collection, each folder and each request — Postman renders them as documentation, which partners can
+read.</p>
+<p>Include the auth setup steps and an example of each error case; those are the questions you will otherwise answer
+repeatedly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> Should the collection mirror your API or your use cases?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Use cases, organised in folders — a partner wants "submit an order end to end", not an alphabetical list of
+endpoints.</p>
+<p>Then a reference folder with the individual calls for people who need
+them.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="scripts">Scripts, tests &amp; chaining (35–54)</h2>
+
+<details class="acc"><summary><span class="q-num">35</span> You need to pass a created Id to the next request.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>In the Tests tab, parse the response and <code>pm.environment.set('account_id', body.id)</code>, then reference
+<code>{{account_id}}</code>.</p>
+<p>That is the basis of every multi-step scenario.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> A test passes when it should fail.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually it asserts something trivially true — a status code of 200 when the body contains an error, or no assertion at
+all.</p>
+<p>Assert on the <em>content</em>: <code>body.success</code>, the created Id, the specific field value.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> How do you assert on response time?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>pm.expect(pm.response.responseTime).to.be.below(2000)</code> — useful as a smoke check that an endpoint has not
+regressed.</p>
+<p>Keep the threshold realistic for the environment, or it becomes a flaky test everyone
+ignores.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> You need conditional flow in a run.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>pm.execution.setNextRequest('Request name')</code> to branch or loop — which is how you poll an async job until it
+completes.</p>
+<p>Guard the loop with a counter, or a failing job spins
+forever.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> How do you poll a Bulk API job to completion?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A folder: create job → upload data → close → a status request that re-queues itself via
+<code>setNextRequest</code> until the state is Complete or Failed, with an attempt cap.</p>
+<p>Then assert the job's record counts, which is the actual
+outcome.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> You need the same setup for many requests.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Folder-level pre-request scripts, or a collection-level script that applies to everything.</p>
+<p>Duplicating the same auth-refresh script in thirty requests is how collections become
+unmaintainable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">41</span> A script needs to make its own HTTP call.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>pm.sendRequest</code> — typically used in a pre-request script to fetch a token.</p>
+<p>It is asynchronous, so set your variables inside the callback; code after the call runs before the response
+arrives.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> How do you test an error response deliberately?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Send a knowingly invalid request and assert the status code <em>and</em> the error body shape — your API's error contract is part of its
+contract.</p>
+<p>Error cases are where integrations actually break, and they are the ones nobody puts in a
+collection.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> Data-driven testing with a CSV.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The Collection Runner accepts a CSV or JSON data file and runs the request once per row, with columns available as
+variables.</p>
+<p>Ideal for validating a range of inputs — including the bad ones, with expected status codes per
+row.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> How do you assert on a nested JSON field?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>const b = pm.response.json()</code> then navigate it, with optional chaining for anything that may be
+absent.</p>
+<p>And assert the absence case explicitly, rather than letting an <code>undefined</code> comparison pass
+quietly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> A run fails on the third request every time.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>State from the previous run: a record that still exists, a variable not reset, or data the teardown did not
+remove.</p>
+<p>Make each run self-sufficient — create what it needs, clean up at the
+end.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> How do you verify idempotency in Postman?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Send the identical upsert or request <strong>twice</strong> with the same external id or idempotency key, and assert the second call updated
+rather than created — same record count, same Id.</p>
+<p>That is the single most valuable test for any integration
+endpoint.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> You need to test pagination.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Follow <code>nextRecordsUrl</code> in a loop with <code>setNextRequest</code>, accumulating a count, and assert the total matches
+<code>totalSize</code>.</p>
+<p>Not handling pagination is one of the most common integration bugs, and this test catches
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> A script is 200 lines.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Move shared logic into a collection-level script or a small library stored in a variable, and keep per-request scripts to assertions and
+capture.</p>
+<p>Scripts are code: the same readability rules
+apply.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> How do you keep tests from being flaky?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No dependence on existing data, no dependence on timing without polling, realistic response-time thresholds, and a teardown that always
+runs.</p>
+<p>Flaky API tests get disabled, which costs you the coverage
+entirely.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> You want to mock a Salesforce response.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Postman mock servers return saved example responses — useful for developing a client before the endpoint exists, or for demonstrating a
+contract.</p>
+<p>Base the examples on <em>captured real responses</em>, or you will build against a shape Salesforce never
+produces.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">51</span> Monitors — are they worth using?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>For a lightweight external uptime and contract check on a few key endpoints, yes — they run on a schedule and alert on
+failure.</p>
+<p>They are not a substitute for in-org monitoring of your own integrations, which see far more than an external
+caller.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> How do you avoid consuming your API allocation in testing?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Run full suites against sandboxes, keep production runs to a small smoke set, and check <code>/limits</code> as part of the
+suite.</p>
+<p>An enthusiastic data-driven run against production can consume a noticeable share of the daily
+allocation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> A request needs a file upload.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Form-data with a file part — and note the file path is local, so a shared collection will not find it unless the file is in the working
+directory.</p>
+<p>For CI, keep the fixture file in the repo next to the
+collection.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> Should Postman tests replace Apex tests?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No — different jobs. Apex tests prove your logic; Postman proves the deployed endpoint, the auth and the contract.</p>
+<p>Run both in CI at different stages: unit tests before deployment, the collection
+after.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="apis">Salesforce APIs in practice (55–76)</h2>
+
+<details class="acc"><summary><span class="q-num">55</span> What is the first request to put in any collection?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>GET /services/data</code> — it lists available API versions and is the quickest confirmation that auth works and the base URL is
+right.</p>
+<p>Then <code>GET /limits</code>, which tells you daily API calls remaining, storage and async
+usage.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> An integration starts failing at 4pm daily.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check <code>/limits</code> — almost certainly daily API allocation exhaustion, usually from a polling job.</p>
+<p>Postman is the fastest way to confirm it, and the number makes the case for replacing polling with
+events.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> How do you discover an object's fields quickly?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>GET /sobjects/Account/describe</code> — field names, types, picklist values and relationships, faster than hunting in
+Setup.</p>
+<p>It is also how you confirm what the <em>authenticated user</em> can see, which differs from what you see as an
+admin.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> A SOQL query returns 400 MALFORMED_QUERY.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>URL encoding. Spaces, commas and quotes in the query string need encoding — Postman does most of it, but a hand-edited URL
+breaks.</p>
+<p>Put the query in the params table rather than typing it into the URL
+bar.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> A query returns only 2,000 records.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>That is the batch size; follow <code>nextRecordsUrl</code> for the rest, and check <code>done</code> and
+<code>totalSize</code>.</p>
+<p>A client that ignores <code>nextRecordsUrl</code> silently processes a fraction of the data — a very common
+bug.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> You need to create a parent and children in one call.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>POST /composite/graph</code> (or sObject Tree) with reference ids linking children to the parent, all-or-none per
+graph.</p>
+<p>Test it in Postman before coding it — the reference syntax is fiddly and the error messages are
+terse.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> You need to update 200 records in one request.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>PATCH /composite/sobjects</code> with up to 200 records and an <code>allOrNone</code> flag, returning per-record
+results.</p>
+<p>That is the shape most integrations should use rather than 200 individual
+calls.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> How do you test an upsert by External Id?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>PATCH /sobjects/Account/External_Id__c/ABC123</code> — then run it <strong>twice</strong> and assert the second call updated rather
+than created.</p>
+<p>201 then 204 (or an equivalent) is the signal. That is your idempotency
+proof.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> A Bulk API 2.0 job in Postman.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Create the job (<code>POST /jobs/ingest</code>), PUT the CSV to the content URL, PATCH the state to UploadComplete, then poll the job
+status.</p>
+<p>Worth scripting as a folder with a polling loop; it is also the fastest way to understand the sequence before coding
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> You need to read across several objects in one call.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>POST /graphql</code> — the client shapes its own read query, with FLS and sharing applied.</p>
+<p>Testing it in Postman first is the easiest way to iterate on the query shape before putting it in a
+component.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> How do you call your own Apex REST endpoint?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>/services/apexrest/your/path</code> with the same bearer token.</p>
+<p>A 404 usually means the class is not exposed to the user's profile, the URL mapping differs from what you expect, or the namespace is
+missing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> Your custom endpoint returns 403.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Apex class access on the authenticated user's profile or permission sets — distinct from object permissions.</p>
+<p>This is the most common cause of "works for me, fails for the integration user" on a custom
+endpoint.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> You need to test what a guest user can reach.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Call the site's public endpoints <strong>without</strong> an authorization header, from an incognito-equivalent context.</p>
+<p>That is the real test of guest exposure, and it frequently returns more than the team
+expected.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> How do you test a platform event publish?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>POST /sobjects/My_Event__e</code> with the payload — it publishes like any other insert.</p>
+<p>Then verify the subscriber's effect by querying the records it should have created, since the publish response tells you nothing about
+consumption.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> Can you subscribe to events from Postman?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Not comfortably — streaming needs a long-lived CometD or gRPC connection, which is not Postman's model.</p>
+<p>Use a dedicated client for subscription testing, and use Postman for publishing and for verifying the
+outcome.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> A response is 201 but nothing was created.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Check the body: a composite or collection request can return an overall success with per-record failures
+inside.</p>
+<p>Always assert the inner results, not just the HTTP status — this is exactly the bug that reaches production
+unnoticed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">71</span> You get 403 REQUEST_LIMIT_EXCEEDED.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Daily API allocation exhausted, org-wide. Check <code>/limits</code> and find the consumer.</p>
+<p>Nothing in your request is wrong — this is a capacity problem, and tuning the request will not
+help.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> You need to inspect what your own integration is sending.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Point it at a Postman mock server or a request-capture endpoint and compare with what you intended.</p>
+<p>Frequently the integration sends a subtly different header, encoding or payload shape than the Postman request that
+worked.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> The official Salesforce collection — worth using?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Yes as a reference: it covers the platform APIs with working examples and saves you assembling them.</p>
+<p>Fork it and keep your own trimmed version for your project, rather than navigating hundreds of requests you do not
+use.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> How do you verify an API version migration?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Run the same collection with <code>{{apiVersion}}</code> switched and diff the responses — which is why the version belongs in a
+variable.</p>
+<p>Pay attention to field availability and error shapes, which are where version differences usually
+bite.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> A field is missing from the response.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>FLS for the authenticated user, or you did not request it.</p>
+<p>Describe the object as that user to confirm. "The API is dropping my field" is almost always a permission
+difference.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> How do you test a long-running operation?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Kick it off, capture the job or request id, then poll with <code>setNextRequest</code> and an attempt cap until it
+resolves.</p>
+<p>Asserting immediately after kicking off an async operation is a guaranteed flaky
+test.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="ci">Newman &amp; CI (77–90)</h2>
+
+<details class="acc"><summary><span class="q-num">77</span> How do you run a collection in CI?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>newman run collection.json --environment env.json --env-var "secret=$SECRET" --reporters cli,junit</code>.</p>
+<p>JUnit output so the pipeline shows which endpoint broke rather than a wall of console
+text.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> When in the pipeline should the collection run?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>After</strong> deployment, as a smoke test: does auth work, do the endpoints respond, is the contract unchanged, are limits
+healthy.</p>
+<p>Unit tests verify the code; this verifies the deployed
+org.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">79</span> Secrets in a CI run.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Commit an environment <em>template</em> with empty values and inject the real ones with <code>--env-var</code> from the pipeline's secret
+store.</p>
+<p>Never commit a working environment file — and mark the variables secret so they are masked in
+output.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> Should a failing collection fail the build?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Yes for the smoke set — if the deployed endpoints do not work, the deployment is not successful.</p>
+<p>Use <code>--bail</code> to stop on the first failure when the suite is a gate, and keep the smoke set small enough to be
+reliable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">81</span> The CI run is slow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Separate a fast smoke folder from a comprehensive suite, and run only the smoke set on every deployment.</p>
+<p>Feedback slower than a few minutes gets ignored, which defeats the
+purpose.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> A CI run pollutes the sandbox with records.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A teardown folder that always runs, deleting what the run created from an accumulated Id list.</p>
+<p>Otherwise the sandbox degrades over weeks and the suite becomes
+non-deterministic.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">83</span> How do you authenticate Newman non-interactively?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>JWT bearer or client credentials — the same flows your pipeline uses for the CLI. Interactive OAuth is not
+available.</p>
+<p>Generate the token in a pre-request script or a prior pipeline step and pass it
+in.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> The collection passes locally and fails in CI.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Different environment values, a different authenticated user, missing local current values, or a file path that only exists on your
+machine.</p>
+<p>Make the collection fully parameterised, and run it locally with the CI environment file to
+confirm.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> How do you report results usefully?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>JUnit XML consumed by the pipeline, so failures appear as named test results with the request and assertion that
+failed.</p>
+<p>A console dump nobody reads is the same as no
+reporting.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> Should the collection live in the same repo as the code?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Yes — so the contract and the implementation move together and a contract change appears in the pull request
+diff.</p>
+<p>A collection in someone's Postman workspace drifts from the code within
+weeks.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> How do you review a collection change in a PR?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The JSON diff is readable enough for request and assertion changes, but import it to review anything structural.</p>
+<p>What matters in review: new assertions are meaningful, no secrets added, and teardown still covers what the run
+creates.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> Can Newman test the UI too?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No — it is an API runner. UI testing needs a browser automation tool.</p>
+<p>Keep the boundary clear: Newman for contracts and smoke, something else for end-to-end user
+journeys.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> How do you test against a scratch org in CI?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Create the org, deploy, seed data, then generate an auth token for it and pass the instance URL into the Newman run as environment
+variables.</p>
+<p>Everything org-specific must come from the pipeline, which is the same discipline as any parameterised
+environment.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> What belongs in the smoke set?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Auth, <code>/limits</code>, one read, one write with cleanup, and each custom endpoint's happy path plus one error
+case.</p>
+<p>Small, fast and genuinely diagnostic — if that set passes, the deployment is
+functional.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="judgement">Judgement &amp; troubleshooting (91–100)</h2>
+
+<details class="acc"><summary><span class="q-num">91</span> It works for you and fails for the integration.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Permissions, by a wide margin — you are an admin and the integration user is not. Then API version, headers and the base
+URL.</p>
+<p>Re-run your request authenticated as the integration user; that single step resolves most of these
+cases.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> A partner says your API is broken.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Ask for the full request and response including headers and the correlation id, then reproduce it in Postman as their
+user.</p>
+<p>Half of these resolve as a malformed request or an expired token on their side — and the other half you can now
+fix.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> How do you debug an opaque 500?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A 500 from your own Apex endpoint means an unhandled exception — find it in the debug log or your error log by
+correlation id.</p>
+<p>And fix the endpoint to return a meaningful 4xx with a message instead; a 500 is almost always your
+bug.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> You need to prove a response shape to a consumer.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Save the response as an example in the collection and share the rendered documentation.</p>
+<p>A real captured response is a far better contract artefact than a hand-written schema that drifts from
+reality.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> How much should you automate versus explore?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Automate the contract and the smoke set; keep exploration manual. Not every request you try needs to become a
+test.</p>
+<p>A bloated suite of low-value tests slows CI and gets
+disabled.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> Postman versus curl versus the CLI?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Postman for exploration, documentation and sharing. curl for a quick one-off or a scripted check. The Salesforce CLI for metadata, data loads
+and org operations.</p>
+<p>Use the right one; forcing all three jobs into one tool wastes
+time.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> A collection has 300 requests and nobody maintains it.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Split it: a small maintained smoke set in version control, and an archive for reference.</p>
+<p>An unmaintained collection is worse than none, because people trust its requests and they no longer reflect the
+API.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> What is the fastest way to onboard a new integration developer?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A documented collection with working auth setup, example requests, error cases and an environment template.</p>
+<p>It answers more questions in an hour than any written specification, and it is executable rather than
+aspirational.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> Your collection is the only documentation of an API.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>That is better than nothing and genuinely common — so treat it as documentation: descriptions, examples, error cases, and an auth setup
+guide.</p>
+<p>Also generate an OpenAPI spec if partners need one, and keep the collection as the executable
+companion.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit that most improves API work in Postman?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Capturing <code>instance_url</code> and <code>access_token</code> together in the token request's script, and parameterising
+<em>everything</em> org-specific into the environment.</p>
+<p>It eliminates the commonest failure (calling the login host), makes one collection work against every org, and keeps secrets out of anything
+you share.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="postman.html">Postman In Detail</a>, the <a href="scenarios.html">scenario index</a>, or
+    <a href="integration-core-scenarios.html">APIs &amp; Callouts — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Postman — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

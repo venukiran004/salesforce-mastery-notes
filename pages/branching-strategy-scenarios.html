@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Branching Strategy · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>Branching Strategy</span></div>
+  <h1>Branching Strategy — 100 Scenarios</h1>
+  <p class="lede">Branch-to-org mapping, hotfixes and forward-merges, the metadata that will not merge, config drift,
+     PR gates, delta deployments, feature flags and parallel release trains.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on
+    <a href="branching-strategy.html">Branching Strategy</a> and <a href="devops.html">Deployment &amp; DevOps</a>.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="models">Models &amp; mapping (1–18)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Why can't you use GitFlow exactly as written?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Three platform realities: branches cannot be built in isolation (code only compiles and tests inside an org), changes arrive outside git
+(admins click-build in orgs), and some metadata will not merge.</p>
+<p>The topology survives; the practice needs retrieval, drift detection and ignore rules a normal codebase never
+needs.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> What is the single most important invariant?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>main</code> equals production. Nothing else is deployed there, every release is a tagged commit on it, and nobody pushes
+directly.</p>
+<p>That one rule is what makes hotfixes safe, rollback meaningful and audit questions
+answerable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Someone asks whether <code>main</code> is what's live.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>If that question needs asking, the strategy has already failed — and every tag, rollback and audit answer is now a
+guess.</p>
+<p>Restore the invariant first: baseline production into <code>main</code>, then enforce it with branch protection and drift
+detection.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Which model for a team of mostly admins?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Org branching or simple GitFlow — and optimise for <strong>retrieval and drift detection</strong> rather than merge
+elegance.</p>
+<p>The branch is a record of what changed, not a development workspace. The PR exists for the review conversation and the audit
+trail.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> The business needs a frozen UAT scope.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>You need <strong>release branches</strong>. Cut from <code>develop</code>, freeze the scope, and <code>develop</code> reopens immediately for
+the next cycle.</p>
+<p>That single requirement rules out trunk-based for most enterprises, and it is close to
+universal.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> When is trunk-based actually viable?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>When the team is mostly developers with real test coverage, you have working <strong>feature flags</strong> so incomplete work merges switched
+off, and the business does not require a frozen signed-off scope.</p>
+<p>Package-based development makes it far more practical. Without flags you just get long-lived branches with a trunk-based
+label.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> Map branches to orgs for a four-tier setup.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>feature/*</code> → scratch org or dev sandbox; <code>develop</code> → integration sandbox; <code>release/*</code> → UAT;
+<code>main</code> → production.</p>
+<p>Long-lived branches map to persistent orgs; short-lived branches map to disposable
+ones.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> Your branch topology exceeds your org topology.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Then some branches have nowhere to be validated, which makes their gates theatre.</p>
+<p>Either buy the environment or simplify the topology. One Full sandbox refreshed every 29 days genuinely constrains what branch model is
+honest.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> What does a branch mean in your model?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Exactly one thing: either an <em>org's current state</em> or a <em>unit of work</em>. Never both.</p>
+<p>"<code>develop</code> is the dev org, but also where features queue, but also what we release from" is the root of most branching
+confusion.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> Package-based branching — when?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Once you have clean modular boundaries, dependency discipline and strong coverage. It genuinely solves drift and cross-team
+contention.</p>
+<p>Get org-based GitFlow boring first. Doing both migrations at once stalls programmes for a
+year.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> How long should a feature branch live?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Days. If it is older than a sprint, that is the problem to fix.</p>
+<p>Metadata conflicts grow superlinearly with branch age because so much of it lives in shared files — a six-week branch is where merges go to
+die.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> What should a branch name contain?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Type, ticket id and a short slug: <code>feature/ABC-123-quote-rounding</code>.</p>
+<p>The ticket id is how a deployment is traced to a requirement eighteen months later, and it lets release notes be generated
+automatically.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> Do you need a <code>develop</code> branch?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>If you release on a cadence and need an integration point, yes. If you release continuously behind flags, <code>main</code> alone is
+simpler.</p>
+<p>An unused <code>develop</code> that drifts from <code>main</code> is worse than not having
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> A long programme runs alongside BAU.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A long-lived <code>project/*</code> branch with its own org and a <strong>mandatory scheduled merge from develop</strong> — weekly minimum, in
+the sprint plan, with a named owner.</p>
+<p>Without that cadence, re-integration becomes its own project with its own budget. The structural alternative is unlocked
+packages.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> Is a branch per developer a good idea?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No — integration then never happens until the end, which is the problem branching was meant to
+solve.</p>
+<p>Branch per unit of work, merged within days.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> How do you handle a spike or experiment?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A <code>spike/*</code> branch that is never merged, and is deleted.</p>
+<p>Letting an experiment become a feature by accident is how untested, undesigned code reaches
+production.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">17</span> Where do config retrievals go?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A <code>config/*</code> branch — retrieved admin changes, PR-ed into <code>main</code> like any other change, then merged
+down.</p>
+<p>That gives production changes a review trail without pretending they came from
+development.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> How do you pick a model in an interview answer?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Answer five questions first: does the business need a frozen scope; who makes changes; how often must you ship; how good is coverage honestly;
+how many sandboxes do you have.</p>
+<p>The model falls out of those. Naming GitFlow before asking them is reciting, not
+designing.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="hotfix">Hotfixes &amp; releases (19–38)</h2>
+
+<details class="acc"><summary><span class="q-num">19</span> You branched a hotfix from <code>develop</code>.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>You are about to ship every unreleased feature in <code>develop</code> alongside your fix.</p>
+<p>Hotfixes branch from <code>main</code>, always, because <code>main</code> equals
+production.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> Walk through a hotfix end to end.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Branch from <code>main</code>; fix with a test that fails without the fix; validate against production with specified tests; deploy (quick
+deploy of the validated build); tag it.</p>
+<p>Then <strong>forward-merge <code>main</code> into <code>develop</code> and every open <code>release/*</code></strong> — the step people
+skip.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">21</span> You skipped the forward-merge.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The next release deploys the old broken code over your fix, and the defect reappears having apparently been
+fixed.</p>
+<p>Automate a CI check that fails whenever <code>main</code> contains commits absent from <code>develop</code> or any open release branch.
+Discipline alone does not survive a busy month.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> A hotfix has no test. Is that acceptable?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No — a hotfix without a failing-then-passing test is how the same defect ships twice.</p>
+<p>It also makes the deployment harder, because <code>RunSpecifiedTests</code> needs tests covering the changed
+class.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> How do you cut a release?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Create <code>release/2026.04</code> from <code>develop</code>. From that moment its scope is frozen, and <code>develop</code> reopens
+immediately for the next cycle.</p>
+<p>Only in-scope bug fixes land on the release branch, and each also merges back to
+<code>develop</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> A bug is found in UAT.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>bugfix/*</code> off the <strong>release branch</strong>, merged back to it — and immediately merged into
+<code>develop</code> too.</p>
+<p>Fixing it on <code>develop</code> means it misses the release; fixing it only on the release branch means it is lost next
+cycle.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> How do you close a release?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Merge to <code>main</code>, deploy (ideally quick deploy of the validated build), tag <code>v2026.04.0</code>, merge <code>main</code> back
+into <code>develop</code>, delete the release branch.</p>
+<p>Keep the tag forever — it is your rollback reference and your audit
+record.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> Why tag every release?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>It is your only real rollback story on a platform with no transactional rollback: "deploy the previous tag" plus a documented list of what
+cannot be redeployed.</p>
+<p>It also makes "what shipped when" answerable in
+seconds.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> Cherry-picking is how you assemble releases.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Then you ship commits that were never tested together, and history becomes a fiction.</p>
+<p>If you need it routinely, the branch model is wrong: use release branches (choose what merges) or feature flags (ship it
+off).</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> A feature must be pulled from the release at the last minute.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>If it is behind a flag, switch it off — trivial. If it is not, you are reverting commits from a tested branch and re-testing, which is
+genuinely risky.</p>
+<p>That asymmetry is the strongest practical argument for feature
+flags.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> Two release branches are live at once.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Normal with two cadences, and the place discipline breaks: both must receive every hotfix and every merge to
+<code>main</code>.</p>
+<p>Automate the staleness check. Relying on someone remembering two forward-merges is how a fix is lost
+silently.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> How long should a release branch live?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>One cycle, then deleted. A long-lived release branch re-introduces exactly the drift that release branches were meant to
+contain.</p>
+<p>If stabilisation routinely takes weeks, the problem is upstream
+quality.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> What is a release dry run?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A validation-only deployment of the delta against <strong>production</strong>, with the real test level — plus a rehearsal of any data or
+config-data migration.</p>
+<p>It converts release night from a discovery exercise into an execution of something already
+proven.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> Production changed between validation and deployment.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Quick deploy becomes ineligible, and you must re-validate.</p>
+<p>Which is a reason to lock down production edit rights during a release window, and to keep the validate-to-deploy gap
+short.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">33</span> How do you generate release notes?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>From the ticket ids in branch names and merge commits between the previous tag and this one.</p>
+<p>Hand-written notes omit what nobody wanted to mention, which is frequently what operations needs to
+know.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> A release needs to be rolled back.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Deploy the previous tag, then manually reverse what cannot be redeployed: deletions, data changes, picklist values, irreversible
+settings.</p>
+<p>That per-release irreversible list is what turns the rollback decision from a guess into a judgement — and it must be written
+beforehand.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> Fix forward or roll back?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Fix forward when the fix is small and understood; roll back when the change is broad and the previous state is
+known-good.</p>
+<p>On this platform forward-fix is usually faster, which is why a fast hotfix path matters more than an elaborate rollback
+plan.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> A release is blocked by one unfinished feature.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>That is what the freeze is for: it should not have been merged into <code>develop</code> before the cut, or it should be behind a
+flag.</p>
+<p>Ship the release without it. Holding a whole release for one item is how cadences
+collapse.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> How do you handle an emergency outside the release process?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Through the sanctioned hotfix path, which should be fast enough that bypassing it is never tempting — tens of minutes, not
+hours.</p>
+<p>If "urgent" is used weekly to bypass review, that is a process problem, not an emergency
+pattern.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> What does a healthy release cadence look like?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Predictable, with a frozen scope, a dry run, a short window, a tag, and forward-merges completed the same day.</p>
+<p>Frequency matters less than predictability — a reliable fortnightly train beats an unpredictable weekly
+one.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="merge">The metadata that will not merge (39–58)</h2>
+
+<details class="acc"><summary><span class="q-num">39</span> Git cleanly merged two edits to the same flow.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>That is the dangerous outcome. A flow is one XML blob with generated element coordinates — a line-by-line merge produces a flow that
+<em>deploys</em> and behaves incorrectly.</p>
+<p>Mark flow files unmergeable in <code>.gitattributes</code> so a conflict is forced, and take one side
+wholesale.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> Two people must change the same flow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Sequentially: the second rebases and reapplies their change in the builder.</p>
+<p>Structurally: one owner per flow per release, and split large flows into subflows so two streams of work are not in the same
+file.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">41</span> Profiles conflict on every pull request.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A profile is one enormous XML file covering every object, field and tab, so unrelated features both rewrite it.</p>
+<p>Stop versioning them: move permissions to permission sets and groups, strip profiles to the minimum, and
+<code>.forceignore</code> them.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> What is the risk of ignoring profiles?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>They become an unmanaged surface — changed per org with no review trail.</p>
+<p>So the trade must be explicit: documented as manually managed, with Setup Audit Trail review covering them. Ignoring them silently is worse
+than the conflicts.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> Page layouts conflict constantly.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Field order is positional, so two additions collide on the same lines.</p>
+<p>Prefer Dynamic Forms (which removes most layout churn), assign layout ownership per team, and expect manual resolution for the
+rest.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> Custom labels conflict on every PR.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>All labels live in one file. Treat it as append-only with alphabetical ordering, and configure a <strong>union</strong> merge driver so both
+sides' additions are kept.</p>
+<p>Same approach for translation files.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> Someone reordered a global value set.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Rewrites the whole file and conflicts with everyone. Treat value sets as append-only and never
+reorder.</p>
+<p>Review these changes carefully — a removed value is a breaking change for records already using
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> <code>package.xml</code> conflicts in every PR.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Stop hand-maintaining it. Generate the manifest from the git diff at deployment time.</p>
+<p>A hand-maintained manifest also guarantees omissions, which is a second reason to generate
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> How do you force a conflict on an unmergeable file?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>.gitattributes</code> with a merge strategy that refuses to auto-merge (or <code>-diff</code> to stop git treating it as
+text).</p>
+<p>A forced conflict is the desired outcome: a human then decides which version
+wins.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> Record types and picklist assignments are scattered.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>They live in object XML and profile XML simultaneously, which is why they conflict in two places.</p>
+<p>Source-format decomposition helps; moving permissions to permission sets helps
+more.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> CPQ configuration does not appear in git at all.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Because it is <strong>data</strong>, not metadata — price rules, conditions, actions, lookup queries, product options.</p>
+<p>You need a scripted, version-controlled migration in dependency order, with references re-pointed by name. Same for Field Service policies and
+territories.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> How do you review a flow change in a PR?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Not from the XML diff, which is unreadable. Open it in the builder in a sandbox against a written description of the intended
+change.</p>
+<p>Check entry conditions, running context, fault paths, loops containing DML or Apex, and whether a Flow Test
+exists.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">51</span> What should <code>.forceignore</code> contain?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Typically profiles, org-level settings, and unfiled public reports — the metadata that is hostile to version control or org-specific by
+nature.</p>
+<p>Document every entry and who manages it manually, or you have created invisible
+drift.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> A merge resolved cleanly but the deployment fails.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Often a semantic conflict: both sides were valid individually and the combination is not — a field referenced by one and deleted by the
+other.</p>
+<p>Which is why the delta validation on <code>develop</code> matters; clean merges are not correct
+merges.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> Dashboards and reports conflict.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>They are metadata but awkward: folder structure and sharing are the fiddly parts, and generated layout XML churns.</p>
+<p>Many teams ignore unfiled public reports entirely and manage dashboards per
+org.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> What is the root cause of most merge pain?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Branch lifetime.</strong> Metadata conflicts grow superlinearly with age because so much metadata lives in large shared
+files.</p>
+<p>One story per branch, merged within days, prevents more pain than any tooling you can
+buy.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> Two teams own the same object's automation.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Assign explicit ownership of conflict-prone components — one owner per flow, per layout, per global value set — and a daily merge-down
+habit.</p>
+<p>Shared ownership of a single XML file is a guaranteed recurring
+conflict.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> How do you reduce the number of conflict-prone files?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Dynamic Forms instead of many layouts; permission sets instead of profiles; subflows instead of monolithic flows; generated manifests instead
+of a hand-maintained one.</p>
+<p>Each change removes a whole class of recurring
+conflict.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> Someone resolved a conflict by taking both sides of a flow.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>That is a corrupt flow that will deploy. Revert and redo it properly — take one side, then reapply the other change in the
+builder.</p>
+<p>And add the merge driver, because the next person will make the same
+mistake.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> How do you train a team on this?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Write down the conflict-prone list, the ownership assignments and the resolution rule for each — flows unmergeable, labels union, value sets
+append-only.</p>
+<p>People resolve conflicts carelessly when there is no stated rule, including on the conflicts that
+matter.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="drift">Config drift (59–76)</h2>
+
+<details class="acc"><summary><span class="q-num">59</span> An admin fixed a validation rule in production on Friday.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Your branch no longer matches production, and Monday's deployment silently reverts their fix.</p>
+<p>Close the loop: nightly drift detection, retrieve into a <code>config/*</code> branch, PR into <code>main</code>, merge down to
+<code>develop</code> and open release branches the same day.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> How does drift detection actually work?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A scheduled job retrieves key metadata from production and diffs it against <code>main</code>, failing loudly on
+divergence.</p>
+<p>It is the highest-value automation in a Salesforce pipeline, and its run history is the artefact an auditor
+wants.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> Delta deployments hide drift. Is that a problem?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Yes — full deployments enforce git-as-truth by overwriting; delta deployments leave untouched metadata alone, so divergence
+accumulates invisibly.</p>
+<p>The mature answer is delta deployments <strong>plus</strong> scheduled drift
+detection.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> Drift keeps recurring despite warnings.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>People bypass a slow process. The fix is a sanctioned fast path — a hotfix branch and a twenty-minute pipeline — not more
+enforcement.</p>
+<p>Lock down production edit rights only once the corridor
+exists.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> How do you capture a production change properly?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Retrieve it into a <code>config/*</code> branch, review it in a PR like any other change, merge to <code>main</code>, then merge down
+everywhere.</p>
+<p>Reviewing it matters: an urgent production change is exactly the kind that was made without
+consideration.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> What should you review weekly?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Setup Audit Trail — who changed configuration outside a release. Cheap, and it names the behaviour rather than the
+person.</p>
+<p>Pair it with the drift-detection output so you have both the detection and the
+explanation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> Should humans be able to edit metadata in production?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Ideally not — deployments happen as a service account, and humans go through the pipeline.</p>
+<p>But only once the sanctioned fast path is genuinely fast, otherwise you have moved the problem somewhere you cannot
+see.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> Drift detection is noisy with false positives.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually metadata that churns harmlessly (generated layout XML, dashboard positions) or things you should be ignoring
+anyway.</p>
+<p>Narrow the scope to metadata you genuinely control, and add the noisy types to
+<code>.forceignore</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> What drift does metadata detection miss entirely?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Everything that is <em>data</em>: CPQ and Field Service configuration, Custom Metadata rows, custom setting values, queue
+members.</p>
+<p>Those need their own versioned migration and a reconciliation check. Stating this unprompted is what makes an audit answer
+credible.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> A sandbox refresh wiped your drift baseline.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Drift detection should run against <strong>production</strong> versus <code>main</code>, not against a sandbox — sandboxes are expected to
+diverge.</p>
+<p>If you also want sandbox drift detection, treat it as a different, lower-priority
+signal.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> How do you baseline an org with no version control?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Retrieve production into <code>main</code>, accept that it is ugly, tag it <code>baseline</code>, convert to source format and
+<code>.forceignore</code> the hostile metadata.</p>
+<p>Trying to make the baseline beautiful is how this exercise burns three
+months.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> What comes after the baseline?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A <strong>read-only pipeline</strong>: PR validation that deploys nothing, plus nightly drift detection.</p>
+<p>It builds trust and reveals the real change volume before you block anybody's
+work.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">71</span> Hard-coded Ids broke after a sandbox refresh.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Record Ids differ per org and per refresh. Resolve by name at runtime, with the name in Custom
+Metadata.</p>
+<p>Scheduling policies, record types, queues and price books are the usual offenders. This habit prevents a whole category of post-deployment
+incidents.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> How do you prove git matches production to an auditor?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The drift-detection job and its run history, <code>main</code> equals production as an enforced invariant, tagged releases, deployment by a
+service account, no human metadata rights, weekly audit-trail review, and ticket ids in merge commits.</p>
+<p>Plus the honest caveat about config that is data.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> Who owns drift remediation?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A named person with a cadence — unowned detection is no detection.</p>
+<p>And the remediation must be same-day, because an uncaptured change compounds with every subsequent
+release.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> Is drift always bad?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No — an urgent fix made in production is sometimes the right call. What is bad is <em>undetected</em>, uncaptured
+drift.</p>
+<p>The goal is not zero production changes; it is zero production changes that are not in git by the end of the
+day.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> Drift events are trending down. What does that mean?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>The sanctioned path is working — people are using it rather than routing around it.</p>
+<p>It is the most meaningful single metric for whether your process has actually been
+adopted.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> A metadata type is not retrievable.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check the Metadata Coverage Report — some types are not supported, which means they cannot be drift-detected or deployed
+either.</p>
+<p>Those become documented manual steps with their own review, rather than silent
+gaps.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="gates">Gates, flags &amp; judgement (77–100)</h2>
+
+<details class="acc"><summary><span class="q-num">77</span> What gates belong on each branch?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Feature: lint, Jest, static analysis, fast unit tests. <code>develop</code>: delta validation against integration, full local tests, one
+reviewer. <code>release/*</code>: validation against <strong>production</strong>, migration dry run, release manager. <code>main</code>:
+everything plus drift check, two reviewers, no direct pushes.</p>
+<p>The gate matches the blast radius of the target.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> What do you look for in a Salesforce PR specifically?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Bulkification, deliberate sharing keywords, FLS enforcement, assertions in tests, no hard-coded Ids — plus: did a profile sneak in, is the
+flow change deliberate, are destructive changes listed, and what here is <em>data</em> rather than metadata.</p>
+<p>That last question is the Salesforce-specific one most reviews
+miss.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">79</span> Branch protection on <code>main</code> — what settings?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No direct pushes, required status checks, required reviews, up-to-date-with-main, and linear history.</p>
+<p>Without enforcement, the invariant is a convention — and conventions decay under
+pressure.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> Why do feature flags matter for branching?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>They let incomplete work merge <em>switched off</em>, which is what makes short-lived branches and continuous deployment
+possible.</p>
+<p>They also make pulling a feature from a release trivial instead of a risky
+revert.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">81</span> Which flag mechanism for which case?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Custom Permission</strong> for per-user progressive rollout. <strong>Custom Metadata</strong> for environment-level flags that ship with
+the release. <strong>Hierarchy Custom Setting</strong> for runtime toggles editable in production.</p>
+<p>The last is both the feature and the risk — it can be changed without a
+deployment.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> You have forty live feature flags.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Each is a branch in your code that must be tested in both states — so forty flags is harder to reason about than the long-lived branches you
+avoided.</p>
+<p>Add a removal ticket in the same sprint you add a flag, and review live flags every
+release.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">83</span> How do you migrate a legacy org onto a branch model?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Baseline into <code>main</code> and tag it; convert to source format with hostile metadata ignored; read-only pipeline plus drift detection;
+automate deployment tier by tier with production last; then close production edit rights; then decompose into packages.</p>
+<p>In that order. Reordering it is how the effort
+stalls.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> A declarative-only team has no git experience.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The branch is a <em>record of what changed</em>, retrieved by the pipeline rather than hand-written, and the PR exists for the review
+conversation.</p>
+<p>Change sets as the deployment mechanism with git providing history is a legitimate intermediate state, not a
+failure.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> How many long-lived branches is too many?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>More than you have orgs to validate against, or more than the team can keep forward-merged.</p>
+<p>Each long-lived branch is a drift surface and a merge obligation. Two or three is typically the practical
+ceiling.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> Someone force-pushed to a shared branch.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Recoverable via the reflog, but it is a process failure: shared branches should be protected against it.</p>
+<p>Add the protection, and make sure people know to rebase their own topic branches rather than shared
+ones.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> Rebase or merge for keeping a feature branch current?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Either, but be consistent — and with unmergeable metadata, rebasing repeatedly means resolving the same flow conflict
+repeatedly.</p>
+<p>Merging <code>develop</code> in periodically is usually less painful for Salesforce metadata, at the cost of a messier
+history.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> A branch has been open for three months.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Assess honestly: is it still wanted? If yes, merge <code>develop</code> in now and then weekly, and break the remaining work into
+shippable pieces.</p>
+<p>If the merge is already unmanageable, re-implementing on a fresh branch is sometimes genuinely
+faster.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> What cannot a branching strategy fix?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Too few sandboxes, no test coverage, a monolithic org serving unrelated business units, config living as data, production edits normalised by a
+slow process, and nobody owning the release.</p>
+<p>Recognise more than two of those and the branch model is not your bottleneck. Fix the bottleneck
+first.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> Two business units argue over releases. Split the org?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Ask first whether they share customers, processes or reporting. If yes, splitting destroys the single customer view and you keep the
+argument.</p>
+<p>Release conflict is usually governance and branching wearing an architecture costume: parallel release branches, clear metadata ownership, then
+unlocked packages.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> How do you handle a vendor working in your org?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Their own branch and sandbox, PRs into <code>develop</code> with the same gates, and no production access.</p>
+<p>Undocumented vendor changes in a shared sandbox are a common source of drift and of mysterious regressions after they
+leave.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> Your pipeline is good but nobody follows the branch model.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Enforce what matters mechanically — branch protection, required checks, the forward-merge staleness check — and document the
+rest.</p>
+<p>A model that relies entirely on discipline will erode; a model with three enforced invariants
+survives.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> How do you measure whether the model works?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Lead time from commit to production, change failure rate, mean time to restore, validation duration, and drift events per
+month.</p>
+<p>Drift trending down and MTTR in tens of minutes are the two that tell you people are actually using the
+process.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> An auditor asks who approved a production change.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The PR into <code>main</code>, its reviewers, the linked ticket id, and the tag it shipped in.</p>
+<p>That chain only exists if direct pushes are blocked and ticket ids are required — which is why those two controls are worth
+enforcing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> A hotfix bypassed review during an incident.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Sometimes correct. Record it as an exception with the reason, and review it retrospectively.</p>
+<p>What matters is that the bypass is visible and rare. An untracked bypass becomes the normal
+path.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> How do you onboard someone to your branch model?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A one-page document: the branches and what each means, the org each maps to, how to start work, how to release, how to hotfix, and the
+conflict-prone metadata rules.</p>
+<p>If it does not fit on a page, the model is probably too
+complicated.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> The team wants to change the model mid-programme.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Establish what problem it solves and whether a smaller change fixes it — frequently the complaint is merge pain, which is branch
+lifetime.</p>
+<p>Changing topology mid-flight costs real time, so it needs a clear benefit rather than a
+preference.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> What is the most common branching anti-pattern?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Routine cherry-picking to assemble releases — it means shipping untested combinations and a fictional
+history.</p>
+<p>Closely followed by long-lived feature branches, profiles in version control, text-merged flows, and skipping the forward-merge after a
+hotfix.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> Your first week on an org with no version control.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Baseline production into <code>main</code>, accept the ugliness, tag it, convert to source format with hostile metadata
+ignored.</p>
+<p>Then a read-only pipeline and nightly drift detection — which builds trust and shows you the real change volume before you block anyone's
+work.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit that most improves branching?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Keeping branches <strong>short-lived</strong>, and enforcing the forward-merge mechanically.</p>
+<p>Short branches eliminate most metadata conflicts before they exist; the automated staleness check eliminates the one discipline failure that
+silently reverts a production fix. Everything else is detail.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="branching-strategy.html">Branching Strategy</a>, the <a href="scenarios.html">scenario index</a>,
+    or <a href="devops-scenarios.html">DevOps — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Branching Strategy — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

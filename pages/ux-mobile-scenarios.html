@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>App Builder, UX &amp; Mobile · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>App Builder, UX &amp; Mobile</span></div>
+  <h1>App Builder, UX &amp; Mobile — 100 Scenarios</h1>
+  <p class="lede">Page performance and EPT, Dynamic Forms and Actions, accessibility, mobile products, offline, and the
+     UX decisions that determine whether people actually use what you built.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on <a href="ux-mobile.html">App Builder, UX &amp;
+    Mobile</a> and its <a href="ux-mobile.html#advanced">Advanced</a> section.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="perf">Page performance (1–18)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> "The org is slow." Where do you start?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The <strong>Lightning Usage App</strong> — EPT by page, by browser, by user and over time. It frequently reveals one browser, one geography or
+one user population rather than a platform problem.</p>
+<p>Start with data. "The org is slow" is unactionable; "this page averages 6s EPT for the service team on Chrome" is.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> EPT tells you a page is slow but not why.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>EPT is an aggregate. Use the page's component-level performance view to attribute the time to individual components.</p>
+<p>Then the browser network tab for Apex call count and payload size — which is where the cause usually
+is.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> A record page has 14 components.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Each is work on load, and the number of components is more often the cause than any single one.</p>
+<p>Audit what is genuinely needed above the fold, move the rest to tabs or on-demand, and question each one's business
+value.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Five components each call Apex on load.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Five round trips, five latencies. Consolidate into one call returning a composite payload, or have them share an LDS wire on the same
+record.</p>
+<p>This is usually the single biggest win available on a slow record
+page.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> A component in a closed accordion still loads data.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Components are created and connected even when not visible, so their data access runs.</p>
+<p>Lazy-load: gate the fetch on an <code>isActive</code> property, or render the child conditionally so it is not created at
+all.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> A report chart on a record page is slow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It runs a report on every page load. If the underlying report is unselective over a large object, the page waits for
+it.</p>
+<p>Make the report's filters selective and indexable, or move the chart off the record page to somewhere users opt
+in.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> A related list with 400 rows slows the page.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Use a <strong>Dynamic Related List</strong> with a filter, a sort, chosen columns and a row limit.</p>
+<p>"All 400 contacts" is not information. The three primary contacts
+are.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> A managed package component is the slowest on the page.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>You cannot optimise it, but you can measure and attribute it — then decide whether it belongs on a high-traffic page at
+all.</p>
+<p>Take the evidence to the vendor. A component-level timing breakdown naming their component gets a support case taken
+seriously.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> Users on one site are much slower than others.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Network, not the page. Check EPT by geography in the Lightning Usage App, and whether they are on a VPN routing traffic
+elsewhere.</p>
+<p>Component tuning will not fix a 300ms round-trip penalty on every
+request.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> A custom component queries 60 fields and renders 6.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Query only what you render. Payload size matters on every request, and heap matters server-side.</p>
+<p>It is the cheapest performance habit available and it is routinely
+skipped.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> Salesforce Optimizer flags hundreds of issues.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Treat it as a backlog, not a to-do list: unused fields, too many layouts, excessive components per page, inactive validation
+rules.</p>
+<p>Prioritise what affects users or blocks change. An unprioritised Optimizer report gets
+ignored.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> How do you set a performance target?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>From the task: a record page a user opens fifty times a day deserves a tighter target than a monthly admin
+screen.</p>
+<p>Measure the baseline, agree a number, and track it — otherwise "faster" is an opinion
+nobody can verify.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> A page is fast for you and slow for users.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Your data, your permissions, your browser and your network are not theirs. Admins frequently have smaller related-record counts and broader
+access that short-circuits queries.</p>
+<p>Test as a real user with real data, on their browser.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> A console app feels slower than a standard page.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Console apps keep multiple tabs alive, so leaked listeners, timers and subscriptions accumulate across a working
+day.</p>
+<p>Audit cleanup in <code>disconnectedCallback</code>, and reduce what each tab holds
+open.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> You need to prove a change improved performance.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Baseline EPT before, deploy, compare after over a comparable period and population.</p>
+<p>A single before/after page load proves nothing — variance between loads is larger than most
+improvements.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> A page loads fast but feels slow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Perceived performance: content shifting as components load, spinners appearing late, or the thing the user came for rendering
+last.</p>
+<p>Render the primary content first and reserve space so the layout does not jump. Perception is the thing users
+report.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">17</span> Is caching an option for a slow component?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A <code>cacheable=true</code> wire gives you the platform's client cache keyed by parameters — genuinely effective for reference
+data.</p>
+<p>Not for anything that must be current, and every read must still handle a
+miss.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> What is the realistic order of performance wins?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Fewer components above the fold; consolidate Apex calls; fix unselective reports and related lists; query fewer fields; lazy-load inactive
+tabs; then audit package components.</p>
+<p>In that order, most pages come back under control without clever
+engineering.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="dynamic">App Builder &amp; Dynamic Forms (19–36)</h2>
+
+<details class="acc"><summary><span class="q-num">19</span> You have 10 record types purely for different field arrangements.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Dynamic Forms replaces that: one layout with conditional field visibility, so most layout-driven record types become
+unnecessary.</p>
+<p>Keep record types where they drive genuinely different <em>processes</em> or picklist domains — not different field
+orders.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> A field must be visible only to approvers.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Component or field visibility on a <strong>custom permission</strong> the approvers hold — not a profile name, which breaks when profiles
+change.</p>
+<p>And remember visibility is presentation. If they must not <em>access</em> it, that is field-level
+security.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">21</span> An action should only appear when the record is open.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Dynamic Actions</strong> with visibility criteria on the record's status.</p>
+<p>Enforce it server side too: the action's flow or Apex must check the condition, because a hidden button is still
+callable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> Dynamic Forms has 25 conditional sections and the page is slow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Conditional visibility is still rendering work, and 25 sections is also impossible for anyone to reason about.</p>
+<p>Simplify the information architecture: what is needed on load, and what belongs on a second tab or a guided
+flow?</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> Users say the page has 40 fields and they use six.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Design from the task. The six go in a prominent top section; the rest move to collapsed sections or a details
+tab.</p>
+<p>Also set the <strong>compact layout</strong> deliberately — its first fields are the highlights panel and the mobile card, and most orgs never
+choose them on purpose.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> The business wants a different page per region.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>One page with component visibility by region, or App Builder page assignment by app and profile — not twenty pages to maintain in
+step.</p>
+<p>Push back on whether the differences are real: usually a handful of genuine variants hide behind many
+requests.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> How do you assign a Lightning page to the right audience?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>App Builder activation by app, record type and profile — which is how you give the service team a different Case page from
+sales.</p>
+<p>Document the assignments; an unassigned page is invisible and an over-assigned one surprises
+people.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> A component works on a record page but not the home page.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Its meta XML targets, and whether it depends on an injected <code>recordId</code> that only exists on a record
+page.</p>
+<p>Declare the targets you support, and handle the absent-record case rather than
+breaking.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> Admins need to configure your component.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Expose <code>@api</code> properties and declare them as design attributes in the meta XML so App Builder shows them, with sensible defaults and
+descriptions.</p>
+<p>Validate the values — an admin will eventually enter something
+unexpected.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> A utility bar item is the right choice when?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>For something always available regardless of the record in view — a timer, notes, a recent-items panel, a softphone.</p>
+<p>It stays loaded, so keep it light; a heavy utility item taxes every page in the
+app.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> How do you decide tabs versus one long page?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Tabs when content is genuinely separable and users need one area at a time — and they give you lazy loading as a
+bonus.</p>
+<p>One page when users scan everything. Tabs that hide something people always need just add a
+click.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> A screen flow embedded on a record page.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A good pattern for guided tasks, and frequently better than a crowded record page — particularly on mobile.</p>
+<p>Pass the record Id in, and give it a clear entry point so users understand what it
+does.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> Should you build a custom component or configure?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Configure first: Dynamic Forms, Dynamic Related Lists, embedded reports and flows cover a surprising amount.</p>
+<p>Custom components are justified by genuinely different interaction, not by appearance preference — and they are yours to maintain
+forever.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> A stakeholder asks for a "simple configurable table".<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check what <code>lightning-datatable</code> plus a Dynamic Related List already does — frequently the requirement is already
+met.</p>
+<p>A generic custom table is one of the most commonly rebuilt and most commonly regretted components in Salesforce
+projects.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">33</span> How many components is too many on one page?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>There is no fixed number — it depends on what each does. The honest test is measured EPT against your target, plus whether a user can find
+anything.</p>
+<p>If you cannot explain why each component is there, there are too
+many.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> App Builder changes are not appearing for users.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>The page was not activated, or was activated for a different app, profile or record type combination.</p>
+<p>Check the activation assignments, and verify by logging in as an affected
+user.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> How do you deploy Lightning page assignments?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Pages are metadata and deploy; their <em>assignments</em> are the fiddly part and frequently need verification or manual setting after
+deployment.</p>
+<p>Put assignment verification in the release checklist — "the page deployed but nobody sees it" is a common post-release
+ticket.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> Is hiding a field with visibility rules secure?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No. Visibility rules are presentation; the data remains available via API, reports and SOQL.</p>
+<p>Field-level security is the control. Demonstrating the gap with one REST call ends the argument
+quickly.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="a11y">Accessibility (37–54)</h2>
+
+<details class="acc"><summary><span class="q-num">37</span> A keyboard user cannot operate your component.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Almost certainly a clickable <code>div</code>. It has no keyboard operability, no focus state, no role and no accessible
+name.</p>
+<p>If it behaves like a button, make it a <code>button</code> — that one change fixes four failures at
+once.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> An icon-only button announces as "button".<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No accessible name. Add <code>alternative-text</code> on base components, or
+<code>aria-label</code>.</p>
+<p>This is the single most common accessibility omission in custom Salesforce
+UIs.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> A designer wants focus outlines removed.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Decline, and offer to restyle them. Without a visible focus indicator, keyboard users cannot tell where they
+are.</p>
+<p>A custom focus style meeting contrast requirements satisfies both the design and the
+requirement.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> Tab order jumps around the page.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>DOM order does not match visual order — often CSS reordering — or someone used a positive
+<code>tabindex</code>.</p>
+<p>Fix the DOM order. Only <code>tabindex="0"</code> and <code>-1</code> should ever
+appear.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">41</span> A toast confirms a save but screen-reader users miss it.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Dynamic content needs a live region to be announced. Platform toasts generally handle this; hand-rolled notifications do
+not.</p>
+<p>Use the platform toast, or add an appropriate live region for inline status
+messages.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> Status is shown only by a coloured dot.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Colour alone excludes colour-blind users — and it is unclear for everyone without a legend.</p>
+<p>Add text or an icon shape alongside the colour.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> Contrast fails only in dark mode.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check both themes: 4.5:1 for body text, 3:1 for large text and UI boundaries.</p>
+<p>Using SLDS tokens rather than fixed colours generally gives compliant values in both themes without separate
+work.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> A modal traps keyboard users.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A modal needs focus moved in on open, contained while open, Escape to close, and returned to the trigger on
+close.</p>
+<p>That is a lot to get right, which is a strong argument for the platform modal rather than a custom
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> Headings are styled divs.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Screen-reader users navigate by heading structure, so styled divs remove their primary navigation
+mechanism.</p>
+<p>Use real <code>h1</code>–<code>h6</code> in a sensible hierarchy and style them, rather than the
+reverse.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> Validation errors are not associated with their fields.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The error must be programmatically linked so it is announced with the input, not just displayed in red
+nearby.</p>
+<p>Base input components handle this via <code>setCustomValidity</code>/<code>reportValidity</code> — another reason to use
+them.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> A table reads confusingly in a screen reader.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Missing table semantics: proper <code>th</code> with scope, a caption, and no layout-only tables.</p>
+<p>If you are using a table for layout, use CSS or SLDS grid
+instead.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> How do you actually test accessibility?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Keyboard only, a screen reader (NVDA or VoiceOver), 200% zoom, and an automated checker like axe.</p>
+<p>Automated tools catch roughly a third of real issues. The keyboard pass finds most of the rest and takes two minutes per
+component.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> A page is unusable at 200% zoom.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Fixed pixel sizing and fixed-height containers. Use relative units and let content reflow.</p>
+<p>200% zoom is a requirement, not an edge case, and it takes seconds to
+check.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> Does accessibility apply to internal tools?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Yes — your colleagues include people using keyboards, screen readers and magnification, and in many jurisdictions it is a legal obligation for
+internal systems too.</p>
+<p>It is also the cheapest usability work available: most fixes improve things for
+everyone.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">51</span> Who owns accessibility on the team?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Whoever builds the component. Treating it as a later QA pass means it never happens, because retrofitting costs far more than building it
+right.</p>
+<p>Put it in the definition of done and the PR
+checklist.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> A base component's accessibility is better than your custom one.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Nearly always — base components bring accessible names, keyboard behaviour, focus management and ARIA for
+free.</p>
+<p>That is the strongest practical argument for composing base components rather than re-implementing
+them.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> A content author writes link text "click here".<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Screen-reader users navigate by link list, where "click here" is meaningless. Link text should describe the
+destination.</p>
+<p>Worth including in content guidance as well as component
+review.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> An accessibility audit returns 80 findings.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Group them: most will be a handful of repeated patterns (unnamed icon buttons, clickable divs, colour-only status).</p>
+<p>Fix the patterns and add them to the review checklist, rather than working through 80 individual
+instances.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="mobile">Mobile (55–76)</h2>
+
+<details class="acc"><summary><span class="q-num">55</span> The business wants a branded mobile app.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Mobile Publisher</strong> — your branding, your app store listing, push notifications, still the Salesforce runtime and your existing
+configuration.</p>
+<p>A Mobile SDK build is only justified by genuinely custom UX or device integration, and it is dramatically more
+expensive.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> Which mobile option for field technicians?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>The <strong>Field Service mobile app</strong> — a separate, offline-first app built for that job, with its own data and sync
+model.</p>
+<p>The standard Salesforce mobile app is not an offline-first field app. See
+<a href="field-service-advanced.html#mobile">its architecture</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> A record page is unusable on a phone.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Too many fields and components, dense tables, and a compact layout nobody chose.</p>
+<p>Set the compact layout deliberately, hide desktop-dense components by form factor, and consider a guided flow for the task rather than the record
+page.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> Mobile users need different actions.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Configure a separate mobile action list. A phone user wants Call, Log a Call and Navigate — not Clone and Change
+Owner.</p>
+<p>Default action lists are rarely right for
+mobile.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> Touch targets are too small.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Aim for roughly 44px minimum. Dense tables and small icon buttons are hostile on a phone.</p>
+<p>Switch to a card layout below a breakpoint rather than shrinking a desktop
+design.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> How do you branch behaviour by device?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>@salesforce/client/formFactor</code> in LWC, and component visibility rules by form factor in App
+Builder.</p>
+<p>Prefer responsive CSS for layout, and reserve form-factor branching for genuinely different
+behaviour.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> A screen flow is better than a record page on mobile.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually, for a task: one question at a time, large controls, no scrolling a 40-field layout.</p>
+<p>Guided flows are the most under-used mobile pattern on the
+platform.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> Users need read access with no signal.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Briefcase Builder</strong> — define which objects, filters and related records are primed to the device, with a record
+limit.</p>
+<p>Keep briefcases tight: more priming means slower sync, more storage and staler
+data.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> Offline edits failed to save.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Validation fires at <strong>sync</strong> time, not edit time. Any rule the user could not satisfy offline produces a sync error they may not
+notice.</p>
+<p>Audit validation rules and required fields for offline-satisfiability, and move unsatisfiable checks server
+side.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> How much offline capability does the standard app have?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Read plus limited edit of primed data — not the full application.</p>
+<p>Validate what users actually need to do with no signal before promising offline. For genuine offline-first work, Field Service's app is a
+different proposition.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> How do you test offline properly?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>On a real device, in genuine aeroplane mode, with a realistic amount of work queued — then reconnect and inspect what
+failed.</p>
+<p>Emulators and "turn off wifi" do not reproduce the sync queue
+behaviour.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> Initial sync takes ten minutes.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Over-priming. Narrow the briefcase: tighter filters, fewer related objects, a shorter date window.</p>
+<p>Most users need days of data, not months.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> An LWC must work offline.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Offline means the GraphQL wire adapter against primed data plus supported device capabilities — arbitrary Apex needs a
+server.</p>
+<p>Design the data access around what is on the device, and render an explicit offline
+state.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> You need the camera or barcode scanning.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>LWC mobile capabilities expose device features such as the barcode scanner and location — with a graceful fallback when
+unavailable.</p>
+<p>Always handle the unavailable case: the same component may run on
+desktop.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> Push notifications are needed.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Supported, and a reason to choose Mobile Publisher — but they need a notification strategy, not just a technical
+switch.</p>
+<p>Too many notifications and users disable them, which removes the channel
+permanently.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> A deep link should open a specific record in the app.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Supported via the app's URL scheme and Lightning page references — which is how an email or notification lands a user in the right
+place.</p>
+<p>Test it from the real clients users have, because link handling differs between
+them.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">71</span> Design for a slow, intermittent connection.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Show progress, allow retry, and never lose typed input on failure.</p>
+<p>A field user on 2G is the realistic worst case, and losing a form's content on a failed save is the complaint you will
+hear.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> A component looks fine on desktop and broken on mobile.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Fixed widths, dense tables or a layout assuming horizontal space.</p>
+<p>Test at phone width with a 16px gutter and no horizontal page scroll, and switch to a card layout where a table will not
+fit.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> Mobile SDK or Mobile Publisher?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Publisher for branding and distribution of what you already built — far cheaper and it inherits your
+configuration.</p>
+<p>SDK only when the UX or device integration genuinely cannot be done in the runtime, and you accept owning a native
+codebase.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> How do you decide what belongs on mobile at all?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>From the tasks people genuinely do away from a desk — usually looking something up, logging an interaction, or completing a short
+form.</p>
+<p>Trying to put the whole desktop application on a phone is how mobile rollouts fail to get
+adopted.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> Adoption of the mobile app is poor.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually the experience, not the technology: too many taps, pages designed for desktop, or it does not work where they have no
+signal.</p>
+<p>Watch three users do their actual job on it. The fix is almost always fewer fields and a guided
+flow.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> A mobile user cannot see data they need.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Sharing, or priming. Check record access in the browser as that user <em>first</em> — if a related list is empty there too, it is access, not
+the app.</p>
+<p>That one check saves days of debugging the wrong
+layer.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="ux">UX decisions (77–100)</h2>
+
+<details class="acc"><summary><span class="q-num">77</span> How do you start a UX design?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>From the <strong>task</strong>, not the record: who is doing what, how often, on what device, and what is the fewest interactions that completes
+it.</p>
+<p>Starting from the schema produces a form. Starting from the task produces something people
+use.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> A stakeholder specifies the solution, not the problem.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Ask what the user is trying to achieve and how they do it today. "Add a field for X" frequently resolves into a different, simpler
+change.</p>
+<p>Deliver what they asked for if they insist — but ask first, because the question is cheap and the build is
+not.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">79</span> Users keep entering data in the wrong field.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A labelling or ordering problem, not a training problem. Check the labels, the help text, the field order, and whether two fields sound
+identical.</p>
+<p>Blaming users for a predictable mistake leaves the mistake in
+place.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> A process takes 14 clicks.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Map the actual path, then remove steps: defaults instead of entry, a guided flow instead of navigation, an action instead of a page
+visit.</p>
+<p>Count the clicks before and after — it is the most persuasive number you can show a
+sponsor.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">81</span> Two teams want opposite layouts.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Dynamic Forms with visibility by profile or custom permission, or separate page assignments per app — one page definition where
+possible.</p>
+<p>Two maintained layouts is a cost; two maintained layouts that drift apart is a
+bigger one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> How do you validate a design before building it?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Show three real users a clickable mock or a rough configured version and watch them attempt the task — without
+explaining it.</p>
+<p>Half an hour of that prevents more rework than any amount of specification
+review.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">83</span> Help text nobody reads.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>If the field needs explaining, the label is probably wrong — or the field should not be there.</p>
+<p>Help text is a fallback, not a fix for a confusing design. Fix the label and the order
+first.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> An error message says "Invalid data".<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>The cheapest usability win available: say what is wrong, what to change and why, attached to the field where
+possible.</p>
+<p>Users act on specific messages and ignore generic
+ones.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> How do you handle a destructive action?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Confirm it, state the consequence plainly, and make the confirm button describe the action rather than saying
+"OK".</p>
+<p>And where possible make it reversible — undo is better than
+confirmation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> A long operation gives no feedback.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Show a spinner immediately, disable the triggering control, and keep the rest of the page usable.</p>
+<p>If it may take many seconds, move it async with a notification rather than an indefinite
+spinner.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> Users do not trust the data.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually a freshness or completeness problem they have no way to assess. Show a "last updated" timestamp and the
+source.</p>
+<p>Visible provenance does more for trust than accuracy improvements users cannot
+see.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> A dashboard shows 20 metrics.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Nobody acts on 20 numbers. Ask which three decisions this dashboard supports, and build for those.</p>
+<p>Also pair every throughput metric with a quality metric, or the dashboard drives the wrong
+behaviour.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> Adoption of a new feature is low.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Measure before theorising: is it discoverable, does it work, is it faster than what they did before?</p>
+<p>Most low adoption is discoverability or a workflow regression, not
+resistance.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> A power user wants more fields; a new user wants fewer.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Progressive disclosure: the common fields prominent, the rest in collapsed sections — which serves both without two
+layouts.</p>
+<p>Design for the common case and make the rare case
+reachable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> How do you measure UX improvement?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Task completion time, clicks, error and rework rate, adoption, and EPT — baselined before the change.</p>
+<p>Without a baseline you cannot distinguish an improvement from a
+preference.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> A design works but looks inconsistent with the rest of the app.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Use SLDS tokens, spacing utilities and base components so it inherits the design system.</p>
+<p>Consistency is itself usability: users apply learned patterns, and a bespoke-looking screen costs them
+attention.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> Should you match a competitor's UI?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Match the <em>pattern</em> where it is genuinely better, not the appearance. Fighting the platform's design system costs maintenance
+forever.</p>
+<p>And verify the pattern actually suits your users' task rather than assuming it
+does.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> A page is used by 500 people once a day.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>That is 500 interactions daily, so small improvements compound substantially — this is where optimisation effort
+belongs.</p>
+<p>Rank UX work by frequency × population, not by who complained most
+recently.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> Training is proposed to fix a confusing screen.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Training is a workaround for a design problem, and it decays with every new joiner.</p>
+<p>Fix the screen where you can, and reserve training for genuine process complexity rather than avoidable
+confusion.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> How do you say no to a UX request?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>With the cost and an alternative: what it would displace, what it adds permanently, and the cheaper way to meet the underlying
+need.</p>
+<p>"No" alone loses; "here is the simpler thing that solves it" usually
+wins.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> A record page accumulated 30 components over three years.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Nobody ever removes anything. Audit by usage and value, measure EPT, and remove with the owners'
+agreement.</p>
+<p>Schedule a page review annually — it will not happen
+otherwise.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> Mobile and desktop need genuinely different designs.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>That is legitimate: different tasks, different contexts. Use form-factor visibility and a mobile-specific action list, or a flow for the
+mobile task.</p>
+<p>Forcing one design to serve both usually serves
+neither.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> What signals a well-designed Salesforce screen?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The user's primary task is obvious and takes few interactions; the fields on load are the ones needed; it works by keyboard and at 200% zoom;
+it is usable on a phone; and EPT meets a target someone agreed.</p>
+<p>None of that is about appearance.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit that most improves UX work?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Watching someone actually do the task</strong> before designing, and again after.</p>
+<p>Every other technique is a proxy for that. Thirty minutes of observation routinely overturns assumptions that would otherwise be built, shipped
+and defended.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="ux-mobile.html">App Builder, UX &amp; Mobile</a>, the <a href="scenarios.html">scenario index</a>,
+    or <a href="lwc-core-scenarios.html">LWC Core — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · App Builder, UX &amp; Mobile — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

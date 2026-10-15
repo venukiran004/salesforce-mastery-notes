@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visualforce &amp; Aura · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>Visualforce &amp; Aura</span></div>
+  <h1>Visualforce &amp; Aura — 100 Scenarios</h1>
+  <p class="lede">View state, postbacks versus remoting, PDF generation, Aura events, LockerService and LWS, and the
+     migration decisions on legacy UI you still have to maintain.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on <a href="visualforce.html">Visualforce &amp;
+    Aura</a> and its <a href="visualforce.html#advanced">Advanced</a> section.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="viewstate">View state (1–16)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> "Maximum view state size limit exceeded" on a list page.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>You are holding the whole result set in controller member variables, which are serialised into the 170KB view state on every
+postback.</p>
+<p>Mark re-derivable members <code>transient</code>, select fewer fields, and page with <code>StandardSetController</code> so only the current page
+is retained.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> How do you find what is actually consuming view state?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Enable Development Mode and open the <strong>View State</strong> tab — it breaks the size down by component tree, state and individual
+controller members.</p>
+<p>It names the culprit in seconds. Guessing which variables to mark <code>transient</code> is slower and usually
+wrong.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> What exactly does <code>transient</code> do?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Excludes the member from view state serialisation, so it is <code>null</code> at the start of each postback and must be rebuilt — typically in
+a getter with a null check.</p>
+<p>Use it for anything re-derivable: query results, maps built for rendering, describe results,
+caches.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> A page with 60 selected fields over 500 rows is slow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>30,000 field values serialised into view state and back on every interaction. The query is not the problem; the round trip
+is.</p>
+<p>Select only the fields the page renders, and reduce the rows held. This single change fixes most legacy Visualforce
+performance.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> You need to keep a user's selections across postbacks.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>That state genuinely must persist, so keep it small and non-transient — a <code>Set&lt;Id&gt;</code> of selected Ids rather than a list of full
+wrapper objects.</p>
+<p>Store identifiers, rebuild the objects. That is the general pattern for everything in view
+state.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> A wrapper list makes view state explode.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Each wrapper holds a full sObject plus your extra fields, all serialised. Mark the list <code>transient</code> and rebuild it from a retained
+set of Ids plus a fresh query.</p>
+<p>Or move the interaction to JavaScript Remoting and avoid view state
+entirely.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> Does view state apply to JavaScript Remoting?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No — <code>@RemoteAction</code> calls are stateless JSON requests with <strong>no view state at all</strong>.</p>
+<p>Which is why remoting is the right choice for anything interactive on a page you must keep on
+Visualforce.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> A page works for you and fails for a user with more data.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>View state scales with the data the page holds, so a user whose account has 2,000 contacts breaches a limit you never
+hit.</p>
+<p>Bound the query with a <code>LIMIT</code> and page it. Unbounded Visualforce lists are a failure with a date on
+them.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> You cannot reduce view state any further.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Then the page design is wrong for a postback model. Rewrite the interactive parts with JavaScript Remoting and client-side rendering, or
+rebuild as an LWC.</p>
+<p>Fighting a 170KB ceiling with <code>transient</code> keywords has a
+limit.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> Does a <code>rerender</code> still post the whole view state?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Yes — a partial page refresh is still a postback carrying the full view state in both directions. It only limits what is
+<em>redrawn</em>.</p>
+<p>So <code>rerender</code> improves perceived rendering, not the payload. That surprises
+people.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> Can you avoid view state on a read-only page?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Largely, yes: a page with no form and no postbacks holds minimal state, and <code>readonly="true"</code> on the page also raises the query row
+ceiling considerably.</p>
+<p>Useful for large reports and printable
+views.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> What does <code>readonly="true"</code> change?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It raises the number of rows the page can query substantially, at the cost of disallowing DML from the page.</p>
+<p>The right setting for large read-only reports; useless for anything with a form.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> Inner classes in your controller are inflating view state.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Every non-transient field of every retained instance is serialised, including inner-class members.</p>
+<p>Slim the inner class to what must persist, or mark the containing collection <code>transient</code> and rebuild
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> A map built purely for rendering is costly.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Classic case for <code>transient</code>: rebuild it in a getter on each request from the retained
+identifiers.</p>
+<p>Rendering convenience structures should essentially never be
+persisted.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> How much view state is acceptable?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>As little as the page needs to function — and well under the ceiling, because data growth will take the rest.</p>
+<p>Treat anything above roughly half the limit as a warning that the page will break for somebody's
+data.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> Is view state a security concern?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>It is encrypted and tamper-protected by the platform, so it is not directly readable — but anything you put in it is being shipped to the
+browser and back.</p>
+<p>Do not hold secrets or data the user should not have in controller state, and do not rely on it as an authorisation
+mechanism.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="data">Controllers &amp; data access (17–34)</h2>
+
+<details class="acc"><summary><span class="q-num">17</span> Standard controller or custom?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Standard controller when you want the platform's save behaviour, FLS handling and layout awareness for free — a simple record page.</p>
+<p>A custom controller or extension when you need your own query, logic or navigation. An extension keeps the standard behaviour and adds to
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> Does a standard controller enforce FLS?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Yes — <code>apex:inputField</code> and <code>apex:outputField</code> respect field-level security and render according to field
+metadata.</p>
+<p>Hand-rolled <code>apex:inputText</code> bound to a field does <strong>not</strong>, which is a common way legacy pages leak or accept data they
+should not.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">19</span> A custom controller does not enforce sharing.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Controllers default to system mode unless declared <code>with sharing</code> — and even then FLS is not enforced.</p>
+<p>Declare <code>with sharing</code> and use <code>WITH USER_MODE</code> on queries, or
+<code>Security.stripInaccessible</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> When would you choose JavaScript Remoting?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>For anything interactive: no view state, stateless JSON calls, and client-side rendering — the closest Visualforce gets to a modern
+architecture.</p>
+<p><code>@RemoteAction</code> methods are static, so they cannot see controller state, which is both the constraint and the
+point.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">21</span> A <code>@RemoteAction</code> method cannot access controller variables.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Correct — it is static. Pass everything it needs as parameters and return a serialisable result.</p>
+<p>That statelessness is why there is no view state cost, so work with it rather than around
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> Remote Objects — when are they useful?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Declarative CRUD from JavaScript with no Apex at all — genuinely useful for simple record access on a page you are not
+rewriting.</p>
+<p>Limited for anything involving logic or complex queries, where remoting with Apex is the better
+choice.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> You need a long-running callout from a Visualforce page.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Continuations</strong> — the request is parked server-side without holding a thread, and a callback resumes it. Up to three can be
+chained.</p>
+<p>It is the only way to do this without consuming a concurrent long-running request slot that interactive users
+share.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> An action method runs twice on one click.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually a double submit, or a <code>rerender</code> region that re-invokes a getter with a side effect.</p>
+<p>Disable the button on click, and keep getters side-effect free — a getter that performs DML or increments a counter will behave
+unpredictably.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> Getters are being called many times per request.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Expected — the framework may evaluate a getter several times per lifecycle. Cache the result in a transient member with a null
+check.</p>
+<p>A getter that queries on every call is one of the standard causes of a Visualforce page hitting SOQL
+limits.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> A page hits "Too many SOQL queries".<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Queries in getters that are evaluated repeatedly, or a query inside an <code>apex:repeat</code>.</p>
+<p>Query once into a transient member and have the getter return it. Never query inside a repeated
+component.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> You need to pass data between two Visualforce pages.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>URL parameters for identifiers, or a shared controller when both pages use the same one.</p>
+<p>Do not try to carry objects across pages — pass the Id and re-query. URL parameters are also visible to the user, so never put anything
+authoritative in them.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> A URL parameter is being used to decide access.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>That is a vulnerability: the user controls it. An Id in the URL must still be access-checked server
+side.</p>
+<p>Query with sharing enforced, and confirm the record is one this user may see rather than trusting that they were given the
+link.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> How do you handle validation errors on a form?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>ApexPages.addMessage</code> with a severity, rendered by <code>apex:pageMessages</code> — and field-level errors via
+<code>SObject.addError</code> when saving through a standard controller.</p>
+<p>A page with no <code>apex:pageMessages</code> swallows errors silently, which is a frequent legacy
+bug.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> A save silently does nothing.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Almost always a validation or required-field error with nowhere to render — add <code>apex:pageMessages</code>.</p>
+<p>Second candidate: a <code>rerender</code> that excludes the messages region, so the error is produced and never
+displayed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> You need a wizard across several screens.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>One controller shared across pages, with the state held deliberately and minimally — or better, a screen flow, which handles navigation and
+state for you.</p>
+<p>Hand-built Visualforce wizards are where view state problems concentrate.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> An <code>apex:repeat</code> over 5,000 rows times out.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Rendering cost plus view state. Page it with <code>StandardSetController</code>, or render client-side from a remoting
+call.</p>
+<p>Visualforce was never designed to render thousands of rows in one
+request.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">33</span> How do you implement pagination properly?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>StandardSetController</code> with a page size gives you next/previous and record count with minimal state.</p>
+<p>For very deep paging, a keyset approach (<code>WHERE Id &gt; :lastId ORDER BY Id</code>) performs far better than
+<code>OFFSET</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> A controller is 1,200 lines.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Extract the business logic into a service class the controller calls — testable without the page, and reusable if you later rebuild the UI as
+an LWC.</p>
+<p>That extraction is also the first step of any migration, so it is never wasted
+work.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="pdf">PDF &amp; email (35–50)</h2>
+
+<details class="acc"><summary><span class="q-num">35</span> You need to generate a branded PDF invoice.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>renderAs="pdf"</code> on a Visualforce page — still the most practical built-in option, and a legitimate reason Visualforce
+survives.</p>
+<p>Expect an older rendering engine: table-based layout, inline or embedded CSS, and
+<code>@page</code> for size and margins.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> Flexbox and grid do not work in your PDF.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>The PDF renderer does not support them. Use tables for layout — genuinely, this is the one place table layout is
+correct.</p>
+<p>Also avoid external stylesheets, which load unreliably; inline or embed the
+CSS.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> Non-Latin characters render as boxes.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The default font lacks those glyphs. Embed a font via a static resource and <code>@font-face</code>.</p>
+<p>This is the standard fix for Arabic, CJK, Cyrillic and Greek content, and it needs testing with real
+data.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> PDF generation fails for large documents.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Heap and size ceilings. A 500-page document will not render in one request.</p>
+<p>Split into smaller documents, or generate asynchronously in batches and combine outside Salesforce. Decide the page-count limit you support and
+enforce it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> Images are missing from the PDF.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The renderer must be able to fetch them without a session — so static resources or documents, not session-protected URLs.</p>
+<p>Base64-embedding small images is another reliable option.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> Page breaks fall in the wrong place.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Use CSS <code>page-break-before</code>/<code>page-break-inside</code> on the containing elements, and keep table rows from splitting where it
+matters.</p>
+<p>Test with realistic content lengths — page breaks are fine until a description field is three paragraphs
+long.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">41</span> You need a header and footer on every page.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>@page</code> margin boxes with CSS, which the renderer supports for repeating headers and footers including page
+numbers.</p>
+<p>It is fiddly and worth building once as a reusable component for all your
+documents.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> A PDF must be attached to a record automatically.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>PageReference.getContentAsPDF()</code> in Apex, then save the blob as a ContentVersion or Attachment.</p>
+<p>Beware the callout-and-DML ordering rules and the heap cost of the blob — for bulk generation, do it in batches
+asynchronously.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> <code>getContentAsPDF()</code> throws in a trigger.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It behaves like a callout in several respects and is not permitted in all contexts, particularly after DML.</p>
+<p>Move it to an asynchronous context — a Queueable or Batch — which is also where you want the heap
+headroom.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> A Visualforce email template is the right choice when?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>When the email needs related lists, loops, conditional sections or complex data — things Classic and Lightning email templates handle
+poorly.</p>
+<p>It remains genuinely useful, and it is a second legitimate reason Visualforce still
+exists.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> The email template renders differently in Outlook.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Email clients are far more restrictive than browsers: table layout, inline CSS, no modern selectors.</p>
+<p>Test in the clients your recipients actually use, and keep the markup deliberately
+primitive.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> A PDF must be generated for 10,000 records nightly.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Batch Apex with a small scope, generating and saving each document — and expect it to be slow, because each render is a page
+request.</p>
+<p>At that volume, consider whether a document-generation service outside Salesforce is a better fit for cost and
+speed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> You need a Word document rather than a PDF.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Visualforce can emit other content types via <code>contentType</code>, which gets you a basic RTF or HTML-as-doc
+output.</p>
+<p>For genuine .docx fidelity, use a third-party document generation tool — hand-rolling Office formats in Apex is not a good use of
+anyone's time.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> The PDF must be identical to a designer's mockup.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Set the expectation early: the renderer is limited, so pixel-identical output is often not achievable.</p>
+<p>Agree the layout against a rendered proof rather than a web mockup, or use a dedicated document tool if fidelity is genuinely
+contractual.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> How do you test PDF generation?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>In Apex, assert that <code>getContentAsPDF()</code> returns a non-empty blob and that the controller produced the expected data — you cannot
+assert on visual layout.</p>
+<p>Visual verification is a manual step with realistic data, including the long-content and missing-data
+cases.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> Should new document generation use Visualforce?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>For PDFs on-platform, yes — it is still the pragmatic built-in option and there is no LWC equivalent.</p>
+<p>That is a narrow exception. Everything interactive should be LWC.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="aura">Aura (51–68)</h2>
+
+<details class="acc"><summary><span class="q-num">51</span> An application event wakes dozens of components.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Application events broadcast to <em>every</em> component that handles them, anywhere on the page — the classic Aura performance and
+debugging problem.</p>
+<p>Prefer component events (which bubble through containment), and in LWC the equivalent discipline is to avoid
+<code>composed: true</code> unless necessary.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> Component event versus application event.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Component events travel the containment hierarchy with capture and bubble phases — scoped and traceable. Application events go
+everywhere.</p>
+<p>Default to component events. Application events are for genuinely page-wide concerns, and even then they are hard to
+reason about.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> A server action callback fires twice.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Storable actions</strong>: the framework may return a cached response immediately and then a fresh one, invoking your callback
+twice.</p>
+<p>Make callbacks idempotent and check the action state. Non-idempotent handlers behind storable actions produce genuinely confusing
+bugs.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> When should an action be storable?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Read-only, cacheable data where a slightly stale first paint is acceptable — it makes the page feel much faster.</p>
+<p>Never for anything that writes, and never where the double callback would cause a side
+effect.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> An Aura component is slow to load.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Aura has a heavier client-side bootstrap than LWC, and the usual culprits are too many components and several server calls on
+init.</p>
+<p>Consolidate the server calls, lazy-load what is not visible, and consider whether the component should be rebuilt as an
+LWC.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> Can an LWC be nested inside an Aura component?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Yes — and <strong>not the reverse</strong>. That asymmetry dictates migration order: rebuild the innermost components first and let the Aura
+shell remain temporarily.</p>
+<p>Attempting to migrate the outer container first leaves you unable to host the children you have not converted
+yet.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> An Aura component must talk to an LWC.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Pass data down via attributes, and let the LWC fire a <code>CustomEvent</code> the Aura parent handles — or use Lightning Message Service for
+anything less structural.</p>
+<p>LMS also reaches Visualforce, which makes it the bridge of choice during a mixed-technology
+migration.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> <code>aura:method</code> versus an event.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>aura:method</code> is a direct parent-to-child call — appropriate for imperative actions like reset or validate.</p>
+<p>Events are for child-to-parent notification. Using an event where a method would do adds indirection; using a method where a property would do
+adds coupling.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> An Aura attribute change does not re-render.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Aura's change detection differs from LWC's: you may need an explicit change handler, and deep mutations are not always
+observed.</p>
+<p>Set the attribute to a new value rather than mutating its contents — the same discipline that LWC
+requires.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> LockerService broke a third-party library.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Locker restricted DOM and global access. <strong>Lightning Web Security</strong> has since replaced it with a different sandboxing model, and
+many libraries that failed under Locker now work.</p>
+<p>Re-test rather than relying on what was true years ago.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> What changed moving from Locker to LWS?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A different isolation approach with fewer JavaScript restrictions, so more third-party code works — but some behaviours differ, particularly
+around DOM access and globals.</p>
+<p>Treat the migration as a regression-test exercise for anything using external
+libraries.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> An Aura component works in the app and fails in a community.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Different runtime and theming, guest-user context, and some APIs unavailable.</p>
+<p>Test as the actual community persona. If the site is LWR, Aura components are not supported there at all — which is frequently the real
+answer.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> How do you debug an Aura component?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Browser devtools for the network calls and console, plus the Lightning Usage App for EPT at page level.</p>
+<p>Aura's error messages are often unhelpful, so logging around the action callbacks is usually faster than reading the
+stack.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> An Aura component needs a record page context.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Implement the appropriate interface so <code>recordId</code> is injected, and declare where the component can be used in its
+design file.</p>
+<p>The same pattern as LWC targets — and getting it wrong means the component does not appear in App
+Builder.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> Should you write new Aura components?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No. LWC for everything new — better performance, a standards-based model, and the direction of the platform.</p>
+<p>Existing Aura is a maintenance commitment, not a template for new
+work.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> An Aura component is business-critical and nobody understands it.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Document the behaviour first, then extract the server-side logic into a service class so it is testable independently of the
+UI.</p>
+<p>That extraction both de-risks the current component and is the first step of the eventual
+rewrite.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> Aura's <code>$A.enqueueAction</code> batching surprises you.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Actions are queued and sent in batches, so ordering and timing are not what a sequential reading of the code
+suggests.</p>
+<p>Do not rely on action order; chain dependent calls through callbacks, or restructure so each call is
+independent.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> How do you decide what to migrate first?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>By usage and risk: the Lightning Usage App tells you what is actually used, and plenty of legacy components are used by
+nobody.</p>
+<p>Deleting the unused ones is the cheapest migration available. Then migrate the high-usage, high-risk ones leaves
+first.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="migration">Migration (69–86)</h2>
+
+<details class="acc"><summary><span class="q-num">69</span> Where do you start a Visualforce-to-LWC migration?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Inventory and measure: pages by usage, by business criticality, by complexity. Then delete what nobody uses.</p>
+<p>After that, migrate leaves before containers, and replace the data layer early — swapping <code>@RemoteAction</code> for
+<code>@AuraEnabled</code> cacheable methods or LDS often removes most of the Apex.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> Should you transliterate the page element by element?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No — a postback-oriented design translated literally produces poor LWC. Re-express the <em>requirement</em>.</p>
+<p>Frequently the LWC version needs a fraction of the code because LDS and base components replace what the controller was
+doing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">71</span> An integration depends on your Visualforce page URL.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>That URL is a contract. Keep the page as a thin redirect or wrapper during migration, or coordinate the change with the
+consumer.</p>
+<p>Check the Setup references and your integration register before deleting any page with a predictable
+URL.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> How do you keep a rollback position during migration?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Leave the old page available behind a permission or a feature flag until the replacement has run in production for a
+cycle.</p>
+<p>The rollback story matters more than the elegance of the cutover.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> A Visualforce page is embedded in a Lightning record page.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It works, inside an iframe, with the attendant styling and communication awkwardness — and Lightning Message Service is how you talk to
+it.</p>
+<p>It is a reasonable interim state, and a poor permanent one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> Styling does not match after embedding in Lightning.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The page carries its own styling and does not inherit the Lightning theme. Apply SLDS inside the page, and set
+<code>applyHtmlTag</code>/<code>applyBodyTag</code> deliberately.</p>
+<p>It will never look native. If appearance matters, that page is a migration
+candidate.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> <code>sforce.one</code> navigation does not work.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It is only available when the page is running inside Lightning — so a page that works standalone breaks embedded, or vice
+versa.</p>
+<p>Detect the context and branch, or navigate from an LWC wrapper
+instead.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> Visualforce in Experience Cloud.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Supported in Aura-template sites with caveats; not a good fit for LWR, which is where new sites should be.</p>
+<p>Guest-user context also applies, so the page's controller must be reviewed for the same exposure risks as any public
+surface.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">77</span> How do you migrate a controller's logic safely?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Extract it into a service class with tests <em>first</em>, while the page still works. Then the LWC calls the same
+service.</p>
+<p>That way the behaviour is pinned by tests before the UI changes, and a regression is
+attributable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> Your LWC replacement is slower than the Visualforce page.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually several Apex calls on load where the Visualforce page did one query, or rendering too much at once.</p>
+<p>Consolidate into one call returning a composite payload, lazy-load the rest, and measure with component
+instrumentation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">79</span> Users prefer the old page.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually a workflow regression rather than nostalgia: a keyboard shortcut, a dense layout, or fewer clicks in the old
+version.</p>
+<p>Watch someone use both. Migrating the technology while degrading the task is a net
+loss.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> How do you find every Visualforce page still in use?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The Lightning Usage App and page-view data for traffic, plus Setup dependency references, buttons, links, email templates and
+integrations.</p>
+<p>A page with no traffic and no references is safe to delete — and that is a meaningful share of most legacy
+estates.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">81</span> Deleting a page breaks a custom button.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Check the "Where is this used?" dependencies before deleting anything — buttons, links, layouts, flows and email templates all
+reference pages.</p>
+<p>Deployment will usually block a genuinely referenced delete, but not every reference type is
+caught.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> A migration is half-finished and stalled.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The common state. Make sure each migrated piece is independently complete and shipped, so partial progress is still
+value.</p>
+<p>A migration structured as one big cutover stalls permanently; one structured as many small replacements survives changing
+priorities.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">83</span> How do you justify migration effort to the business?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>In their terms: page performance, mobile support, maintainability cost, and the risk of a shrinking pool of people who can work on
+it.</p>
+<p>"It is old technology" loses the argument. "This page cannot be used on mobile and takes six seconds to load" wins
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> Should you migrate a page that works fine?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Not for its own sake. A stable internal admin utility nobody looks at is not a priority.</p>
+<p>Migrate when there is a reason: it needs changes, it must work on mobile, it is slow, or it blocks something. Churn without benefit is still
+churn.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> What is the honest remaining role for Visualforce?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>PDF generation, complex data-driven email templates, stable internal utilities, and pages embedded in long-lived integrations expecting a
+URL.</p>
+<p>Everything interactive, mobile or reusable should be LWC.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> An interviewer asks whether Visualforce is dead.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Say no, and be specific: LWC for anything new, but Visualforce still earns its place for PDF and complex email templates, and plenty of orgs
+have thousands of working pages.</p>
+<p>Then describe the migration approach — by usage and risk, leaves first, rebuild rather than transliterate. That demonstrates judgement rather
+than fashion.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="judgement">Judgement (87–100)</h2>
+
+<details class="acc"><summary><span class="q-num">87</span> You inherit 400 Visualforce pages.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Inventory by usage and references, delete the dead (usually a large fraction), then rank the rest by risk and
+need.</p>
+<p>Do not plan a 400-page migration. Plan the next ten, shipped
+independently.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> A page fails only for one user.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>View state, driven by their data volume, or FLS on a field the page assumes is visible.</p>
+<p>Log in as them. Legacy pages frequently assume the developer's own
+permissions.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> A legacy page has no tests.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Write tests around the controller's current behaviour before changing anything — including the parts you believe are
+wrong.</p>
+<p>Controller tests are straightforward: set up the page reference, instantiate, call the action methods, assert the resulting
+state.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> How do you test a Visualforce controller?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Set <code>Test.setCurrentPage</code> with any parameters, construct the controller (with a
+<code>StandardController</code> if it is an extension), call the action methods, and assert on the state and the resulting
+<code>PageReference</code>.</p>
+<p>Also assert the error path, which is where legacy controllers are
+weakest.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> An old page runs on a very old API version.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It keeps that version's semantics, which is a stability guarantee and accumulating debt.</p>
+<p>Bump it deliberately with regression testing as a maintenance task, not silently while making an unrelated
+change.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> Security review flags a legacy page.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Likely causes: controller in system mode without FLS enforcement, <code>apex:inputText</code> bound to fields bypassing FLS, URL parameters
+trusted for access, or output not escaped.</p>
+<p>Prioritise anything reachable by guest or external users — that is where the real exposure
+is.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> Is output escaped by default in Visualforce?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Largely yes, and <code>escape="false"</code> is how legacy pages introduce XSS.</p>
+<p>Audit every <code>escape="false"</code> and every place HTML is assembled in the controller. User-supplied content must never be rendered
+unescaped.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> A page builds HTML strings in Apex.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>An injection risk and unmaintainable. Render with components and let the framework escape, or escape explicitly with the platform's
+utilities.</p>
+<p>String-built HTML is one of the clearest signals a page needs
+rewriting.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> How do you prioritise legacy UI work against new features?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Reserve a fixed slice of each sprint rather than competing on priority — legacy work always loses a direct
+comparison.</p>
+<p>Target the pages that are blocking something or failing users, so the work has a visible
+beneficiary.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> A stakeholder wants the old page kept "just in case".<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Agree a sunset date and measure usage in the meantime. Usually the data settles it within a
+month.</p>
+<p>Indefinitely maintaining two versions of the same screen is the worst of both
+options.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> What is the most common legacy Visualforce problem?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>View state driven by unbounded data — a page that worked for five years and now fails for the customers with the most
+records.</p>
+<p>Closely followed by queries in getters, and controllers running in system mode with no FLS
+enforcement.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> How do you make a legacy page safe to leave alone?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Bound its queries, mark re-derivable state transient, enforce FLS and sharing, add controller tests, and document what it
+does.</p>
+<p>Then it can wait. An unbounded, untested page in system mode cannot be safely
+ignored.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> When is rewriting cheaper than fixing?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>When the page's design fights the platform — a postback-heavy interactive screen hitting view state limits — so each fix buys
+little.</p>
+<p>When the problems are bounded (one slow query, one missing check), fixing is far
+cheaper.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit for working with legacy UI?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Extract the logic into a tested service class <strong>before</strong> you touch the UI.</p>
+<p>It makes the current page safer, makes the behaviour explicit, and means the eventual rewrite is a presentation change rather than a
+re-derivation of business rules nobody documented.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="visualforce.html">Visualforce &amp; Aura</a>, the <a href="scenarios.html">scenario index</a>, or
+    <a href="lwc-core-scenarios.html">LWC Core — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Visualforce &amp; Aura — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

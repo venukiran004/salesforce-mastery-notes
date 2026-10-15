@@ -105,7 +105,7 @@ const SITE = [
         k: "debug log trace flag finest cumulative limit usage code unit started developer console checkpoint heap dump execute anonymous replay debugger apex log analyzer error lookup null pointer list has no rows setup audit trail optimizer health check apex exception email error log" },
       { f: "pages/governance.html", t: "Governance & Ecosystem", i: "🏛️",
         k: "governance center of excellence coe well-architected technical debt optimizer health check single org multi org divisions appexchange managed package unlocked package security review isv lma mulesoft tableau slack heroku commerce localisation localization multi-currency advanced currency management dated exchange rates translation workbench custom labels locale timezone fiscal year state country picklists irreversible settings" },
-      { f: "pages/scenarios.html", t: "Scenario Banks", i: "🎯", pill: "1500",
+      { f: "pages/scenarios.html", t: "Scenario Banks", i: "🎯", pill: "2000",
         k: "scenarios scenario banks situations practice questions interview preparation 100 questions per topic out loud ninety seconds diagnostic order trade-offs fundamentals admin security apex core triggers advanced async testing limits flows lwc integration events patterns" },
       { f: "pages/practice.html", t: "Practice Q&A Bank", i: "❓", pill: "65",
         k: "interview questions practice scenario answers apex triggers lwc integration admin quiz" },

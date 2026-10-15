@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deployment &amp; DevOps · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>DevOps</span></div>
+  <h1>Deployment &amp; DevOps — 100 Scenarios</h1>
+  <p class="lede">Deployment mechanics and test levels, scratch orgs and packaging, CI authentication, sandbox strategy,
+     the config that is data, rollback, and the metrics that tell you whether the pipeline works.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on <a href="devops.html">Deployment &amp;
+    DevOps</a>, its <a href="devops.html#advanced">Advanced</a> section, and
+    <a href="branching-strategy.html">Branching Strategy</a>.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="mechanics">Deployment mechanics (1–20)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> A production deployment takes three hours.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Full-org deployment with all tests. Two changes fix it: <strong>delta deployments</strong> (manifest generated from the diff since the last
+release tag) and <strong>validate-then-quick-deploy</strong>.</p>
+<p>Run the tests in a validation-only deployment ahead of the window, then promote that validated build without re-running them — minutes instead
+of hours.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> How long is a validated deployment valid for?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A limited window (commonly 10 days) during which you can quick-deploy it without re-running tests — provided nothing else changed in the
+target org.</p>
+<p>That window is what makes a short production release possible, so validate early in the
+day.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Quick deploy is unavailable after validation.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Something changed in the target org since you validated, or the window expired, or the validation did not run the required test
+level.</p>
+<p>Re-validate. The eligibility rules are strict precisely because the point is that the tests have already
+passed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Which test level for a normal release?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>RunLocalTests</code> — everything except managed-package tests. That is the sensible production
+default.</p>
+<p><code>RunAllTestsInOrg</code> only before a major package upgrade, when you need the package's tests to pass
+too.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> A hotfix needs to deploy in ten minutes.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>RunSpecifiedTests</code> naming the tests that cover the changed classes — fast, but the deployment is rejected if coverage of those
+classes is insufficient.</p>
+<p>Which is an argument for having meaningful per-class coverage before you need a
+hotfix.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> The deployment fails on code coverage.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>You need 75% org-wide and every trigger covered — and with <code>RunSpecifiedTests</code>, sufficient coverage of the specific classes being
+deployed.</p>
+<p>The fix is a real test, not a test that merely executes lines. Set a per-class floor in CI so this is caught at PR time
+instead.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> A field deletion is in your deployment.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Destructive changes go in a separate <code>destructiveChanges.xml</code>, applied pre- or post-deployment — never automatically, and never
+without explicit review.</p>
+<p>They take the data with them and nothing rolls back transactionally. Keep a per-release list of irreversible
+changes.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> Can you roll back a deployment?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Not transactionally. "Roll back" means deploying the previous tagged state and <em>manually</em> reversing what cannot be redeployed:
+deletions, data changes, picklist values, irreversible settings.</p>
+<p>A tag per release makes the first half trivial; the documented irreversible list makes the second half a judgement rather than a
+discovery.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> A component is not deployable at all.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check the <strong>Metadata Coverage Report</strong> before promising automation — not everything is supported, and the gaps become documented
+manual steps in the runbook.</p>
+<p>Discovering a coverage gap during the release is how a two-hour window becomes an
+evening.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> The deployment succeeded but the feature does not work.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Missing <strong>data</strong>: custom setting rows, Custom Metadata records, queue members, picklist assignments per record type, or package
+configuration.</p>
+<p>Write an idempotent post-deployment Apex script that seeds what is required and can be re-run
+safely.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> Scheduled jobs break after every release.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Deployments can leave schedules pointing at changed logic, or block changes to classes referenced by active
+jobs.</p>
+<p>Build an idempotent scheduler setup method that aborts and recreates every schedule, run it post-deployment, and verify
+<code>CronTrigger</code> afterwards.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> A change set is missing dependencies.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Change sets do not resolve dependencies for you — you add each component by hand and discover omissions on
+deployment.</p>
+<p>That is the core argument for source-driven deployment, where the manifest is generated from the
+diff.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> Should you still use change sets?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>They are a legitimate intermediate state for a declarative-only team, with git providing history and review.</p>
+<p>But they do not scale: no delta generation, no automation, manual dependency management, and no rollback reference. Treat them as a step on the
+way, not a destination.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> A deployment overwrites an admin's production fix.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Config drift: production had changes that were not in your branch, and a full deployment steamrolled
+them.</p>
+<p>Add nightly drift detection (retrieve production, diff against <code>main</code>, fail loudly), capture the change into a
+<code>config/*</code> branch, and give admins a sanctioned fast path. See
+<a href="branching-strategy.html#drift">drift</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> Delta or full deployment?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Delta for speed and a scoped blast radius; full deployments get slower as the org grows and overwrite undocumented production
+changes.</p>
+<p>The catch is that delta <em>hides</em> drift rather than steamrolling it — so pair it with scheduled drift
+detection.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> How do you generate a delta manifest?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>From the git diff between the last release tag and HEAD, with a tool that also produces the destructive manifest
+(<code>sfdx-git-delta</code> is the common community plugin).</p>
+<p>Hand-maintaining <code>package.xml</code> guarantees omissions and merge
+conflicts.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">17</span> A deployment fails with an unrelated test failure.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A pre-existing broken test, or a test that depends on org data that changed. Either way it is blocking you
+now.</p>
+<p>Fix or delete it deliberately — never leave a red test, because the next real failure will be invisible among the
+noise.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> You need to deploy to five orgs.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>One pipeline, parameterised per target, with the same artefact deployed to each — plus per-org configuration data seeded by
+script.</p>
+<p>Deploying from different branches to different orgs is how they diverge
+permanently.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">19</span> What belongs in a release runbook?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Pre-checks, the validation step, the deploy command, post-deployment scripts (schedules, config data), verification steps, the rollback
+position, and the irreversible-change list.</p>
+<p>Written before the release, not reconstructed during
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> How do you verify a deployment actually worked?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A post-deployment smoke suite: auth, key endpoints, a read, a write with cleanup, and limit health — plus verification that page assignments
+and schedules are correct.</p>
+<p>"The deployment reported success" is not verification. See
+<a href="postman.html#advanced">Newman in CI</a>.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="scratch">Scratch orgs &amp; environments (21–40)</h2>
+
+<details class="acc"><summary><span class="q-num">21</span> Your scratch org does not look like production.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The definition file declares edition, features and settings, and yours does not match. Derive it from an <strong>org
+shape</strong> rather than guessing.</p>
+<p>Then an <strong>org snapshot</strong> turns a 20-minute setup into a 2-minute spin-up, which transforms developer
+onboarding.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> A developer needs data to work with.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Seed it: <code>sf data tree import</code> with a plan file, kept in the repo so every scratch org gets the same
+baseline.</p>
+<p>A scratch org with no data is useless for realistic testing, and hand-creating records wastes an hour per
+developer.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> What is source tracking actually doing?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The org remembers what changed locally and remotely, so <code>retrieve</code>/<code>deploy</code> work without a manifest — and conflicts are
+reported rather than silently overwritten.</p>
+<p><code>deploy preview</code> and <code>retrieve preview</code> are the commands worth
+habituating.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> Which sandbox type for UAT?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Partial Copy with a good sandbox template is usually the right balance — realistic data shape, 5-day refresh.</p>
+<p>Full Copy for performance testing and data-migration rehearsal, where real volume matters and the 29-day refresh is
+acceptable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> You have one Full sandbox and three competing needs.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Sequence them against the refresh cycle and be explicit with the business about the trade-off — performance testing and migration rehearsal
+need volume; UAT mostly needs shape.</p>
+<p>If the programme genuinely needs more, another Full sandbox is cheaper than a failed
+go-live.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> After a refresh, customers received test emails.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Deliverability was left at All Email with real data present. The fix is a <strong>scripted post-refresh
+checklist</strong> run before anyone logs in.</p>
+<p>Set deliverability to System Email Only <em>first</em>, mask PII, repoint named credentials, deactivate scheduled jobs and integration users,
+disable outbound messages, then reseed config data.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> A developer sandbox cannot hold the migration test data.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Developer sandboxes are metadata-only with small data storage. Use them for transformation logic; use a Full sandbox for the timed
+rehearsal.</p>
+<p>Testing a 2-million-record load in a Developer sandbox tells you nothing except that storage limits
+exist.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> How do you keep sandboxes from diverging?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Deploy to them from the pipeline rather than by hand, refresh on a schedule, and run the same config-data seeding script in
+each.</p>
+<p>A sandbox nobody deploys to becomes a snapshot of whenever it was last touched, and then nothing tested there means
+anything.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> Scratch org or developer sandbox?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Scratch orgs for source-driven work: disposable, defined in version control, fast to recreate, ideal per feature
+branch.</p>
+<p>Developer sandboxes when you need a persistent environment or the org's existing configuration as a starting
+point.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> A scratch org expired mid-feature.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>They have a maximum duration. Recreate it from the definition file and re-seed — which is only painless if the setup is fully
+scripted.</p>
+<p>If recreating is painful, that is a signal the setup is not in version
+control.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> You need a sandbox with production-like volume.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Full Copy, or Partial Copy plus a generated data load to reach realistic volumes on the objects that matter.</p>
+<p>Query selectivity and lock contention only reproduce at volume, which is why performance testing in a Developer sandbox is
+misleading.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> Environment Hub — is it worth it?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Once you have more than a handful of connected orgs, yes — central visibility and sandbox creation.</p>
+<p>For two sandboxes it is overhead. The decision is about the number of environments you are tracking, not
+sophistication.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">33</span> How do you onboard a developer in under an hour?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Clone, create a scratch org from the definition (or snapshot), deploy, assign a permission set, import seed data, run a post-setup Apex
+script.</p>
+<p>All scripted, in the repo. If onboarding needs a human walkthrough, the environment setup is not
+reproducible.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> Two developers' scratch orgs behave differently.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Different definition files, different seed data, or one of them changed settings by hand.</p>
+<p>The definition and the seed data belong in version control precisely so this cannot
+happen.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> Should production access be restricted?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Yes — remove human metadata-edit rights and deploy as a service account, <em>once</em> the sanctioned fast path is genuinely
+fast.</p>
+<p>Locking the door before building the corridor just moves the problem somewhere you cannot see
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> How do you handle an urgent admin change in production?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Give them a hotfix branch and a twenty-minute pipeline. People bypass process when process is slow.</p>
+<p>Then capture anything that did happen directly into a <code>config/*</code> branch so git matches production
+again.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> What should a post-refresh script cover?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Deliverability first, then PII masking, endpoint repointing, deactivating schedules and integration users, disabling outbound messages,
+resetting the users you need, and reseeding config data.</p>
+<p>Automate it as an Apex class. The one time someone forgets, real customers receive test
+emails.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> A sandbox refresh lost your work.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A refresh replaces the sandbox. Anything not in version control is gone.</p>
+<p>That is the clearest argument for source control that exists, and it is usually learned the hard
+way.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> How many environments do you actually need?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>At minimum: per-developer (scratch or dev sandbox), one integration, one UAT, production. More only if parallel release trains genuinely
+require it.</p>
+<p>Your branch topology cannot exceed your org topology, so this decision constrains everything
+downstream.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> A migration needs a dry run.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Full sandbox, production-shaped data, timed, with row counts and checksums compared before and after — and the rollback rehearsed
+too.</p>
+<p>Unit tests cannot cover this; the risk is volume, duration and data shape.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="packaging">Packaging (41–56)</h2>
+
+<details class="acc"><summary><span class="q-num">41</span> Unlocked, managed or unmanaged?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Unlocked</strong> for modularising your own org — versioned, upgradeable, no namespace required. <strong>Managed</strong> for ISV
+distribution with IP protection. <strong>Unmanaged</strong> has no upgrade path at all.</p>
+<p>Get org-based source control working reliably before decomposing into
+packages.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> A package build fails on a dependency cycle.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The dependency graph must be acyclic. Break the cycle by extracting the shared pieces into a lower-level package both
+depend on.</p>
+<p>Most of the work of decomposing an org <em>is</em> breaking cycles; the packaging mechanics are the easy
+part.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> A subscriber edited your unlocked package's metadata.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Unlocked packages permit it — both the feature and the risk, since their change is drift your next version may
+overwrite.</p>
+<p>Document what is safe to change, and consider a managed package if components must be
+immutable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> Ancestry is wrong and subscribers cannot upgrade.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Managed packages declare an ancestry so upgrades know their lineage; getting it wrong produces versions that cannot install over what
+subscribers already have.</p>
+<p>A packaging-configuration problem worth getting right before the first
+release.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> Your package's tests fail in a subscriber org.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>They depend on org-specific data or configuration. Package tests run in the subscriber's org on upgrade, where your assumptions about records,
+picklists and automation do not hold.</p>
+<p>Build all data in the test, never use <code>SeeAllData</code>, and tolerate their automation firing on your
+inserts.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> How do you version a package?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Semantic versioning with a build number per promoted version, and a tag in git matching each released
+version.</p>
+<p>The tag is how you reproduce what a subscriber is running, which you will need during a support
+case.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> A package needs configuration data in the subscriber org.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Custom Metadata records can ship with the package; most other configuration is data and cannot.</p>
+<p>Provide a post-install script or setup page that seeds required rows idempotently, and a test that fails clearly when configuration is
+missing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> Should you package everything in the org?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No. Decompose where boundaries are genuinely clean and ownership is clear — and leave the rest in an unpackaged
+directory.</p>
+<p>A forced decomposition of tangled metadata produces packages that cannot be deployed
+independently, which is all cost and no benefit.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> How do you test a package upgrade?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Install the previous version in a sandbox with realistic data and automation, then upgrade — exercising the paths subscribers actually
+use.</p>
+<p>For configuration-heavy packages, recalculate a golden set with known expected outputs
+afterwards.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> A <code>global</code> method needs removing.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>In a managed package it is a permanent contract: deprecate it, ship the replacement alongside, and remove it only in a major version with a
+documented migration.</p>
+<p>Default to <code>public</code> and expose <code>global</code> deliberately and
+rarely.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">51</span> Two of your packages need to share internal code.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>@namespaceAccessible</code> — visible to other packages in your namespace without exposing it to
+subscribers.</p>
+<p>That is the right tool for the shared "common" package you extract when breaking
+cycles.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> An installed package is consuming your CPU budget.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Its triggers run in your transaction and <strong>CPU is shared</strong>, even though some limits are namespace-scoped.</p>
+<p>Prove it from <code>CUMULATIVE_LIMIT_USAGE</code>, which attributes consumption per namespace, then slim your own logic or take the evidence to
+the vendor.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> How do you evaluate a package before installing?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Install in a sandbox and check what it adds to <em>your</em> objects (triggers, flows, validation rules, fields), how much CPU it adds, what
+data leaves your org, the upgrade path, and what uninstalling leaves behind.</p>
+<p>Then plan the exit before you depend on it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> Uninstalling a package left data behind.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Expected — uninstall does not always remove data, and sometimes leaves metadata.</p>
+<p>Know what removal looks like before you commit, and keep the cleanup steps in your notes. "We'll just uninstall it" is rarely as clean as
+assumed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> Package licences expired silently.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Per-user package licences need assigning and auditing, and they expire without fanfare.</p>
+<p>Put a licence true-up in your monthly platform health review alongside Salesforce, permission set and feature
+licences.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> When is package-based development premature?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Before you have reliable source control, a working pipeline, meaningful test coverage and clean module
+boundaries.</p>
+<p>Doing both migrations at once is how programmes stall for a year. Get org-based GitFlow boring first, then
+decompose.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="ci">CI/CD (57–78)</h2>
+
+<details class="acc"><summary><span class="q-num">57</span> How should CI authenticate to an org?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>JWT bearer</strong> with a certificate on a Connected App and the key in CI secrets, or an auth URL stored as a single
+secret.</p>
+<p>Never a password or an interactive login. And use a dedicated deployment user, not a named human's admin
+account.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> Your CI certificate expires next month.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Rotate with overlap: generate the new one, add it, switch, retire the old. Put every expiry in a shared calendar with an
+owner.</p>
+<p>An expired CI certificate on release night is a predictable, self-inflicted
+outage.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> What gates belong on a feature PR?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Fast ones: lint, LWC Jest, Apex static analysis, and unit tests in a scratch org — an answer in a couple of
+minutes.</p>
+<p>Feedback slower than ten minutes gets batched around, which defeats
+CI.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> What gates belong on a PR into main?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Everything: validation deploy against <strong>production</strong>, the real test level, drift check, up-to-date-with-main, two reviewers and no
+direct pushes.</p>
+<p>The gate should match the blast radius of the target branch. A PR into main should be slow, thorough and
+boring.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> Static analysis returns 300 findings.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Set a severity threshold that fails the build, fix those, and baseline the rest so new code cannot add to the
+pile.</p>
+<p>An unprioritised list of 300 gets ignored; a gate plus a non-regression baseline gets the codebase improving
+steadily.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> Validation takes 40 minutes on every PR.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Tier it: static analysis and Jest on every PR, delta validation for <code>develop</code>, full validation only for release
+branches.</p>
+<p>And use validate-then-quick-deploy so the production window is minutes rather than
+hours.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> How do you detect config drift?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A scheduled job that retrieves production metadata, diffs it against <code>main</code>, and fails loudly on
+divergence.</p>
+<p>It is the single highest-value piece of automation in a Salesforce pipeline, and its run history is the artefact an auditor actually
+wants.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> What do you do when drift is detected?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Retrieve the change into a <code>config/*</code> branch, PR it into <code>main</code> like any other change, then merge down to
+<code>develop</code> and every open release branch the same day.</p>
+<p>Skip the merge-down and your next release reverts it
+again.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> How do you deploy the config that is data?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A scripted, version-controlled migration — export/import or a seeding job — run as part of the release, with references re-pointed by name
+because Ids differ per org.</p>
+<p>CPQ, Field Service, territories, operating hours and scheduling policies all fall here. See
+<a href="cpq.html#advanced">CPQ</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> Should the pipeline deploy to production automatically?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Eventually, once the gates have earned trust — and with a manual approval step for the promotion in most
+enterprises.</p>
+<p>Automate the tiers in order, production last. Automating production first is how a pipeline loses its
+mandate.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> A pipeline secret leaked.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Revoke the OAuth tokens from the Connected App first (fastest), rotate the certificate or secret, then update the pipeline's
+store.</p>
+<p>Removing it from the repo is insufficient — git history retains it, so revocation is the action that actually closes
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> How do you test LWC in CI?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Jest via <code>sfdx-lwc-jest</code> — no org required, so it runs in seconds on every PR.</p>
+<p>Cover the three rendering states (data, error, empty) and the event contracts; that catches most real component
+defects.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> How do you test flows in CI?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Flow Tests for record-triggered flows, run alongside Apex tests.</p>
+<p>In orgs where flows carry most of the logic, this <em>is</em> the application's test suite, and its absence is a bigger risk than low Apex
+coverage.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> A post-deployment smoke test is failing.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Good — that is it working. Check whether it is the deployment, missing config data, a page assignment, or a broken
+schedule.</p>
+<p>A smoke suite that has never failed is probably not testing
+anything.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">71</span> How do you keep CI runs fast as the org grows?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Delta validation rather than full, specified tests where coverage allows, parallel jobs for independent checks, and a small smoke
+set.</p>
+<p>Measure the pipeline duration as a metric — when it creeps past ten minutes for PRs, developers start working around
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> Tests fail intermittently in CI.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Usual causes: dependence on real SOSL indexing, on today's date, on unsorted query order, on static state, or parallel test
+contention.</p>
+<p>Fix them as high priority — a suite people distrust provides no protection, and flaky tests get
+disabled.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> Should CI run against a scratch org or a sandbox?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Scratch org for PR validation — clean, disposable, reproducible from the definition file.</p>
+<p>A sandbox for anything needing realistic data or integration endpoints, and for the validation against production
+itself.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> How do you handle a package dependency in CI?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Install the dependency into the scratch org as part of setup, pinned to a version, before deploying your
+source.</p>
+<p>Unpinned dependencies make builds non-reproducible, and "it worked yesterday" becomes
+unexplainable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> What should fail a build versus warn?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Fail: test failures, validation failures, coverage below the per-class floor on changed classes, high-severity static
+findings.</p>
+<p>Warn: style, lower-severity findings, documentation gaps. Everything failing means nothing is
+prioritised.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> Nobody trusts the pipeline.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually flaky tests, slow feedback, or failures with unreadable output.</p>
+<p>Fix reliability before adding gates. A pipeline people bypass is worse than none, because it gives false
+assurance.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">77</span> How do you introduce CI to a team with none?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A <strong>read-only pipeline</strong> first: validate PRs, deploy nothing, plus nightly drift detection.</p>
+<p>It builds trust and reveals the real change volume before you block anyone's work. Then automate deployment tier by tier, production
+last.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> DevOps Center or a third-party tool?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>DevOps Center lowers the barrier for declarative teams with no git experience. Third-party tools offer more control, better delta handling and
+richer release management.</p>
+<p>Either is better than manual change sets. Choose from your team's skills and your release complexity, not from feature
+lists.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="judgement">Metrics &amp; judgement (79–100)</h2>
+
+<details class="acc"><summary><span class="q-num">79</span> Which metric best indicates pipeline health?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Lead time</strong> — commit to production. It is the most honest single measure of whether the process works.</p>
+<p>Then deployment frequency with change failure rate: rising frequency at flat failure rate means the gates are doing their
+job.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> Mean time to restore is four hours.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Too slow — people will bypass the process for anything urgent, which is worse than the four hours.</p>
+<p>Target a hotfix path measured in tens of minutes: branch from main, validate, deploy, tag, forward-merge. See
+<a href="branching-strategy.html#hotfix">hotfixes</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">81</span> Drift events are increasing month on month.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The sanctioned path is too slow, or does not exist for the kind of change people need.</p>
+<p>The fix is process speed, not more enforcement. Rising drift with tighter controls means people are routing around
+you.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> How do you justify DevOps investment?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>In their terms, with your own numbers: deployment duration, failure rate, hotfix frequency, and hours spent diagnosing
+incidents.</p>
+<p>"Best practice" loses the argument. "Three of our last five incidents were drift reverting an admin's fix" wins
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">83</span> A release failed and nobody knows what changed.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No tags, no generated release notes, no ticket ids in commits.</p>
+<p>Tag every release, put ticket ids in branch names and merge commits, and generate notes from them. That makes "what shipped" answerable in
+seconds.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> How do you decide what goes in a release?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>At the branch level: cut a release branch and freeze its scope, so "what is in this release" is a commit range rather than an
+argument.</p>
+<p>If you are routinely cherry-picking to assemble a release, the branch model is
+wrong.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> Two teams need different release cadences.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Two release branches live at once — and both must receive every hotfix and every merge to main, which is where discipline
+breaks.</p>
+<p>Automate a staleness check that fails when a branch is missing commits from main. The structural answer is unlocked
+packages.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> A deployment window is 30 minutes and you need 90.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Validate ahead of the window and quick-deploy inside it, move post-deployment scripts to idempotent jobs that can run after, and defer
+non-essential steps.</p>
+<p>Most 90-minute releases are 80 minutes of tests that could have run
+yesterday.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> How do you handle a failed production deployment mid-way?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Metadata deployments are largely transactional, so a failure usually leaves nothing applied — verify that, then diagnose from the
+error.</p>
+<p>The dangerous cases are post-deployment scripts and data migrations that partially ran, which is why they must be
+idempotent.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> You inherit a pipeline nobody documented.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Trace it from the workflow files: what triggers it, which orgs it touches, which credentials it uses and when they
+expire.</p>
+<p>Then document it and add the credential expiry dates to a calendar — that is usually the nearest
+time-bomb.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> A release needs a database-style migration script.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Write it as idempotent Apex or a scripted data operation, version it with the release, and rehearse it in a Full
+sandbox.</p>
+<p>And record whether it is reversible — most data migrations are
+not.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> How do you keep release notes honest?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Generate them from the ticket ids in merge commits rather than writing them by hand.</p>
+<p>Hand-written notes omit the things nobody wanted to mention, which are frequently the ones operations needs to
+know.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> A stakeholder wants to deploy on Friday afternoon.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>State the risk plainly — reduced support coverage for a weekend — and let them decide. If they accept it, record the
+acceptance.</p>
+<p>A fast, tested hotfix path makes Friday deployments far less frightening, which is the real
+answer.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> How do you prove to an auditor that git matches production?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The drift-detection job and its run history, plus <code>main</code> equals production as an enforced invariant, tagged releases, deployment by
+a service account, and Setup Audit Trail review.</p>
+<p>And state the caveat honestly: config that is <em>data</em> needs its own migration and reconciliation. Saying that unprompted is what makes the
+answer credible.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> The team wants to skip code review for small changes.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Tier it rather than abolishing it: a field label needs no board, a shared automation or anything touching security does.</p>
+<p>Publish the tiers so people can self-serve the small stuff — uniformly heavy governance gets bypassed, producing less control than
+none.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> How much test coverage should the pipeline require?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A per-class floor on <em>changed</em> classes — say 80% — rather than trusting the org-wide 75%, which hides exactly the regressions you care
+about.</p>
+<p>And remember coverage is not verified behaviour. Review the assertions, not just the
+number.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> You are asked to deploy without tests "just this once".<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Not to production — the platform requires a test level, and the point of the gate is the case where you are under
+pressure.</p>
+<p>If the tests are blocking because they are broken, fix the tests. That is a shorter path than it
+sounds.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> What is the first thing to automate in a manual process?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Validation on pull requests — it catches problems before they reach an org and requires no deployment
+rights.</p>
+<p>Then drift detection. Both build trust without blocking anyone, which is what earns you the mandate for
+more.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> A manual step keeps being forgotten.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Automate it or make the pipeline fail without it. A checklist item that is skipped twice will be skipped
+again.</p>
+<p>Post-deployment scheduler setup and config-data seeding are the usual
+candidates.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> How do you know the pipeline is good enough?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A developer can go from commit to production in a known, short time; failures are caught before production; drift is detected; and a hotfix
+takes tens of minutes.</p>
+<p>Tooling sophistication is not the measure. Those four outcomes
+are.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> What is the most common Salesforce DevOps mistake?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Treating all configuration as deployable metadata — then discovering that scheduling policies, CPQ rules, territories and custom setting rows
+are <em>data</em> that no deployment carries.</p>
+<p>Closely followed by no drift detection, and hard-coded Ids that break after every sandbox
+refresh.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit that most improves releases?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Validate early, quick-deploy late</strong> — and tag every release.</p>
+<p>The first turns a long, risky window into a short one; the second gives you a rollback reference, an audit answer and a way to reproduce exactly
+what shipped. Neither is clever and both pay back immediately.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="devops.html">Deployment &amp; DevOps</a>, the <a href="scenarios.html">scenario index</a>, or
+    <a href="branching-strategy-scenarios.html">Branching Strategy — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · DevOps — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>
