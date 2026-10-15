@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Experience Cloud · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>Experience Cloud</span></div>
+  <h1>Experience Cloud — 100 Scenarios</h1>
+  <p class="lede">External sharing mechanics, guest-user hardening, licence maths, LWR versus Aura, performance and
+     SEO, self-registration, and the exposure paths every security review looks for.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on <a href="experience-cloud.html">Experience
+    Cloud</a> and its <a href="experience-cloud.html#advanced">Advanced</a> section.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="sharing">External sharing (1–22)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> 100,000 customers need to see their own cases.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>High-volume Customer Community licences — which have <strong>no role hierarchy</strong>, so access comes from a <strong>Sharing
+Set</strong> matching the user's Contact or Account to a field on the Case.</p>
+<p>That single fact drives most community sharing
+design.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> Internal staff cannot see records a community user owns.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Records owned by high-volume community users are invisible to everyone else by default — you need a <strong>Share
+Group</strong>.</p>
+<p>It is the mechanism people most often do not know exists, and it presents as a mysterious reporting
+gap.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Should External OWD be enabled?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Yes. It gives external users a separate OWD so you can lock their access down without constraining internal
+users.</p>
+<p>A single OWD for both populations is how community data leaks — an internal convenience becomes an external
+grant.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> How does a Sharing Set actually work?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It grants access based on a <em>match</em> between a field on the user's Contact or Account and a field on the record — "see Cases where
+AccountId equals my Account".</p>
+<p>Which means the match field must be reliably populated, or access silently fails for some
+users.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> A customer can see another customer's record.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Contain first — tighten the object permission or disable the page while you diagnose.</p>
+<p>Then find the grant: an over-broad Sharing Set match field, a sharing rule including external users, elevated Apex, a system-context flow, or
+External OWD left open.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> Partners need to see their resellers' opportunities.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Partner Community licences with partner roles under each account, Super User access for partner managers, and <strong>External Account
+Hierarchy</strong> for the distributor-to-reseller tier.</p>
+<p>Verify the licence includes Opportunity — Customer Community does
+not.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> What is Super User access for?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A partner or customer user who can see their whole account's records — delegated, per-account
+visibility.</p>
+<p>Available on Partner and Customer Community Plus, and it is how you avoid building custom sharing for "the manager sees everything at their
+company".</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> How many partner roles per account?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Up to three, which is a hard constraint on how much hierarchy you can express inside a partner
+organisation.</p>
+<p>Deeper structures need External Account Hierarchy or a different
+approach.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> You designed on the assumption roles exist.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>If the licence is high-volume, there are no roles — so hierarchy-based access and sharing rules to groups of them do not
+apply.</p>
+<p>Discovering that after design is a redesign, which is why the licence decision precedes the sharing
+design.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> Community users cannot see Knowledge articles.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Data category group visibility — that is the mechanism controlling which articles which audiences
+see.</p>
+<p>Check it for authenticated external users <em>and</em> guests separately; they are configured
+independently.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> A contractor should see only their own appointments.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Sharing Sets matching their Contact to the Service Resource and Assigned Resource records.</p>
+<p>Test with a real login including the mobile app — under-sharing shows up as blank screens on the device, which looks like a mobile
+bug.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> Sharing rules do not seem to apply to community users.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>High-volume licences do not participate in ordinary sharing rules. Customer Community Plus and Partner licences
+do.</p>
+<p>So the mechanism available to you depends entirely on the licence — check that before debugging the
+rule.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> An external user needs access to one specific record.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Apex managed sharing with a custom RowCause, or a field the Sharing Set matches on.</p>
+<p>Manual shares are removed on ownership change, so they are a poor fit for anything intended to
+persist.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> Reporting is needed for external users.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Customer Community Plus and Partner licences include reports; high-volume Customer Community does
+not.</p>
+<p>Which is frequently the deciding factor between the two, and it costs real money per
+user.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> An external user's record ownership is causing skew.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>If community users create many records, their ownership distribution matters — and a default owner receiving everything produces ownership
+skew.</p>
+<p>Spread ownership, and keep any skewed owner out of the role
+hierarchy.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> How do you test external sharing?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Log in as the actual external persona — authenticated customer, partner, partner manager, guest — and attempt to reach what you did not
+intend.</p>
+<p>Reasoning from configuration misses the combination effects; logging in finds
+them.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">17</span> An auditor asks what external users can see.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Produce the External OWD, the Sharing Sets and their match fields, the Share Groups, the profile permissions per licence type, and the persona
+test evidence.</p>
+<p>That evidence only exists if you created the test matrix during build, which is an argument for doing
+so.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> Community users see too many fields.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Field-level security on the community profile — which is the control that actually prevents exposure, not page
+layouts.</p>
+<p>Review it field by field for every object they can
+reach.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">19</span> A case comment is visible when it should not be.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Case comments and feed items have their own visibility semantics for external users — internal-only flags
+matter.</p>
+<p>Test with a real community login; this is a common and embarrassing
+leak.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> Files shared to a case are visible externally.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>File sharing follows its own rules via ContentDocumentLink, and sharing a file to a record can expose it to anyone with record
+access.</p>
+<p>Audit file visibility separately from record visibility — they are not the same
+model.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">21</span> How do you handle a customer with multiple accounts?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Contacts to Multiple Accounts, plus a Sharing Set or sharing logic that accounts for the relationship object rather than a single
+AccountId.</p>
+<p>Which the default Sharing Set match does not do, so this needs explicit
+design.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> What is the commonest external sharing mistake?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Designing on the assumption that roles and sharing rules are available, when the licence is
+high-volume.</p>
+<p>Followed by leaving External OWD at the internal setting, and by forgetting the Share Group so internal staff cannot see community-owned
+records.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="guest">Guest users (23–44)</h2>
+
+<details class="acc"><summary><span class="q-num">23</span> What can an unauthenticated visitor reach?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Five surfaces: the guest profile's object and field permissions, guest sharing rules, every <code>@AuraEnabled</code> method reachable from a
+public page, every flow running in system context on that page, and the self-registration handler.</p>
+<p>Those five are where every serious Experience Cloud incident has
+originated.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> Guest users cannot be given access via sharing rules.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Correct — they need explicitly scoped <strong>guest sharing rules</strong>, and "Secure guest user record access" should stay
+enabled.</p>
+<p>Ordinary sharing rules do not target them, which is deliberate and
+protective.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> Who owns records a guest creates?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Guest users cannot own records, so creations are reassigned — usually to a default owner you must configure
+deliberately.</p>
+<p>At volume that owner develops ownership skew, which is a second reason to configure it
+thoughtfully.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> An <code>@AuraEnabled</code> method is on a public page.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>It is a public endpoint callable by anyone. Audit it for CRUD and FLS enforcement, parameter validation, row bounds, and whether anything in
+the path runs <code>without sharing</code>.</p>
+<p>Elevated code reachable from a guest page is the classic Salesforce exposure
+path.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> A flow on a public page runs in system context.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Same risk class as <code>without sharing</code> Apex — and reviewed far less often, because flows do not look like
+code.</p>
+<p>Run it in user context where possible, validate every input, and audit what it reads and
+writes.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> Guests are creating spam records.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A guest-writable object with no validation is a target. Add CAPTCHA and honeypots, rate-limit at the web layer, validate server side, and route
+submissions to a review queue.</p>
+<p>Blocking the submission entirely loses legitimate enquiries, so route rather than
+reject.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> Self-registration is granting too much.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The handler is a <strong>public endpoint</strong> — never trust supplied profile, role or permission values. Assign them server side from fixed,
+least-privilege configuration.</p>
+<p>Add CAPTCHA, rate limiting and email verification. This handler is among the most commonly exploited
+surfaces.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> Each site has its own guest user.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Yes — and its own profile. Hardening one site does not harden the others.</p>
+<p>Audit every site separately, including ones created for a campaign and
+forgotten.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> How do you verify guest hardening?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Open the site in an incognito window and try to read what you did not intend — including by calling the Apex methods
+directly.</p>
+<p>That step finds what the configuration review missed, which is the point of doing
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> A public page needs to show record data.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Grant the minimum through guest sharing rules and FLS, and prefer CMS or Knowledge content over records where
+possible.</p>
+<p>Exposing records to guests for SEO is how customer data ends up
+indexed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">33</span> Guest access to files is needed.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Possible, and it needs care: file sharing has its own model, and a publicly linked file is accessible to anyone with the
+link.</p>
+<p>Use asset files or CMS for genuinely public content rather than sharing record-attached
+files.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> A guest-accessible endpoint needs rate limiting.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>At the web or CDN layer primarily — Apex is a poor place to implement it, since the request has already consumed
+resources.</p>
+<p>Inside the org, bound payload sizes and reject oversized requests
+clearly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> A security researcher reports an exposure.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Acknowledge, contain (disable the page or tighten the permission, accepting the functionality loss), verify the claim yourself as a guest, then
+fix forward with a test.</p>
+<p>And check whether the same class of hole exists on your other
+sites.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> How do you review guest Apex systematically?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Enumerate every component on public pages, then every <code>@AuraEnabled</code> method they call, then whether each enforces CRUD/FLS,
+validates parameters, bounds rows and avoids elevation.</p>
+<p>Grep for <code>without sharing</code> and cross-reference against that
+list.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> A guest page exposes an object name parameter.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>That is a generic read endpoint for anonymous visitors. Allow-list the permitted objects and
+fields.</p>
+<p>Accepting an object name or filter from a client is a data-exfiltration surface regardless of
+intent.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> What should the guest profile look like?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Minimal: read on exactly the objects the public pages need, with FLS reviewed field by field, no create or edit unless deliberately required,
+and no API-enabled permission unless necessary.</p>
+<p>Default guest profiles are more permissive than people
+assume.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> A form must create a case with attachments.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Web-to-Case handles files poorly, so an Experience Cloud page or a custom endpoint is the robust
+option.</p>
+<p>Treat it as a public endpoint: guest permissions reviewed, size limits enforced, spam controls, and nothing running
+<code>without sharing</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> Guest users are consuming API limits.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Public pages making Apex calls consume org resources, and a scraped or attacked page can consume a great
+deal.</p>
+<p>Rate-limit, cache aggressively (public content is identical for everyone), and monitor site
+traffic.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">41</span> A campaign site was created and forgotten.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Its guest user still exists with whatever permissions it was given, and nobody is reviewing it.</p>
+<p>Maintain an inventory of sites with owners, and decommission deliberately — orphaned sites are a standing exposure
+risk.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> Should guests be able to run reports?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Essentially never — and the permission should not be on the guest profile.</p>
+<p>If public aggregate data is genuinely needed, publish it as content rather than exposing a reporting
+capability.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> How do you prevent SEO indexing of private content?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Keep anything record-backed behind authentication, and configure the site's SEO settings deliberately for what should be
+public.</p>
+<p>A search engine indexing customer data is the worst possible way to discover an access
+misconfiguration.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> What is the single highest-value guest control?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Field-level security on the guest profile</strong>, reviewed field by field — it is what actually prevents data exposure when a page or
+method is more permissive than intended.</p>
+<p>Followed by auditing elevated code reachable from public
+pages.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="build">Building the site (45–70)</h2>
+
+<details class="acc"><summary><span class="q-num">45</span> LWR or Aura template for a new site?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>LWR: substantially faster, static content from CDN, much better SEO — the right choice for new builds, public sites and
+performance-sensitive portals.</p>
+<p>Aura templates have a richer legacy component set, which is occasionally the deciding
+factor.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> A component you need is unavailable in LWR.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check the current feature matrix — the gap narrows every release, and basing the decision on year-old knowledge is how a project discovers a
+missing component in week six.</p>
+<p>Otherwise build it as an LWC, or reconsider the
+template.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> Aura components will not work in LWR.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Correct — LWR supports LWC only.</p>
+<p>Which is frequently the real reason an existing site cannot simply be migrated, and it needs
+scoping.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> A public site is slow for anonymous visitors.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Enable the <strong>CDN</strong> — the largest single win for anonymous traffic, since public pages are identical for
+everyone.</p>
+<p>Then component count, image weight and the number of Apex calls on
+load.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> Pages are megabytes of images.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Compress, resize and use modern formats. Community pages are frequently far heavier than anyone has
+measured.</p>
+<p>Test on a throttled connection from the geography your users are in, not your office
+laptop.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> Five components each call Apex on load.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Five round trips. Consolidate into one call returning a composite payload.</p>
+<p>On a community page, that matters more than internally because external users are often on worse
+connections.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">51</span> Authenticated pages cannot be cached.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Correct — caching applies to public content where the response is identical for every
+visitor.</p>
+<p>So performance work on authenticated pages is about reducing work, not about
+caching.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> You need different content per segment.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Audience targeting</strong> — vary components, pages and branding by profile, location, record field or custom
+criteria.</p>
+<p>It is the declarative way to serve several segments from one site rather than building
+several.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> Content must be reused across sites and channels.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Salesforce CMS, with workspaces and translations — so the content is managed once and consumed in several
+places.</p>
+<p>Also the right home for genuinely public content, rather than exposing
+records.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> The site needs to support three languages.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Site translations, locale-aware formatting and right-to-left support where needed — planned at the
+start.</p>
+<p>Retrofitting localisation usually means rebuilding pages, which is why it is a design decision rather than a
+phase.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> User-generated content needs controlling.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Moderation: content rules, rate limits on posting, member criteria and a flagged-content queue.</p>
+<p>Essential for any site with discussions — and someone must actually work the
+queue.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> Case deflection is a goal.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Surface Knowledge search <em>before</em> the case form, and measure the deflection — sessions resolved without creating a
+case.</p>
+<p>Deflection claimed without measurement is not
+deflection.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> A branded mobile app is wanted for the community.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Mobile Publisher wraps the site with your branding and app store presence.</p>
+<p>Which also means the site's mobile responsiveness matters more — test at phone width with a real
+device.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> SEO is a requirement.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>LWR plus CDN, with the site's SEO settings configured and public content as CMS or Knowledge rather than
+records.</p>
+<p>Aura templates are poor for indexable public content, which is frequently the deciding
+factor.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> Login must use the customer's existing identity.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Social sign-on or an external identity provider, with Salesforce as the service provider — or Salesforce as the IdP if it owns the customer
+identity.</p>
+<p>Decide which system owns identity before building the login
+experience.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> Passwordless login is requested.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Supported via email or SMS verification, which is genuinely better for consumer experience.</p>
+<p>It needs reliable contact data and a thought-through recovery path for people who change their
+number.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> A fully custom front end is proposed.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Headless identity APIs plus the platform APIs make it possible — and you then own authentication surfaces, authorisation, accessibility and
+every security finding.</p>
+<p>Justified by genuinely bespoke UX; expensive when chosen for
+appearance.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> How do you test the site properly?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>As each persona — guest, authenticated customer, partner, partner manager — on a throttled connection and a real mobile
+device.</p>
+<p>And with Lighthouse for performance and accessibility, which catches things configuration review does
+not.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> The site looks different from the internal app.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Different theming context, which is expected. Use SLDS styling hooks in custom components so they inherit whichever theme
+applies.</p>
+<p>Hard-coded colours break in exactly this
+situation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> A custom LWC works internally and breaks in the community.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Different runtime, guest context, unavailable APIs, or a navigation page reference that behaves differently in
+Experience Cloud.</p>
+<p>Declare the right targets and test as the actual external
+persona.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> Navigation works in the app and not the site.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Community URLs are structured differently and some page reference types are unsupported there.</p>
+<p>Use community-appropriate page references, and never hard-code a
+URL.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> Toasts do not appear on the site.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Toast behaviour differs by runtime and is not available everywhere.</p>
+<p>Provide an inline message fallback so user feedback is never silently
+lost.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> How do you deploy a community?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Site metadata deploys, with real caveats — some settings, branding and content are environment-specific or need manual
+steps.</p>
+<p>Document the manual steps as part of the release runbook rather than rediscovering them each
+time.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> Site changes were made directly in production.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Common, because Experience Builder invites it — and it is config drift with no review trail.</p>
+<p>Decide whether the site is pipeline-managed or production-managed, and be consistent rather than
+both.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> Performance budgets are needed.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Set a target (page weight, Lighthouse score, time to interactive) and measure it on a throttled connection as part of
+release.</p>
+<p>Without a budget, pages accumulate weight one reasonable addition at a
+time.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> What makes a community succeed operationally?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Maintained Knowledge, measured deflection, moderation someone actually performs, and performance budgets
+enforced.</p>
+<p>The build is the easy part; the ongoing content and moderation work is what determines whether anyone uses
+it.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="licences">Licences &amp; judgement (71–100)</h2>
+
+<details class="acc"><summary><span class="q-num">71</span> Member-based or login-based licences?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Member licences suit frequent users; login licences are a monthly pool suiting occasional use. The crossover is usually around two or three
+logins per member per month.</p>
+<p>Model it with expected behaviour, then measure in a pilot — estimates here are consistently
+wrong.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> Customer Community versus Customer Community Plus.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Customer Community is high volume and cheap, with no roles, no reports and no sharing-rule participation. Plus adds roles, reports and sharing
+rules at a higher price.</p>
+<p>The decision is driven by whether you need roles and reporting, not by user
+count alone.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> Partners need Leads and Opportunities.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Partner Community — the external licence family that includes CRM objects, partner roles and Super
+User.</p>
+<p>Customer Community cannot do this, and discovering that mid-build is an expensive
+correction.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> The licence does not include an object you need.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Check object availability per licence <em>before</em> design — it is the single most expensive licence mistake in Experience
+Cloud.</p>
+<p>Redesigning around custom objects or upgrading the population are the two options, both
+costly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> Login counts are higher than forecast.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Run a pilot before committing at scale, and monitor consumption against the pool.</p>
+<p>Login-based licensing can become more expensive than member-based very quickly if usage is higher than
+modelled.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> Do community users consume platform limits?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Yes — API calls, storage and transaction limits are org-wide, so community traffic competes with internal
+usage.</p>
+<p>Which is worth modelling before a high-traffic public site goes
+live.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">77</span> How do you reduce community licence cost?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Choose the right licence type for actual behaviour, deactivate dormant users, and consider whether some populations need authenticated access
+at all.</p>
+<p>Public content for anonymous visitors costs no
+licences.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> An employee needs community access.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Internal users can access communities with their existing licence — you do not buy a community licence for
+staff.</p>
+<p>Check the member configuration includes their profile, which is the usual reason they cannot get
+in.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">79</span> A user cannot log in to the community.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Their profile is not a member of the site, the site is not active, their contact is not enabled as a customer user, or login settings block
+them.</p>
+<p>Check membership first — it accounts for most of these
+cases.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> How do you provision community users at scale?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Self-registration with a hardened handler, or programmatic creation from the Contact — and a deactivation process for when the relationship
+ends.</p>
+<p>Provisioning without deprovisioning leaves active external accounts
+indefinitely.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">81</span> A customer relationship ended. What happens to their login?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It must be deactivated as part of the business process, not discovered at audit.</p>
+<p>External user offboarding is routinely missing, and it is a straightforward control to
+add.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> How do you decide Experience Cloud versus a custom portal?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Experience Cloud for speed, built-in identity, sharing and CMS where the UX fits its templates. Custom when the UX is genuinely bespoke or must
+live inside an existing application.</p>
+<p>Be honest about what custom means: you own auth surfaces, accessibility and every security
+finding.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">83</span> A partner wants their own branding.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Audience-based branding within one site, or separate sites — weighed against the maintenance of several
+sites.</p>
+<p>Several sites also means several guest users to harden, which is a real ongoing
+cost.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> How many sites is too many?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>When nobody can enumerate them or say who owns each — because each is a guest user, a permission surface and a performance
+budget.</p>
+<p>Maintain an inventory, and decommission deliberately rather than leaving them
+dormant.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> A community is being used as an intranet.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Legitimate — internal users with their existing licences, and no external exposure to worry
+about.</p>
+<p>The guest user still exists though, so if any page is public the usual hardening
+applies.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> Adoption is poor.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually content, findability or performance rather than features. Check search terms returning nothing, page load times, and whether the task
+users came for takes fewer steps than phoning.</p>
+<p>A portal slower than calling will not be
+used.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> How do you measure a community's value?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Deflection (sessions resolved without a case), self-service completion rates, search success, and the reduction in contact volume on the topics
+it covers.</p>
+<p>Logins alone measure curiosity, not
+value.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> Knowledge is out of date and the community suffers.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The community exposes the content problem rather than causing it.</p>
+<p>Review search terms that returned nothing — that report is the content backlog, and it is the highest-value
+investment.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> A community needs to scale to a million users.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>High-volume licences, Sharing Sets rather than roles, aggressive caching and CDN for public content, and careful attention to org-wide limits
+and storage.</p>
+<p>Also sharing recalculation behaviour at that volume, which is a genuine performance
+consideration.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> How do you handle an incident on a public site?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Contain first — deactivate the page or the site if necessary, accepting the outage. Then assess exposure with Event Monitoring, fix forward,
+and review the other sites.</p>
+<p>A public exposure justifies taking the site down; hesitating because of availability makes it
+worse.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> Legal asks whether customer data could be public.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Answer with the five-surface review and the evidence: guest profile permissions, guest sharing rules, reachable Apex, system-context flows, and
+the registration handler.</p>
+<p>And say honestly if any of those have not been reviewed
+recently.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> Who should own an Experience Cloud site?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A named owner for content, moderation, performance and the guest security review — spanning marketing, service and
+platform.</p>
+<p>Unowned sites accumulate content rot and permission
+drift.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> A site needs accessibility compliance.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Public-facing sites frequently have a legal obligation, and standard components help but custom ones are yours to get
+right.</p>
+<p>Keyboard operability, accessible names, contrast in both themes, and real heading structure. See
+<a href="ux-mobile.html#advanced">accessibility</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> Marketing wants to launch a site next week.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The non-negotiables are the guest profile review, the five-surface audit and a performance check. Everything else can be
+simplified.</p>
+<p>Shortcuts on guest security produce incidents that outlast the
+campaign.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> How do you keep guest security from drifting?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Re-run the five-surface review on a schedule and whenever a component or flow is added to a public
+page.</p>
+<p>New components are the usual way a hardened site becomes exposed
+again.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> A component was added to a public page without review.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Treat it as a potential exposure: audit its Apex, its context and what it reads.</p>
+<p>Add "is this page guest-accessible?" to the review checklist, because the risk is invisible in the component's own
+code.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> How do you hand over a community?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The licence model and why, the sharing design (External OWD, Sharing Sets, Share Groups) with the persona test matrix, the guest hardening
+evidence, the deployment manual steps, and the content and moderation owners.</p>
+<p>The persona matrix is the part most often
+missing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> What is the commonest Experience Cloud design mistake?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Choosing a licence before understanding the sharing implications — particularly assuming high-volume licences have
+roles.</p>
+<p>Followed by under-hardened guest access, and by exposing records for SEO instead of using
+CMS.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> What question do you expect in a security review?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>"What can an unauthenticated visitor reach?" — answered with evidence across the five surfaces rather than an
+assurance.</p>
+<p>Being able to answer it with artefacts is the difference between a review that passes and one that becomes a
+project.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit that most improves Experience Cloud work?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Testing as the actual persona</strong> — guest in an incognito window, authenticated customer, partner — and trying to reach what you did
+not intend.</p>
+<p>Configuration review misses combination effects. Thirty minutes of adversarial testing per release catches what every other control
+misses.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="experience-cloud.html">Experience Cloud</a>, the <a href="scenarios.html">scenario index</a>, or
+    <a href="security-scenarios.html">Security &amp; Sharing — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Experience Cloud — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

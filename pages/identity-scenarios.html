@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Identity &amp; SSO · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>Identity &amp; SSO</span></div>
+  <h1>Identity &amp; SSO — 100 Scenarios</h1>
+  <p class="lede">SAML and OpenID Connect end to end, the OAuth flow decision, Connected Apps and scopes, JWT
+     service integrations, MFA and session policy, and how to debug a login that will not work.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on <a href="identity.html">Identity &amp; SSO</a>
+    and its <a href="identity.html#advanced">Advanced</a> section.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="sso">SAML &amp; SSO (1–22)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Explain SSO to a non-technical stakeholder.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A trusted system vouches for who you are, so you sign in once instead of holding a password per
+application.</p>
+<p>The value is fewer passwords, central control of who has access, and one place to revoke
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> Is Salesforce the IdP or the SP here?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Decide which system owns identity. If the corporate directory does, Salesforce is the <strong>service provider</strong> and SAML or OIDC flows
+in. If Salesforce owns customer identity, it is the <strong>identity provider</strong> for other apps.</p>
+<p>Getting this backwards is the commonest design error, and it invalidates the rest of the
+configuration.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Walk through a SAML login.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>User hits Salesforce → redirected to the IdP → authenticates → IdP posts a signed assertion back → Salesforce validates the signature against the
+uploaded certificate, checks issuer, audience, recipient and timestamps, then maps the subject to a user via Federation ID or
+username.</p>
+<p>Every failure mode lives in one of those
+checks.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> SP-initiated or IdP-initiated?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>SP-initiated starts at Salesforce and is what you want for deep links, because RelayState preserves the destination.
+IdP-initiated starts at the portal tile.</p>
+<p>Support both — users arrive from both directions, and deep links breaking is a common
+complaint.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> What does RelayState do?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Carries the intended destination through the SAML round trip, so a user following a link to a record lands on that record rather than the
+home page.</p>
+<p>Which is exactly the behaviour people report as "SSO loses my
+link".</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> Federation ID or username for mapping?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Federation ID</strong> — a stable identifier that survives email changes. Mapping on username ties identity to an address that
+changes.</p>
+<p>Populate it consistently at provisioning; a blank Federation ID is a login failure waiting to
+happen.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> A user gets "assertion invalid".<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Decode the assertion with the SAML Assertion Validator and check each field: issuer, audience, recipient, subject, conditions, signature and
+timestamps.</p>
+<p>The error is deliberately vague; the validator tells you which check
+failed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> It worked yesterday and fails today for everyone.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Almost always a <strong>certificate expiry</strong> — the signing certificate rotated or lapsed.</p>
+<p>Which is why certificate expiry dates belong in a monitored calendar with an owner. This is the single most common
+SSO outage.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> One user fails and everyone else is fine.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>User-specific: missing or wrong Federation ID, inactive user, no licence, or a profile-level login restriction. Not the trust
+configuration.</p>
+<p>Scope first — all users versus one user splits the problem
+immediately.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> Login fails only from outside the office.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>IP restrictions on the profile or org-wide trusted ranges, or network policy on the IdP
+side.</p>
+<p>The split by location is the clue — it tells you to look at restrictions rather than
+trust.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> Users are redirected in a loop.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Typically a mismatch between the configured Salesforce login URL and what the IdP posts to, or a session that cannot be
+established.</p>
+<p>Compare the entity ID, ACS URL and login URL character by character — these are copy-paste
+errors.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> You are locked out by your own SSO configuration.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Prevention: keep a break-glass admin that bypasses SSO, with its credentials stored securely and its use
+monitored.</p>
+<p>Without one, recovery means Salesforce Support. Configure the break-glass account <em>before</em> enabling
+SSO.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> Should "My Domain" be configured?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Yes — it is a prerequisite for most identity features and gives you branded login URLs and login-page
+customisation.</p>
+<p>It is now mandatory in practice, so treat it as a first
+step.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> Users should be created automatically on first login.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Just-in-Time provisioning — the assertion carries attributes and Salesforce creates or updates the
+user.</p>
+<p>It removes manual provisioning, and it needs the attribute contract agreed with the IdP team and a decision about which fields JIT
+owns.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> JIT is overwriting manual profile changes.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Expected — JIT asserts the attributes on each login, so whatever it sends wins.</p>
+<p>Decide which fields JIT owns and manage those only in the IdP; stop editing them in
+Salesforce.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> Deprovisioning needs handling.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>SSO only controls <em>authentication</em> — a disabled directory account cannot log in, but the Salesforce user is still active and still consuming a
+licence.</p>
+<p>Use SCIM or an identity platform for lifecycle. This gap is a standard audit
+finding.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">17</span> What is SCIM for?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Standards-based user lifecycle — create, update, deactivate — pushed from the identity platform, which closes the deprovisioning
+gap.</p>
+<p>SSO plus SCIM together give you authentication and lifecycle; SSO alone gives you only
+authentication.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> Several IdPs are needed for different populations.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Multiple SAML configurations with discovery logic, or an identity platform fronting them all so Salesforce trusts one
+IdP.</p>
+<p>The second is usually simpler to operate, especially after an
+acquisition.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">19</span> Single logout is requested.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Supported, and genuinely harder than SSO — every participating application must handle the logout request, and in practice some do not.</p>
+<p>Set expectations: a session may survive somewhere, which matters for shared
+devices.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> How do you test an SSO change safely?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>In a sandbox with its own IdP configuration, then in production with the break-glass account available and a rollback
+plan.</p>
+<p>And verify deep links, mobile and API access — not just the browser login
+page.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">21</span> Mobile app login breaks after enabling SSO.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The mobile app uses OAuth, which can delegate to SSO — check the Connected App policy and whether the login flow renders in the embedded
+browser.</p>
+<p>Mobile and API paths need testing separately from the desktop
+browser.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> What do you check first on any SSO failure?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Scope: all users or one user. All users means certificate or trust configuration; one user means Federation ID, licence or
+restriction.</p>
+<p>Then the <strong>Login History</strong> status and the decoded assertion. That sequence resolves most cases in
+minutes.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="oauth">OAuth flows (23–48)</h2>
+
+<details class="acc"><summary><span class="q-num">23</span> A user-facing web app needs Salesforce access.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Web server flow with PKCE</strong> — the user authenticates, the app exchanges a code for tokens, and the refresh token is stored server
+side.</p>
+<p>PKCE protects the code exchange and should be considered
+default.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> A server-to-server integration needs access with no user.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>JWT bearer flow</strong> — a certificate-signed assertion, no stored password, no interactive
+login.</p>
+<p>It is the right default for system integrations and it is what auditors want to
+see.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> An integration uses username-password flow.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Migrate it to JWT. It stores a password and security token, breaks on password rotation and MFA, and is now restricted by
+default.</p>
+<p>It is the single most common legacy integration finding, and JWT is a
+drop-in replacement for the same use
+case.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> A single-page app needs to call Salesforce.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Web server flow with PKCE, not implicit — implicit is deprecated and exposes tokens in the URL.</p>
+<p>A browser cannot keep a secret, so treat the client as public and never embed a client
+secret.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> A CLI tool needs to authenticate on a headless box.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Device flow — the user authorises on another device with a code.</p>
+<p>For unattended automation use JWT instead; device flow still needs a human
+once.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> What is PKCE protecting against?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Interception of the authorisation code — the client proves it is the same party that started the flow via a verifier and
+challenge.</p>
+<p>Essential for public clients, and good practice for confidential ones
+too.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> How long does an access token last?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Until the session timeout configured in the Connected App or org session settings — it is policy-driven, not a fixed
+constant.</p>
+<p>So an integration must handle expiry and refresh rather than assuming a
+duration.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> An integration stops working after a few hours.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Access token expired and the code does not refresh. Implement refresh-on-401 with a single retry, or use JWT and request a fresh token per
+batch.</p>
+<p>Caching a token forever is a classic integration
+bug.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> A refresh token stopped working.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Revoked, expired per policy, the user was deactivated, their password changed, or the Connected App policy changed.</p>
+<p>Handle it as a re-authentication requirement rather than retrying — retrying a dead refresh token never
+succeeds.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> Where should tokens be stored?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Server side in a secret manager — never in source, never in client-side storage, never in a custom field without
+encryption.</p>
+<p>In Apex, Named Credentials hold them so your code never
+does.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">33</span> How should Apex call an external API?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Named Credentials with External Credentials — the platform manages the token, refresh and headers, and no secret appears in
+code.</p>
+<p>Hand-rolled OAuth in Apex is a maintenance and security liability for no
+benefit.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> What scopes should a Connected App request?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The minimum. <code>full</code> is almost never justified; <code>api</code> plus <code>refresh_token</code> covers most
+integrations.</p>
+<p>Scopes are the blast radius if the credential leaks, which is the argument for being
+strict.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> How do you restrict who can use a Connected App?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Set it to admin-approved users only and grant via profile or permission set, rather than letting any user self-authorise.</p>
+<p>Plus IP relaxation and session policies per app, which are independently
+configurable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> An integration user has broad access.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Give it a dedicated profile with least privilege, a restricted IP range, JWT authentication and no UI login — then audit what it actually
+touches.</p>
+<p>Integration users accumulate permissions because nobody reviews them, and they are high-value
+targets.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> A credential may have leaked.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Revoke the token and rotate the credential immediately, then assess what was accessible using Event Monitoring and Login
+History.</p>
+<p>Rotation first — assessment can follow, but every minute of exposure
+counts.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> How do you rotate a JWT certificate?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Upload the new certificate, update the Connected App, deploy the new key to the client, verify, then remove the old
+one.</p>
+<p>Plan the overlap so there is no outage, and put the expiry in a monitored
+calendar.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> Can you see which apps have access?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Connected Apps OAuth Usage shows apps and user counts, and tokens can be revoked from there.</p>
+<p>Review it periodically — self-authorised apps nobody sanctioned are a common
+finding.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> A partner wants API access to your org.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A dedicated Connected App with minimum scopes, a least-privilege integration user, JWT or web server flow, IP restrictions where feasible, and
+monitoring of their usage.</p>
+<p>Plus an agreed process to revoke when the relationship
+ends.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">41</span> What is an External Client App?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The newer, metadata-deployable packaging for OAuth clients, with clearer separation between the app and its
+policies.</p>
+<p>Prefer it for new work since it fits source control; Connected Apps remain for
+existing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> API calls return INVALID_SESSION_ID.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The token is expired or invalid, or you are calling the wrong instance URL — always use the instance URL returned with the
+token.</p>
+<p>Hard-coded instance URLs break on org migration, which produces exactly this
+error.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> An OAuth call returns invalid_grant.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Deliberately generic: wrong credentials, wrong or expired certificate, clock skew on JWT, a user not pre-authorised for the app, or the user
+lacking the Connected App grant.</p>
+<p>Check clock skew and pre-authorisation — those two account for most JWT
+cases.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> How do you test OAuth flows?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Postman or curl against a sandbox, exercising the full lifecycle — initial grant, expiry, refresh, revocation — not just the happy
+path.</p>
+<p>See <a href="postman-scenarios.html">Postman scenarios</a> for the
+mechanics.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> Which flow for a mobile app?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Web server flow with PKCE in the system browser, with the refresh token in the platform's secure
+storage.</p>
+<p>Never embed a client secret in a distributed app — anyone can extract
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> A legacy system can only do basic auth.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Front it with a middleware layer that holds the OAuth credential and exposes what the legacy system can
+consume.</p>
+<p>Which keeps the password out of Salesforce, and names the remediation owner
+explicitly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> How many integration users should there be?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>One per integration, so permissions are scoped to that integration and audit trails attribute actions
+correctly.</p>
+<p>A shared integration user makes both least privilege and forensics
+impossible.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> What is the commonest OAuth mistake?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Using username-password flow for system integrations when JWT is the correct answer.</p>
+<p>Followed by over-broad scopes, hard-coded instance URLs, and never handling token
+expiry.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="mfa">MFA, sessions &amp; policy (49–74)</h2>
+
+<details class="acc"><summary><span class="q-num">49</span> Is MFA optional?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No — it is contractually required for direct Salesforce logins, and satisfied either by Salesforce MFA or by MFA at the
+IdP.</p>
+<p>If SSO carries it, document that so an auditor can see where it is
+enforced.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> SSO is enabled. Is MFA still needed?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It must be enforced somewhere — typically at the IdP, which satisfies the requirement.</p>
+<p>But check the paths that bypass SSO: the break-glass admin, API-only users and any direct login
+URL.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">51</span> Users resist MFA.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Reduce friction rather than exceptions: authenticator apps over SMS, trusted-device remembering within policy, and clear
+enrolment support.</p>
+<p>Exceptions become permanent, so prefer friction reduction over
+carve-outs.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> Should SMS be used as a factor?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It is weaker than an authenticator app or security key because of SIM-swap attacks — acceptable as a fallback, not as the
+default.</p>
+<p>Prefer app-based or hardware factors for privileged
+accounts.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> A user lost their MFA device.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>An identity-verified recovery process — admin-generated temporary code after verifying who they are, out of
+band.</p>
+<p>Social-engineering MFA resets is a known attack, so verification must not rely on the requester's own
+email.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> A privileged action needs extra assurance.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>High-assurance sessions — require a stronger factor for sensitive operations, configured via session security levels and enforced on
+specific actions.</p>
+<p>So a routine session cannot perform a sensitive action without
+re-verifying.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> How long should sessions last?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Short enough to limit exposure on an unattended device, long enough that people are not re-authenticating all day — differentiated by
+profile.</p>
+<p>Privileged profiles get shorter timeouts; a shared-device population shorter
+still.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> Sessions should be locked to the originating IP.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>"Lock sessions to the IP address from which they originated" does that, and it breaks on mobile networks that change
+IP.</p>
+<p>Which is why it suits fixed-location populations and frustrates field
+users.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> Login hours are requested for contractors.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Profile login hours restrict when they can log in, and sessions are terminated outside those
+hours.</p>
+<p>Reasonable for contractors; be careful with timezones and anyone on
+call.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> IP ranges should restrict access.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Profile IP ranges restrict access outright; org-wide trusted ranges skip verification but still allow
+access.</p>
+<p>They are different controls and are routinely confused — be clear which behaviour you
+want.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> Login Flows — what are they for?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Injecting logic into the login process: terms acceptance, extra verification, risk-based steps or profile
+completion.</p>
+<p>Test carefully — a broken login flow locks out the population it applies
+to.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> Risk-based authentication is wanted.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Login Flows with risk signals, or an identity platform that does adaptive authentication and hands Salesforce the
+result.</p>
+<p>The platform route is usually better, because the signals live where the identity
+does.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> Who should hold "Modify All Data"?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Almost nobody, permanently. Prefer time-bound elevation with an approval and an audit
+trail.</p>
+<p>Standing god-mode access is the finding; just-in-time elevation is the
+answer.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> How do you monitor suspicious logins?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Login History for status, IP, location and flow, plus Event Monitoring and Transaction Security Policies to alert or block in
+real time.</p>
+<p>Login History alone is retrospective; policies act at the
+moment.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> Impossible-travel logins are detected.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Treat as potential compromise: verify with the user, revoke sessions and tokens, force a credential reset, and review what was accessed via
+Event Monitoring.</p>
+<p>A VPN explains many cases — verify rather than
+assume.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> An employee left and still has access.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Deactivate the user, revoke OAuth tokens and sessions, and check for connected apps authorised under their
+account.</p>
+<p>SSO alone does not deactivate the Salesforce user — that gap is why offboarding needs an explicit
+step.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> Should API access be restricted by default?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Yes — "API Enabled" is a permission, and most users do not need it.</p>
+<p>Restricting it reduces the surface for credential-based data extraction
+considerably.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> A data export was performed by a user account.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Investigate with Event Monitoring — volume, objects, timing — and consider Transaction Security Policies to block or alert on large
+exports.</p>
+<p>Also review who holds export and report-export
+permissions.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> How do you secure the break-glass account?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Credentials in a vault with split access, MFA with a hardware factor, login alerting on any use, and a documented procedure for
+when it is justified.</p>
+<p>It bypasses SSO by design, so its monitoring must be
+louder.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> Shield Platform Encryption or Classic Encryption?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Shield preserves far more functionality and supports more field types; Classic is limited and breaks more. Both impose functional
+trade-offs — encrypted fields are restricted in filtering, sorting and some
+operations.</p>
+<p>Encrypt what genuinely needs it, and test the trade-offs on real
+reports.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> What does encryption not protect against?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A user with legitimate access — encryption protects data at rest, not over-permissioned access.</p>
+<p>Which is why permission hygiene matters more than encryption for the most common breach
+pattern.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> How do you approach a permissions audit?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Start with the dangerous permissions — View All Data, Modify All Data, Manage Users, API Enabled, export rights — and ask who holds each and
+why.</p>
+<p>Then sharing: OWD, rules, and anything running
+<code>without sharing</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">71</span> Permission sets or profiles?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Minimal profiles plus permission sets and permission set groups — additive, composable and far easier to
+audit.</p>
+<p>Profile-heavy models proliferate near-identical profiles nobody can
+compare.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> Access must be granted temporarily.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Permission set expiration, or an approval-driven process that grants and removes on a
+schedule.</p>
+<p>Manual temporary grants become permanent, which is the whole problem being
+solved.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> How do you prove compliance with an identity standard?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Evidence: where MFA is enforced and the bypass paths, session and password policies, the dangerous-permission holder list with
+justifications, the deprovisioning process, and certificate rotation records.</p>
+<p>Produce it as artefacts rather than
+assertions.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> What is the highest-value identity control?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>MFA everywhere, with every bypass path known and monitored</strong> — it defeats the credential-stuffing and phishing attacks that cause
+most real incidents.</p>
+<p>Followed by least privilege on the dangerous
+permissions.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="customer">Customer identity &amp; judgement (75–100)</h2>
+
+<details class="acc"><summary><span class="q-num">75</span> Customers should log in with Google or Apple.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Social sign-on via an Auth Provider, with a registration handler that maps the external identity to a user and
+contact.</p>
+<p>The handler is a public endpoint — assign profiles and permissions server side from fixed
+configuration.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> What does a registration handler do?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Creates or links the user on first external login, and updates on subsequent ones.</p>
+<p>Never trust supplied profile, role or permission values — this handler is among the most commonly exploited surfaces in
+Salesforce.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">77</span> A customer has two accounts from two sign-on methods.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Identity linking in the registration handler — match on verified email or another trusted
+identifier.</p>
+<p>Match only on a <em>verified</em> attribute; matching on an unverified email is an account-takeover
+vector.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> Passwordless login for customers.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Email or SMS verification codes, which genuinely improve consumer conversion.</p>
+<p>It needs reliable contact data and a recovery path for people who change their number or lose
+inbox access.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">79</span> Salesforce should be the IdP for other apps.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Enable it as an identity provider and configure each app as a service provider via Connected
+Apps.</p>
+<p>Sensible when Salesforce owns the customer identity; less so when a dedicated identity platform already
+does.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> Should Salesforce be the customer identity store?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>It can be — with licence implications at consumer scale and a dedicated identity platform often being a better fit for millions of
+users.</p>
+<p>Model the licence cost before committing; this decision is expensive to reverse
+later.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">81</span> A headless customer identity experience is wanted.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Headless identity APIs support registration, login, passwordless and forgotten-password flows from your own front
+end.</p>
+<p>You then own the security of those surfaces — rate limiting, enumeration resistance and verification are
+yours.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> User enumeration is a concern on the login page.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Keep responses identical whether or not the account exists, for login, registration and password
+reset.</p>
+<p>Differential responses let an attacker build a list of valid customers, which is a reportable
+finding.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">83</span> Credential stuffing is hitting the login page.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Rate limiting at the edge, CAPTCHA, lockout policy, MFA, and monitoring Login History for the failure
+pattern.</p>
+<p>MFA is what actually defeats it; the rest reduces
+noise.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> How do you handle customer password policy?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Length over complexity theatre, with lockout thresholds and no forced frequent rotation — current guidance favours length and breach
+checking.</p>
+<p>And MFA or passwordless, which matters more than any password
+rule.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> An acquisition brings a second IdP.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Either multiple SAML configurations with discovery, or front both with an identity platform so Salesforce trusts
+one.</p>
+<p>The second is usually less operational burden and easier to reason about during the
+merge.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> How do you migrate from one IdP to another?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Run both configurations in parallel, move populations in waves, keep the break-glass path available, and verify deep links, mobile and API at each
+wave.</p>
+<p>A big-bang cutover on authentication has no graceful
+failure.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> Where should identity logic live?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>In the identity platform where possible — it is built for lifecycle, adaptive authentication and federation across
+applications.</p>
+<p>Salesforce-side logic is for what only Salesforce can do, such as mapping to users and
+contacts.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> How do you document an identity architecture?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Who owns identity for each population, the flows and protocols in use, the user-mapping and provisioning model, every bypass path, the
+certificate inventory with expiry dates, and the break-glass procedure.</p>
+<p>The bypass paths and expiry dates are the parts most often
+missing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> A certificate expires next week and nobody noticed.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Rotate it with overlap now, then build the inventory with monitored expiry dates and a named
+owner.</p>
+<p>Certificate expiry is the most predictable outage in identity and therefore the least excusable
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> How do you test identity in a sandbox?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A separate IdP configuration per sandbox, since entity IDs and URLs differ — and remember sandbox refreshes reset
+them.</p>
+<p>Script or document the post-refresh identity setup, or every refresh breaks
+logins.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> Identity config does not survive a sandbox refresh.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Expected. Document the post-refresh steps: certificates, Auth Providers, Connected App callbacks and My Domain
+settings.</p>
+<p>It is the single most common sandbox-refresh
+surprise.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> How do you deploy identity configuration?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Some of it is metadata-deployable — External Client Apps notably more so — and some is environment-specific by
+nature.</p>
+<p>Document the manual steps in the runbook rather than rediscovering them under
+pressure.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> An auditor asks about privileged access.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Produce the holder list for each dangerous permission with a business justification, the elevation process, and evidence of
+review.</p>
+<p>"Nobody has reviewed it" is the finding — regular review is the
+control.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> A login works in browser but fails in the API.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Different path: the API needs OAuth and the API Enabled permission, and may be blocked by Connected App policy or IP
+restriction.</p>
+<p>Browser success tells you nothing about API access — test them
+separately.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> How do you reduce identity operational load?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>SCIM for lifecycle, JWT instead of passwords, certificate expiry monitoring, and least-privilege defaults so access requests are rarer and
+smaller.</p>
+<p>Most identity toil is deprovisioning gaps and expired
+certificates.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> A vendor insists on a shared admin account.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Decline, and offer a dedicated least-privilege integration user with JWT authentication per
+vendor.</p>
+<p>Shared accounts destroy attribution and cannot be revoked for one party without affecting
+others.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> How do you decide between SAML and OIDC?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>OIDC for modern applications, mobile and API-centric cases; SAML where the enterprise IdP and existing estate are
+built on it.</p>
+<p>Both are well supported — compatibility with the existing estate usually
+decides.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> What is the commonest identity design mistake?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Not deciding clearly which system owns identity — which produces duplicate stores, inconsistent provisioning and no single place to
+revoke.</p>
+<p>Followed by no break-glass account, and unmonitored certificate
+expiry.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> You have one hour to review an org's identity posture.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Where MFA is enforced and what bypasses it; who holds the dangerous permissions; which integrations use username-password flow; certificate expiry
+dates; whether deprovisioning is automated; whether a break-glass account exists.</p>
+<p>Those six questions find nearly every real
+problem.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit that most improves identity work?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Maintaining the bypass inventory</strong> — every path that avoids your controls, with an owner and monitoring: break-glass accounts,
+API-only users, legacy integrations, direct login URLs.</p>
+<p>Controls are only as strong as the paths around them, and those paths are invisible unless you write them
+down.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="identity.html">Identity &amp; SSO</a>, the <a href="scenarios.html">scenario index</a>, or
+    <a href="security-scenarios.html">Security &amp; Sharing — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Identity &amp; SSO — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

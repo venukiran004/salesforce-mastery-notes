@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Governance · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>Governance</span></div>
+  <h1>Governance — 100 Scenarios</h1>
+  <p class="lede">Centre of excellence and intake, technical debt, org strategy, release and change management,
+     documentation and standards, licence and cost control, and the political reality of saying no.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on <a href="governance.html">Governance</a>
+    and its <a href="governance.html#advanced">Advanced</a> section.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="operating">Operating model (1–24)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> What does a Centre of Excellence actually do?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Owns standards, intake and prioritisation, the release process, architectural decisions and platform health — with enough authority to
+decline work.</p>
+<p>A CoE that only advises becomes a documentation team nobody
+consults.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> There is no governance at all. Where do you start?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Intake first — a single route for requests with a named decision-maker. Without it, everything else is
+undermined by work arriving sideways.</p>
+<p>Then standards, then release process. Trying to introduce all three at once
+fails.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Governance is seen as bureaucracy.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Usually because it is — process with no visible benefit. Make it deliver faster decisions and fewer broken releases, and justify every step by what
+it prevents.</p>
+<p>Governance that slows work without reducing risk deserves the
+reputation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Who should be on the governance body?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A business decision-maker who can prioritise, a technical owner, someone for data and security, and the delivery
+lead.</p>
+<p>Small enough to decide, senior enough that the decisions
+hold.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> Requests arrive from everywhere.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>One intake route with a required problem statement, requester, business value and urgency — and nothing starts outside
+it.</p>
+<p>The discipline is refusing to begin work that arrived by a tap on the
+shoulder.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> An executive bypasses intake.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Accept the priority, insist on the process — log it, size it, and show what it displaces.</p>
+<p>The trade-off conversation is the control; blocking an executive is not a viable
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> How do you prioritise a backlog?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Business value against effort and risk, with explicit capacity for debt and platform
+health.</p>
+<p>Without a reserved slice for maintenance, debt only ever gets
+worse.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> How much capacity for technical debt?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A standing allocation — often around a fifth — protected rather than negotiated each
+sprint.</p>
+<p>Debt work that competes with features always loses, which is how orgs become unchangeable within a few
+years.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> How do you justify debt work to the business?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>In their terms: deployment failure rate, time to deliver a change, incident count, hours lost to
+rework.</p>
+<p>"The code is messy" is not fundable; "every change to Account takes three weeks because of this" is.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> Admins are building in production.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Decide deliberately what may be changed in production and what may not — some configuration reasonably is, code and critical automation
+are not.</p>
+<p>A blanket ban nobody follows is worse than a clear boundary everyone
+does.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> Who may install AppExchange packages?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Nobody without review — security review, permission footprint, limit consumption, support model and exit
+path.</p>
+<p>Packages are code you did not write with permissions you did not
+choose.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> A business unit bought its own Salesforce org.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Understand why — usually the central team was too slow — then decide whether to absorb it, federate it, or let it
+stand with integration.</p>
+<p>Shadow IT is a symptom; punishing it does not address the
+cause.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> Single org or multiple orgs?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Single for shared customers, shared processes and a single view — with the cost of coordination and shared
+limits. Multiple for genuine separation: different regulators, independent businesses, acquisitions.</p>
+<p>Consolidating later is one of the most expensive programmes in the
+platform.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> Two orgs need to merge after an acquisition.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Scope it properly: data model reconciliation, duplicate customers, automation conflicts, integration remapping, identity, licences, and the
+process differences nobody documented.</p>
+<p>Underestimating this is routine; it is a programme, not a
+project.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> How do you decide to build or buy?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Buy where the need is common and the package is well supported; build where the process is your differentiator or no package
+fits.</p>
+<p>And weigh the long-term cost of a package you cannot change against code you must
+maintain.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> A vendor's package is causing problems.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Document the impact with evidence, escalate through the vendor, and assess the exit cost — which you should have understood before
+installing.</p>
+<p>Packages with no exit path are a strategic risk regardless of their current
+behaviour.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">17</span> How do you manage limit consumption across teams?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Monitor the org-wide consumables — API calls, storage, async queue, email — and attribute usage so teams can see their own
+footprint.</p>
+<p>Shared limits are a tragedy of the commons unless consumption is
+visible.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> Storage is near capacity.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Archive deliberately with a retention policy, deduplicate, and review attachments and field
+history — not buy more storage reflexively.</p>
+<p>Retention policy is the control; buying capacity defers the
+decision.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">19</span> Nobody knows what an org contains.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Inventory it: objects and their usage, automation per object, Apex and test health, integrations, installed packages, and unused
+fields.</p>
+<p>You cannot govern or safely change what has never been
+enumerated.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> Half the fields appear unused.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Verify with field usage data before removing anything — then deprecate in stages: hide from layouts, mark deprecated, then
+delete.</p>
+<p>Deleting a field someone's integration writes to is an
+outage.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">21</span> How do you prevent duplicate functionality?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Intake that checks whether it already exists, and an inventory that makes checking
+possible.</p>
+<p>Three objects doing the same job is the standard consequence of intake without
+review.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> Several teams build on the same org.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Shared standards, a shared release calendar, ownership boundaries per object or domain, and a forum for cross-team
+changes.</p>
+<p>The conflicts are mostly on shared objects — Account, Contact, Case — so those need named
+owners.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> Two teams changed the same object in one release.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Expected without coordination. A visible change calendar and object ownership prevents
+it.</p>
+<p>Detecting it at deployment time is too late; the conflict belongs in
+planning.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> What is the first sign governance is failing?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Work arriving outside intake, and nobody able to say who owns a given object or
+automation.</p>
+<p>Both appear long before the deployment failures and incidents that eventually force the
+conversation.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="change">Change &amp; release (25–50)</h2>
+
+<details class="acc"><summary><span class="q-num">25</span> How often should you release?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Frequently and in small batches — small releases fail less and are far easier to
+diagnose.</p>
+<p>Monthly big-bang releases concentrate risk and make attribution of a failure nearly
+impossible.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> Deployments keep failing.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Look at the pattern: unreliable tests, environment drift, missing dependencies, or manual steps nobody
+documented.</p>
+<p>Each has a different fix, and the pattern across failures tells you which one you
+have.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> Production has drifted from source control.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Measure the drift, reconcile deliberately, then close the route that caused it — usually unrestricted production
+changes.</p>
+<p>Drift makes every subsequent deployment unpredictable, so it compounds
+quietly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> Is source control the source of truth?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It must be, for anything deployable — otherwise you cannot know what is in production or reproduce an
+environment.</p>
+<p>The gap between aspiration and reality here is the commonest DevOps problem on the
+platform.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> How do you handle an emergency fix?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A defined hotfix path: branch from what production has, minimal change, deploy, then merge back
+immediately.</p>
+<p>The merge-back is the step that gets skipped, and skipping it means the next release reintroduces the
+bug.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> A change caused a production incident.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Restore service first — roll back or disable — then a blameless post-mortem producing a specific process or test
+change.</p>
+<p>A post-mortem with no change to how you work has not
+finished.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> How do you roll back a Salesforce deployment?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>There is no undo — rollback means deploying the previous version, and data changes may not be
+reversible.</p>
+<p>Which is why the forward-fix path and feature flags matter more here than on platforms with real
+rollback.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> Feature flags are proposed.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Worth it — deploy disabled, enable for a pilot, disable instantly if wrong, without a
+deployment.</p>
+<p>They are the closest thing to rollback the platform offers, and they need a cleanup discipline so flags do not
+accumulate.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">33</span> How many sandboxes do you need?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Developer sandboxes per stream, an integration environment, a UAT environment with representative data, and a full copy for performance and
+data work.</p>
+<p>Fewer than that forces teams to share and interfere; more than that costs refresh
+effort.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> Sandbox refreshes break everything.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Script the post-refresh setup: identity configuration, named credentials, users, data seeding, and
+endpoints.</p>
+<p>Post-refresh work done manually from memory is a recurring days-long
+cost.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> UAT data is not representative.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Then UAT tests nothing real. Seed representative, anonymised data as a repeatable
+process.</p>
+<p>Testing against twelve clean records is how volume and edge-case defects reach
+production.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> Should production data be copied to sandboxes?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Only with anonymisation or masking for anything personal, and with access to full-copy sandboxes controlled as
+tightly as production.</p>
+<p>A full sandbox of real customer data with loose access is a breach waiting to
+happen.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> How do you manage the Salesforce release cycle?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Read the release notes for your features, test in a preview sandbox, and plan for critical updates with
+deadlines.</p>
+<p>Three releases a year is predictable work that should be in the calendar, not a
+surprise.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> A critical update will break something.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Test in preview, fix before the enforcement date, and track the deadline — they are enforced whether you are ready or
+not.</p>
+<p>Unmanaged critical updates are the most predictable outage on the
+platform.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> How do you decide what needs testing?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>By consequence: revenue paths, customer-facing flows, integrations and anything touching
+money. Automate those; test the rest proportionately.</p>
+<p>Uniform testing effort across everything wastes it where it matters
+least.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> Apex coverage is 76% and tests are meaningless.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Coverage is a deployment gate, not a quality measure — tests with no assertions pass the gate and prove
+nothing.</p>
+<p>Review assertions, not percentages, and treat coverage theatre as debt. See
+<a href="testing.html#advanced">testing</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">41</span> Flows have no tests.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Common, and a real gap — flow tests exist, and critical flows should have
+them.</p>
+<p>Automation migrating from Apex to Flow often loses its test coverage in the process, which nobody
+notices.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> How do you review a change before release?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Does it meet the requirement, follow standards, handle bulk and failure, enforce security, have meaningful tests, and avoid making future change
+harder.</p>
+<p>The last question is the one reviews most often
+skip.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> Code review is a rubber stamp.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Make it specific with a short checklist, keep changes small enough to review properly, and automate what tools can
+check.</p>
+<p>Large pull requests get approved without being read — the size is the
+problem.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> Static analysis is suggested.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Worth it in the pipeline for security patterns, SOQL in loops, missing sharing enforcement and the standard
+mistakes.</p>
+<p>It catches the mechanical issues so humans can review design
+instead.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> How do you enforce standards?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Automate what can be automated, review what cannot, and keep the standards short enough to be
+read.</p>
+<p>A fifty-page standards document is not followed; a one-page checklist in the pull request template
+is.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> Contractors leave without documentation.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Make documentation a deliverable with acceptance criteria, and conduct a handover before the final
+invoice.</p>
+<p>Documentation requested after departure never
+arrives.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> What documentation is actually worth keeping?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Decisions and their reasoning, integration contracts, data model intent, operational runbooks, and anything non-obvious about
+why.</p>
+<p>Not what the metadata already says — that documentation is always stale and always
+redundant.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> Documentation is always out of date.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Because there is too much of it. Document decisions and intent, generate what can be generated, and delete the
+rest.</p>
+<p>Less documentation, kept current, beats more that nobody
+trusts.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> How do you capture architectural decisions?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Short records: the decision, the context, the options considered, the trade-off accepted, and the
+date.</p>
+<p>It is the single highest-value document type, because it answers "why is it like this" two years
+later.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> What most improves release reliability?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Smaller, more frequent releases from source control</strong>, with meaningful automated tests on the critical
+paths.</p>
+<p>Everything else is secondary to batch size — it reduces both failure rate and diagnosis
+time.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="cost">Cost, risk &amp; compliance (51–76)</h2>
+
+<details class="acc"><summary><span class="q-num">51</span> How do you control licence cost?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Review utilisation — who has not logged in, who holds a feature licence they do not use — and right-size at
+renewal.</p>
+<p>Licences accumulate because nobody reconciles them with actual
+usage.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> Users are on more expensive licences than they need.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Map what each population actually does to the cheapest licence that supports it, and plan the change at
+renewal.</p>
+<p>The analysis needs usage evidence, not assumptions about what people
+need.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> Renewal is in three months.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Start the utilisation review now, with usage data per licence type and a clear position on what you
+need.</p>
+<p>Renewals negotiated without usage evidence are negotiated from a weak
+position.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> Consumption-based features are a new cost.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>AI credits, Data Cloud and platform events consume rather than seat-license — so they need monitoring and a budget
+owner.</p>
+<p>Consumption costs surprise organisations used to predictable seat
+counts.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> How do you monitor platform health?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Limit consumption trends, deployment success rate, incident count, async queue depth, error rates and slow
+transactions.</p>
+<p>Trends matter more than snapshots — the direction tells you what is about to become a
+problem.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> API limits are being approached.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Identify the consumers, move chatty integrations to bulk or composite patterns, and cache where
+appropriate.</p>
+<p>Buying more limit capacity before fixing the chatty integration just raises the ceiling on the same
+problem.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> An integration is consuming most of the API calls.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Review its pattern — usually polling where events would serve, or per-record calls where bulk
+would.</p>
+<p>And attribute consumption per integration so the conversation can be had with its
+owner.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> Who is accountable when the org slows down?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A named platform owner — otherwise shared limits and shared performance are nobody's
+problem.</p>
+<p>Performance degradation is almost always cumulative, so it needs an owner watching trends rather than
+incidents.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> How do you handle a security audit?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Produce artefacts: permission holder lists with justification, sharing model, MFA enforcement and bypass paths, integration authentication,
+encryption decisions and review evidence.</p>
+<p>"We will look into it" is the answer that turns an audit into a
+programme.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> Who holds Modify All Data?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>You should be able to answer immediately with a justification per holder — and the answer should be very
+few.</p>
+<p>Not knowing is itself the finding. See
+<a href="security.html#advanced">security</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> How do you manage data retention?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A policy per object stating how long, where it goes, and who approves deletion — then
+implement it with archiving rather than ad hoc deletes.</p>
+<p>Retention is both a compliance requirement and the most effective storage
+control.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> A customer requests deletion of their data.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A documented process covering records, activity, files, backups, sandboxes and connected systems — with evidence it was
+completed.</p>
+<p>Sandboxes and downstream systems are the parts most commonly
+missed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> Where is personal data in the org?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>You need a data map: which objects and fields hold personal data, its lawful basis, retention and who can see
+it.</p>
+<p>Custom fields holding personal data nobody classified is the usual
+gap.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> Is backup Salesforce's responsibility?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>No — under shared responsibility, protecting against your own bad deletes and corruptions is yours. Backup and Recovery or a third-party tool
+covers it.</p>
+<p>And a backup you have never restored is not a
+backup.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> When was the restore last tested?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>If the answer is never, that is the risk — and restore of relationships and hierarchies is substantially harder than
+export.</p>
+<p>Test it on a real scenario and record the recovery time so the business knows what it actually
+is.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> A mass delete went wrong.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Check the Recycle Bin first, then backup. And review how a mass delete happened without a dry run — usually unrestricted data loader access in
+production.</p>
+<p>Restrict destructive tooling and require a dry run on a
+subset.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> Who may run data loads in production?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A small named group, with a dry run on a subset, an extract taken first, and a documented
+rollback.</p>
+<p>Production data tooling in many hands is one of the highest-probability data-loss
+risks.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> How do you govern integrations?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A register: what connects, direction, data, authentication method, owner, volume and error handling — reviewed
+periodically.</p>
+<p>Undocumented integrations are discovered when they break during a change nobody knew would affect
+them.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> An undocumented integration broke after a change.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Restore, then add it to the register with an owner — and ask what else is connected that nobody
+knows about.</p>
+<p>The register is built incrementally from exactly these
+events.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> How do you assess a new requirement's risk?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>What it touches, who it affects, whether it is reversible, what it consumes, and what happens if it
+fails.</p>
+<p>Irreversibility is the dimension most often ignored and most expensive to get
+wrong.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">71</span> A requirement needs an irreversible change.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Slow down — master-detail conversions, field type changes, org strategy and data model decisions deserve more scrutiny than reversible
+work.</p>
+<p>Spend the design time in proportion to the cost of being
+wrong.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> How do you handle an org health check finding?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Triage by actual risk rather than fixing everything — some findings are genuine exposures, others are defaults that do not apply to
+you.</p>
+<p>Document the accepted risks with reasoning so the next review does not re-litigate
+them.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> What risks should be formally accepted?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Any you have decided not to fix — written down, with the reasoning and the accepting
+person.</p>
+<p>Unrecorded accepted risk is indistinguishable from an oversight when something goes
+wrong.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> How do you report platform status upward?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A small set of trends: delivery throughput, deployment success, incidents, limit headroom, licence utilisation and the debt
+position.</p>
+<p>Six numbers with direction beats a long report nobody
+reads.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> The business thinks the platform is slow to change.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Measure it — cycle time from request to production, and where the time actually goes.</p>
+<p>It is usually intake and decision latency rather than build time, and that is a governance problem you can
+fix.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> What is the commonest governance failure?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>No intake, so work arrives from everywhere and priorities are set by whoever asked most
+recently.</p>
+<p>Followed by no reserved capacity for debt, and no named owners for shared
+objects.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="judgement">Judgement &amp; influence (77–100)</h2>
+
+<details class="acc"><summary><span class="q-num">77</span> How do you say no well?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Not "no" — "yes, and here is what it displaces", or "here is a cheaper way to get the outcome you
+want".</p>
+<p>Governance that only refuses gets routed around; governance that offers alternatives gets
+used.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> A stakeholder insists on a bad design.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>State the concern once, clearly, with the specific consequence and cost. If they still want it, document the decision and
+build it well.</p>
+<p>It is their call; your job is to make sure it is an informed
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">79</span> You were overruled and it went wrong.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Fix it without saying "I told you so" — and use the decision record in the post-mortem to improve how such decisions are
+made.</p>
+<p>The record is for process improvement, not
+vindication.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> Everything is urgent.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Make capacity visible and ask stakeholders to rank against each other rather than individually
+asserting urgency.</p>
+<p>A list in order is a conversation; a list of priority-one items is
+not.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">81</span> Governance is new and resisted.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Introduce one thing that visibly helps — usually intake, because it ends the chaos of competing
+requests.</p>
+<p>Earn credibility with a win before adding
+process.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> How do you build credibility as a new platform owner?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Fix something visible and painful quickly, inventory the org, and be straight about what you
+find.</p>
+<p>Announcing a governance framework in week one, before anyone trusts you,
+fails.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">83</span> An inherited org is in poor condition.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Inventory, stabilise the worst risks, establish intake and release discipline, then remediate incrementally with reserved
+capacity.</p>
+<p>A big-bang rebuild is rarely fundable and rarely
+necessary.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> Should you rebuild or remediate?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Remediate, almost always — rebuilds lose undocumented business logic and take longer than
+estimated.</p>
+<p>Rebuild only a bounded, well-understood subsystem, and never the whole
+org.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> Technical debt is genuinely unmanageable.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Quantify its business cost — delivery time, failure rate, incidents — and propose a funded remediation programme with
+milestones.</p>
+<p>Debt only gets funded when it is expressed as money and
+time.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> How do you keep standards current?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Review them periodically against what teams actually do, and change the standard when the practice is better than the
+rule.</p>
+<p>Standards nobody follows should be fixed or
+deleted.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> A team ignores the standards.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Find out why — usually the standard is impractical, unexplained, or unenforced
+everywhere.</p>
+<p>Selective enforcement destroys standards faster than no standards at
+all.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> How do you onboard a new developer?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Org inventory, the standards checklist, the deployment path, the decision records, and a small real change in week
+one.</p>
+<p>Time to first deployment is a good measure of how healthy your platform practice
+is.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> Knowledge is concentrated in one person.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A genuine business risk. Write down the decisions, pair on changes, and rotate
+ownership.</p>
+<p>The fix is documentation of intent plus shared experience — neither alone is
+enough.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> How do you measure governance effectiveness?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Cycle time from request to production, deployment success rate, incidents caused by change, debt trend, and whether work arrives through
+intake.</p>
+<p>If governance is working, delivery is faster and more predictable — not
+slower.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> Governance slowed delivery down.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Then it is wrong. Find the step adding time without reducing risk and remove
+it.</p>
+<p>Each process step should be justifiable by a specific failure it
+prevents.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> How much process is right for a small team?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Much less — source control, a release path, decision records and a prioritised backlog may be
+sufficient.</p>
+<p>Enterprise governance on a two-person team is pure
+overhead.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> How do you scale governance as the team grows?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Add what the new scale requires: ownership boundaries, a change calendar, cross-team review — triggered by actual pain rather than
+anticipated.</p>
+<p>Process added before it is needed is the process that gets
+resented.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> A consultancy proposes a governance framework.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Judge it on what it changes about decisions and releases, not on its
+diagrams.</p>
+<p>Frameworks that produce documents rather than different behaviour are
+expensive.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> How do you handle competing business units?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A shared prioritisation forum with transparent capacity, so trade-offs are made between them rather than by
+you.</p>
+<p>Arbitrating privately makes you the bottleneck and the
+villain.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> The platform roadmap conflicts with a project.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Surface it early with the specific conflict and options — building something a platform feature will supersede in two releases is worth
+knowing.</p>
+<p>Reading the roadmap is part of the
+job.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> How do you decide what not to build?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>When the value is small, the maintenance is lasting, a standard feature nearly does it, or it makes future change
+harder.</p>
+<p>The work you decline is as much of a contribution as the work you
+deliver.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> What is the highest-value governance artefact?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The <strong>decision record</strong> — it prevents re-litigating settled questions and explains the org to whoever inherits
+it.</p>
+<p>Cheap to produce and the thing most missed in its
+absence.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> One hour to assess an org's governance. What do you ask?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>How does work arrive; is source control the source of truth; who owns Account; who holds Modify All Data; when was restore last tested; what
+capacity goes to debt.</p>
+<p>Those six answers describe the maturity
+accurately.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit that most improves governance?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Writing down decisions as they are made</strong> — the context, the options, the trade-off accepted and the
+date.</p>
+<p>It compounds: it prevents repeated arguments, explains the org to newcomers, and makes post-mortems about process rather than
+blame.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="governance.html">Governance</a>, the <a href="scenarios.html">scenario index</a>, or
+    <a href="devops-scenarios.html">DevOps — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Governance — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Certifications · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>Certifications</span></div>
+  <h1>Certifications — 100 Scenarios</h1>
+  <p class="lede">Choosing a path, preparing efficiently, exam technique and question dissection, maintenance,
+     the architect journey, and what certification is and is not worth in a real career.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on
+    <a href="certifications.html">Certifications</a> and its <a href="certifications.html#advanced">Advanced</a>
+    section.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="choosing">Choosing a path (1–24)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Which certification should you take first?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Administrator for a configuration path, Platform Developer I for a code path — they are the foundations the rest build
+on.</p>
+<p>Starting with a specialist credential before the foundation leaves gaps that show up in
+interviews.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> Is Administrator worth it for a developer?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Yes — most production problems are configuration interacting with code, and developers who do not understand sharing, automation order and
+licensing write code that fights the platform.</p>
+<p>It is the single most useful credential for a developer's actual day
+job.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Developer I or Platform App Builder next?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>App Builder if you build declaratively and want to understand what the platform does for free; Developer I if you write
+Apex.</p>
+<p>Holding both is what makes someone credible on the build-versus-configure
+question.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> How many certifications is too many?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>When they stop reflecting work you have done — a long list with shallow experience reads worse than three credentials backed by real
+delivery.</p>
+<p>Depth in the area you work in beats
+breadth.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> Which certification helps a career most?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The one matching the work you want next, not the hardest available. Certifications open conversations; delivery experience wins the
+role.</p>
+<p>Choose by the job description you are aiming at, read
+literally.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> You want to move into architecture.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The designer credentials — Data Architect, Sharing and Visibility, Integration Architect, Identity and Access Management, Development
+Lifecycle — then Application or System Architect.</p>
+<p>They are also genuinely the most useful study for the
+work.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> Which designer certification is hardest?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Opinions vary, and Sharing and Visibility plus Data Architect are widely considered the most
+demanding.</p>
+<p>They are also the two most valuable for real design work, which is not a
+coincidence.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> Is Certified Technical Architect worth pursuing?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>It is a review board, not an exam — you present and defend a solution under questioning, and it demands years of genuine
+breadth.</p>
+<p>Worth it if you do that work; a poor use of years if you do
+not.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> How long does the architect path take?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Years, realistically — the designer credentials alone are substantial, and the experience they assume takes longer than the study
+does.</p>
+<p>Treat it as a direction, not a
+deadline.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> Should you certify in a product you do not use?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Only to open a door you are actively walking through — otherwise the knowledge decays before you apply
+it.</p>
+<p>Certifying in CPQ with no CPQ work ahead is effort better spent
+elsewhere.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> An employer is paying. Does that change the choice?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It lowers the cost, not the time — your preparation hours are the real expense.</p>
+<p>Choose what helps your work and your direction, not whatever is
+funded.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> Agentforce and AI credentials — worth it now?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Yes if you are doing or moving into that work, and check the current catalogue because this area changes every
+release.</p>
+<p>Early credentials in a fast-moving area date quickly but open doors while demand exceeds
+supply.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> Does certification replace a degree?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>In this ecosystem, frequently yes — the market cares about demonstrable platform ability and delivery
+history.</p>
+<p>Certification plus a portfolio of real work is a credible route into the
+profession.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> You have no Salesforce experience.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Administrator plus Trailhead plus a developer org you actually build something in — and a volunteer or nonprofit project for real
+delivery experience.</p>
+<p>Certification without having built anything is the gap interviewers probe
+first.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> How do you get experience without a job?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Build a non-trivial app in a developer org, contribute to a nonprofit's org, document what you built and
+why.</p>
+<p>Being able to discuss trade-offs in something you built is worth more than another
+credential.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> Does Trailhead rank matter?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Not much to employers — it measures modules completed, not ability.</p>
+<p>Superbadges carry more weight because they require working through a real scenario rather than answering
+questions.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">17</span> Superbadges or certifications?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Both serve different purposes — superbadges prove you can build, certifications prove breadth of
+knowledge.</p>
+<p>Superbadges are better preparation for the work; certifications are better
+signalling.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> How much do certifications cost?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Check the current pricing, which varies by credential, with reduced-rate retakes and occasional
+vouchers.</p>
+<p>Budget retakes into the plan — treating a first attempt as the only attempt adds pressure without
+benefit.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">19</span> Which order for several certifications?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Foundation first, then the specialisms you work in, then the designer credentials if architecture is the
+direction.</p>
+<p>Each one makes the next easier when the order follows the dependency
+structure.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> Is there an expiry?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Credentials require maintenance — short release-based modules keep them current, and missing the deadline can expire
+them.</p>
+<p>Diarise the maintenance window; losing a credential to an unnoticed deadline is pure
+waste.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">21</span> You let a certification lapse.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check the current reinstatement rules — they change, and the answer depends on how long it has
+been.</p>
+<p>Then set a calendar reminder so it does not happen
+again.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> Does a certification guarantee a job?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No — it gets you read, and the interview is about what you have built and the trade-offs you can
+discuss.</p>
+<p>Candidates who certify without building are identified in the first technical
+conversation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> Is certification valued differently by employers?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Consultancies value it highly — it is a partner requirement and a client signal. End-user organisations care more about delivery
+history.</p>
+<p>Which should influence your emphasis depending on where you are
+applying.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> What is certification actually worth?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Structured coverage of material you would otherwise learn patchily, a credible signal, and access to
+conversations.</p>
+<p>It is not a substitute for having built and operated real systems, and treating it as one is the commonest
+mistake.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="prep">Preparing (25–52)</h2>
+
+<details class="acc"><summary><span class="q-num">25</span> Where do you start preparing?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>The official exam guide — it lists the sections and their weightings, which tells you where the questions actually
+come from.</p>
+<p>Studying without reading it means allocating effort by guesswork rather than by
+weighting.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> How do you allocate study time?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>By section weighting, weighted again by what you already know — a 20% section you are weak in deserves far more time than a 5% section you
+know.</p>
+<p>Most people over-study their strongest
+area.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> How long should preparation take?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It depends entirely on your existing experience — someone doing the work daily needs weeks, someone new needs
+months.</p>
+<p>Judge readiness by practice performance across all sections, not by hours
+spent.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> How do you know you are ready?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Consistently scoring comfortably above the pass mark on practice questions you have not seen before, across every
+section.</p>
+<p>Strong overall with one weak section is how people fail by a few
+percent.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> Is memorising dumps effective?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>It violates the exam agreement and can cost you every credential you hold — and it produces someone who cannot do the
+job.</p>
+<p>It also fails increasingly often as question banks rotate. Study the material
+instead.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> Practice questions give the wrong answer.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Third-party material is frequently out of date or wrong — verify against official documentation when something
+surprises you.</p>
+<p>Learning an incorrect answer confidently is worse than not having studied
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> How do you use practice exams well?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Diagnostically — the score matters less than which sections are weak and why each wrong answer was
+wrong.</p>
+<p>Re-taking the same practice exam measures memory of that exam, not
+readiness.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> You keep getting the same topic wrong.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Go back to the documentation on it and build it in a developer org — repeated errors on one topic mean a conceptual gap, not
+carelessness.</p>
+<p>Doing it beats re-reading
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">33</span> Is a developer org necessary?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Yes — reading about sharing rules and configuring them are different kinds of
+knowledge, and exams test the second.</p>
+<p>Build the things you are studying; it is the most time-efficient preparation there
+is.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> How do you study a topic you never use?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Build a small working example of it, then read the documentation again — the second reading lands differently once you have seen the
+behaviour.</p>
+<p>Pure reading on unfamiliar features does not
+stick.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> Trailhead or documentation?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Trailhead for structure and hands-on practice; documentation for depth, precision and the limits that exams probe.</p>
+<p>Exams test the exceptions, and exceptions live in the
+documentation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> Should you learn the exact limit numbers?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Know the ones that shape design — SOQL queries, DML statements, CPU time, heap, callouts and their async variants — and verify current values in
+the documentation.</p>
+<p>They change occasionally, and the <em>implications</em> matter more than the digits for most
+questions.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> Is there a study order within a certification?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Foundations that other topics depend on first — the data model and sharing before automation, automation before
+integration.</p>
+<p>Studying in weighting order rather than dependency order makes early topics harder than they need to
+be.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> How do you avoid burning out on study?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Shorter regular sessions over months beat weekend cramming, and mixing building with reading keeps it
+engaging.</p>
+<p>Retention from spaced study is substantially better, which also makes it
+faster.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> You failed a practice exam badly.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Useful information, early. Map the wrong answers to sections and restudy the weakest with hands-on
+work.</p>
+<p>A bad practice score weeks out is the system working as
+intended.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> How do you study with a full-time job?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Short daily sessions, use work tasks as study where they overlap, and set a realistic date months
+out.</p>
+<p>And deliberately study what your job does <em>not</em> cover — that is where the failures come
+from.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">41</span> Your work only covers part of the exam.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>That is normal and it is the real risk — experience creates confidence in the covered areas and blind spots
+elsewhere.</p>
+<p>Audit the exam guide against your experience honestly and target the
+gaps.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> Are study groups useful?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Yes — explaining a concept out loud is the fastest way to discover you do not understand
+it.</p>
+<p>And someone else's confusion frequently reveals a gap you had not noticed in your
+own.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> Should you pay for a course?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Useful if you need structure and accountability; unnecessary if you are disciplined with the exam guide, documentation and a developer
+org.</p>
+<p>No course substitutes for building
+things.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> How do you prepare for a designer exam?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Scenario reasoning rather than feature recall — given these constraints, which approach and why, and what breaks with the
+alternatives.</p>
+<p>Practise articulating trade-offs; that is what is being
+tested.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> Designer exams feel different from the others.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>They are — the questions are long scenarios with several defensible-looking answers, and you choose the best fit for the stated
+constraints.</p>
+<p>Reading the constraints carefully is most of the
+skill.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> How do you prepare for the review board?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Practise presenting full solutions under time pressure and defending them under questioning — with a mentor who has done
+it.</p>
+<p>It tests communication and justification as much as knowledge, and that needs
+rehearsal.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> What resources are reliable?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The exam guide, official documentation, Trailhead, and Salesforce's own architect material — with third-party content treated as
+supplementary and verified.</p>
+<p>Official sources are the only ones guaranteed
+current.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> Release changes affect the exam.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Exams are updated, so study current documentation rather than older
+material.</p>
+<p>Which is a specific reason to be wary of courses and question banks of unknown
+age.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> How much does experience substitute for study?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A great deal in your areas and none outside them — experienced people fail by assuming their experience covers the whole
+syllabus.</p>
+<p>Check the exam guide against what you have actually
+done.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> Should you book the exam before you are ready?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Booking it creates useful deadline pressure, provided the date is realistic and you will study rather than
+panic.</p>
+<p>Open-ended preparation frequently never
+ends.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">51</span> Online proctored or test centre?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Whichever suits you — online needs a quiet room, a clear desk and a stable connection, and the proctoring rules are strictly
+enforced.</p>
+<p>Test the setup beforehand; a technical failure mid-exam is genuinely
+disruptive.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> What is the most efficient preparation?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Exam guide to find the sections, honest self-assessment to find the gaps, hands-on building to close
+them</strong>, with practice questions as diagnosis.</p>
+<p>Most wasted study time is spent re-reading what you already
+know.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="technique">Exam technique (53–78)</h2>
+
+<details class="acc"><summary><span class="q-num">53</span> How do you dissect an exam question?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Find what is actually being asked, note every stated constraint, eliminate options that violate one, then choose between what
+remains.</p>
+<p>Most questions are won by spotting the constraint that eliminates two
+answers.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> Two answers both look correct.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Re-read for the qualifier — "without code", "with minimal maintenance", "most scalable", "least effort" — which exists specifically to separate
+them.</p>
+<p>That word is the question; missing it is the commonest avoidable
+error.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> What does "declarative where possible" signal?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Eliminate the Apex answers. The platform's stated preference is configuration before code, and exams reflect
+it.</p>
+<p>When a question offers both and hints at low maintenance, the declarative option is usually
+intended.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> A question mentions "millions of records".<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A scale signal — expect Batch Apex, selective queries, skinny tables, archiving or asynchronous
+patterns rather than synchronous processing.</p>
+<p>Volume words are there to rule out the simple
+answer.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> A question mentions an external system.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Integration pattern territory — consider whether it is request-reply, fire-and-forget, batch or
+pub-sub, and whether data should be stored or virtualised.</p>
+<p>The timing and volume words in the question point at the
+pattern.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> A question involves visibility.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Work the sharing model in order: OWD, then role hierarchy, then sharing rules, then teams, then manual and Apex
+sharing.</p>
+<p>And check the licence type, which determines what mechanisms are even
+available.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> How do you handle a very long scenario?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Read the final question first, then the scenario for the facts that bear on it — much of the narrative is
+irrelevant.</p>
+<p>It saves time and prevents being led by details that do not
+matter.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> You do not know the answer at all.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Eliminate what you can, choose the most platform-idiomatic remaining option, mark it for review and move
+on.</p>
+<p>There is no negative marking, so never leave one
+blank.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> How do you manage exam time?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Keep a steady pace, flag anything that needs thought rather than stalling on it, and reserve time for the flagged
+ones.</p>
+<p>Running out of time on the last ten questions is a technique failure, not a knowledge
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> Should you change an answer on review?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Only with a specific reason — you misread a constraint or recalled a fact. Not on a
+feeling.</p>
+<p>Second-guessing well-reasoned answers costs more marks than it
+gains.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> A question seems to have no correct answer.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>You have probably misread a constraint — re-read it slowly. Occasionally a question really is poor, in which case pick the closest and move
+on.</p>
+<p>Do not lose five minutes to
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> Multi-select questions.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Choose exactly the number asked for, and evaluate each option independently as true or
+false.</p>
+<p>Partial credit generally does not apply, so an extra wrong selection costs the whole
+question.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> How do you stay calm during the exam?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Accept that some questions will be unclear, flag and move on, and remember the pass mark is well below
+perfect.</p>
+<p>Fixating on one hard question is what turns a pass into a
+fail.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> The first five questions are brutal.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Question difficulty is not ordered — keep going, since the distribution evens
+out.</p>
+<p>Candidates who conclude they are failing in the first five minutes then perform worse on the
+rest.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> You failed by a few percent.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The section breakdown tells you where — study those specifically and retake at the reduced
+rate.</p>
+<p>A narrow fail usually means one weak section rather than inadequate overall
+preparation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> How soon should you retake?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>After genuinely closing the weak sections — soon enough that the rest is fresh, not so soon that nothing has
+changed.</p>
+<p>Retaking without new study usually produces the same
+result.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> You passed but feel you do not know the material.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Common, and worth acting on — the certificate is a milestone, and the areas you guessed are real gaps that will appear at
+work.</p>
+<p>Note them and close them
+deliberately.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> Should you study after passing?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Yes — the exam samples the syllabus, and the areas you were weak in are the areas you will be weak in on
+Monday.</p>
+<p>Passing is evidence of breadth, not
+mastery.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">71</span> What happens after the exam?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>You get the result and a section breakdown, which is the most useful artefact either way — it shows where you are strong and
+weak.</p>
+<p>Keep it and use it to direct the next
+study.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> How do you keep knowledge current?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Read release notes for your areas, do the maintenance modules properly rather than clicking through, and keep
+building.</p>
+<p>Certification knowledge decays quickly in a platform with three releases a
+year.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> Maintenance modules feel trivial.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>They are short by design, and they do tell you what changed — which is worth reading properly rather than
+skipping.</p>
+<p>Use them as a prompt to read the relevant release
+notes.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> How do you talk about certifications in an interview?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Briefly, then move to what you have built — lead with delivery and let the credentials be
+context.</p>
+<p>Candidates who lead with a certification list invite questions designed to test whether it is
+real.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> An interviewer is sceptical about certifications.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Fair — many are. Answer with specifics from real work: a problem, your approach, the trade-off, the
+outcome.</p>
+<p>That conversation resolves the scepticism faster than defending the credential
+does.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> How do you prove ability beyond certification?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Discuss something you built, why you chose that approach, what you would do differently, and what went
+wrong.</p>
+<p>Willingness to discuss your own mistakes is the strongest signal of genuine
+experience.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">77</span> What do interviewers actually probe?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Trade-offs — why this and not that, what breaks at scale, what you would change — because that is what certification cannot
+fake.</p>
+<p>Prepare by reviewing your own decisions critically rather than rehearsing
+definitions.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> What is the biggest exam technique mistake?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Missing the qualifier — "without code", "minimal maintenance", "most scalable" — which is placed precisely to separate two otherwise valid
+answers.</p>
+<p>Reading for that word on every question is the highest-value habit
+available.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="career">Career &amp; judgement (79–100)</h2>
+
+<details class="acc"><summary><span class="q-num">79</span> Certification or a side project?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The project, if you can only do one — it gives you something to discuss and the experience the certification
+assumes.</p>
+<p>Ideally pair them: build the project while studying the
+material.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> How do you choose between specialising and generalising?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Specialise enough to be the person called for something; generalise enough to see the whole
+solution.</p>
+<p>Architecture needs breadth, and breadth without any depth is hard to hire
+for.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">81</span> Is the Salesforce job market still good?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It varies by region, seniority and specialism, and demand is strongest where supply is thin — currently the AI, data and architecture
+areas.</p>
+<p>Research your own market rather than relying on general
+claims.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> Consultancy or end-user organisation?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Consultancy gives breadth, pace and many orgs; end-user gives depth, ownership and the experience of living with your own
+decisions.</p>
+<p>Both are valuable, and the second teaches consequences in a way the first does
+not.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">83</span> How do you move from admin to developer?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Learn Apex and LWC properly, take work that needs code, and keep the configuration
+knowledge — it makes you better than developers who lack it.</p>
+<p>Developer I plus real code in production is the
+transition.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> How do you move from developer to architect?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Take responsibility for decisions beyond your own code — integration design, data model, security, lifecycle — and practise justifying them in
+writing.</p>
+<p>The designer credentials follow the work rather than causing
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> What separates senior from mid-level?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Judgement about what not to build, awareness of consequences at scale and over time, and the ability to explain a trade-off to a
+non-technical stakeholder.</p>
+<p>Not the number of features
+delivered.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> You are the only Salesforce person at your company.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Build an external network — community groups and peers — for review and sanity-checking, because working alone entrenches
+habits.</p>
+<p>And write decision records, since you are also the only person who knows
+why.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> How do you keep learning in a fast-moving platform?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Read release notes for your areas each release, build with new features in a scratch org, and follow a small number of reliable
+sources.</p>
+<p>Three releases a year makes continuous learning structural rather than
+optional.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> You have been doing the same work for years.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Deliberately take on an adjacent area — integration, data, security, AI — because depth without any new breadth narrows options over
+time.</p>
+<p>A designer credential in an unfamiliar area is a reasonable forcing
+function.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> Is Apex a dead end as Flow improves?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>No — but the work shifts toward what configuration cannot do: complex logic, integration, performance at scale and
+frameworks.</p>
+<p>Developers who understand both the declarative and programmatic sides are the ones in
+demand.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> Should you learn AI and Agentforce now?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Yes — demand currently exceeds supply, and the work rewards people who understand data quality, grounding and
+governance.</p>
+<p>It is also where the platform is investing most
+heavily.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> How do you demonstrate architecture ability without the title?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Write decision records for your own work, raise the trade-offs others are not raising, and take responsibility for a subsystem
+end to end.</p>
+<p>The behaviour precedes the title in almost every
+case.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> How do you handle not knowing something in an interview?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Say so, then describe how you would find out and what you would check.</p>
+<p>Interviewers trust that far more than a confident wrong answer, which is itself a strong negative
+signal.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> How do you choose what to study next?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>What your current work needs, then what the work you want next needs — with a bias toward fundamentals that stay relevant across
+releases.</p>
+<p>Sharing, data modelling and integration patterns age far better than individual
+features.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> What knowledge ages best?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The data model, the sharing and security model, integration patterns, limits and governor behaviour, and judgement about
+trade-offs.</p>
+<p>Specific feature knowledge ages fastest, which should influence where you spend deep study
+time.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> You are asked to work beyond your competence.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Say what you know and do not, propose a way to close the gap or bring in help, and be explicit about the
+risk.</p>
+<p>Quietly attempting it is how irreversible mistakes get
+made.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> How do you build a reputation in the ecosystem?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Help people with specifics — answer questions well, write up what you learned, speak at a community
+group.</p>
+<p>It compounds, and it is also the most effective way to consolidate your own
+understanding.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> Does certification matter at senior level?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Less for getting hired, more for partner requirements and credibility with clients — and the designer credentials are genuinely good
+study.</p>
+<p>At senior level the portfolio of decisions carries the
+weight.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> What is the commonest certification mistake?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Collecting credentials instead of building things — producing someone who knows the vocabulary and cannot make a judgement
+call.</p>
+<p>Followed by studying without the exam guide, and by relying on question
+dumps.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> What would you tell someone starting out?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Get Administrator, build something real in a developer org, learn the sharing model properly, and get into a role where you live with your own
+decisions.</p>
+<p>The rest follows from
+there.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit that most improves platform skill?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Asking "what breaks at scale, and what happens when this fails?"</strong> about everything you
+build.</p>
+<p>It is the question that separates working code from production systems, and no certification teaches it as well as asking it
+habitually does.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="certifications.html">Certifications</a>, the <a href="scenarios.html">scenario index</a>, or
+    <a href="practice.html">Practice questions</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Certifications — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

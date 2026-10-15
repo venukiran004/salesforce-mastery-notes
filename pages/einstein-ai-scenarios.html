@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Einstein &amp; AI · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>Einstein &amp; AI</span></div>
+  <h1>Einstein &amp; AI — 100 Scenarios</h1>
+  <p class="lede">Predictive versus generative, data readiness, the Einstein Trust Layer, grounding and prompt
+     templates, scoring and drift, bias and governance, and knowing when AI is the wrong answer.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on <a href="einstein-ai.html">Einstein &amp;
+    AI</a>, its <a href="einstein-ai.html#advanced">Advanced</a> section, and <a href="agentforce.html">Agentforce</a>.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="choosing">Choosing the right tool (1–22)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Predictive or generative for this problem?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Predictive for a number or a class from structured history — likelihood to close, churn risk, case field
+values. Generative for language — summarising, drafting, rewriting, answering from documents.</p>
+<p>Using the wrong family is the commonest AI design error, and it is visible from the problem statement
+alone.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> The business wants "AI on the sales pipeline".<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Convert it into a decision someone will take differently. "Which deals should this rep call today?" is actionable; "AI on the pipeline" is
+not.</p>
+<p>If no behaviour changes, the model has no value regardless of its
+accuracy.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Would a formula solve this?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Ask it every time. If the rule is known and stable, a formula or flow is cheaper, explainable, testable and
+instant.</p>
+<p>AI earns its place where the pattern is genuinely unknown or the input is unstructured
+language.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Einstein Prediction Builder or Opportunity Scoring?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Out-of-the-box scoring when the standard prediction matches your question — far less work. Prediction Builder for a custom yes/no or numeric
+outcome on your own objects.</p>
+<p>Check the standard feature first; teams build custom models for predictions Salesforce already
+ships.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> Do you have enough data to train?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>You need a meaningful volume of historical records with <em>known outcomes</em> and reasonable balance between
+classes.</p>
+<p>A few hundred records, or 2% positives, will not produce a usable model — and this is the point at which most AI projects should
+stop.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> The data is poor. Should you proceed?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>No. Fix data quality first — AI amplifies what is in the data, and a model trained on inconsistent history produces confident
+nonsense.</p>
+<p>Saying this early is more valuable than delivering a model nobody can
+trust.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> Where does the outcome field come from?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>It must be reliably populated for historical records and reflect the real outcome — not a field people fill in
+inconsistently.</p>
+<p>An unreliable label is the most common hidden cause of a model that performs badly for no apparent
+reason.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> A field leaks the answer.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Target leakage — a field only populated <em>after</em> the outcome is known, such as a closed-reason on a won/lost
+prediction.</p>
+<p>It produces a model that scores brilliantly in training and fails in production, which is the signature of the
+problem.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> Scores look suspiciously accurate.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Suspect leakage before celebrating. Review every input field for whether it could be known at prediction
+time.</p>
+<p>Near-perfect accuracy on a hard business problem is a bug report, not a
+result.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> Einstein Bots or Agentforce?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Bots are dialogue-tree based and predictable; Agentforce reasons over topics and actions with far greater
+flexibility.</p>
+<p>Agentforce for genuinely open interactions; a tree where the path is known and must never deviate. See
+<a href="agentforce.html">Agentforce</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> Case classification is wanted.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Einstein Case Classification predicts field values from case text, with Case Routing acting on
+them.</p>
+<p>It needs consistent historical categorisation — if humans have been inconsistent, the model learns the
+inconsistency.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> Agents want case summaries.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A strong generative use case: real time saved, low risk because a human reads and verifies it
+immediately.</p>
+<p>Summarisation and drafting are where generative AI delivers value with the least
+exposure.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> Reply drafting for emails is requested.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Good use case with a human in the loop — the agent edits before sending, so errors are caught before they reach a
+customer.</p>
+<p>Ground it in Knowledge so the content is accurate rather than
+plausible.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> Should AI send customer emails unreviewed?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Not initially. Start with draft-and-review, measure the edit rate, and only consider automation where the content is low-risk and the edit rate
+is very low.</p>
+<p>The question is always what happens when it is wrong and who
+notices.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> Next Best Action versus a model.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Next Best Action delivers recommendations with business rules and optional model input — strategies are explainable and
+auditable.</p>
+<p>Prefer it where the logic is partly known; it combines rules with scoring rather than replacing one with the
+other.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> Einstein Activity Capture is proposed.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It syncs email and events, and the data is stored differently from standard activity records — which affects reporting and
+retention.</p>
+<p>Understand that storage model before committing; it surprises teams at reporting
+time.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">17</span> Forecasting with Einstein is wanted.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Einstein Forecasting projects from pipeline history, and it needs clean stage and close-date
+hygiene.</p>
+<p>If reps update close dates late and inconsistently, the forecast reflects that behaviour rather than
+reality.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> Lead scoring is already in place and ignored.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Adoption problem, not a model problem. Scores nobody acts on have no value — check whether the score appears where the work happens and whether
+anyone was told what to do with it.</p>
+<p>Embed it in the queue or list view that drives the
+day.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">19</span> What does Data Cloud add to AI?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Unified profiles across systems — ingestion, identity resolution, calculated insights — which gives models and grounding a complete view rather
+than one org's slice.</p>
+<p>It is frequently the prerequisite for AI that reflects the whole customer
+relationship.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> Should everything go into Data Cloud?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No — ingest what serves identity resolution, segmentation, grounding or analytics. Consumption has real
+cost.</p>
+<p>Start from the use case and ingest backwards from it, rather than ingesting first and finding a purpose
+later.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">21</span> Identity resolution is merging the wrong people.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Match rules are too loose — review them, and prefer verified identifiers over fuzzy name and address
+matching.</p>
+<p>A wrong merge exposes one customer's data to another, so this is a privacy incident rather than a data
+tidiness issue.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> When is AI the wrong answer?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>When the rule is known, when the data is poor or thin, when nobody will change behaviour based on the output, when an error is unacceptable and
+unreviewable, or when the cost exceeds the value.</p>
+<p>Being willing to say so is the most valuable judgement in this
+area.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="generative">Generative &amp; grounding (23–50)</h2>
+
+<details class="acc"><summary><span class="q-num">23</span> What does the Einstein Trust Layer do?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Zero data retention with the model provider, dynamic grounding, PII masking, toxicity detection and an audit
+trail.</p>
+<p>It is the answer to "where does our data go" — and the reason you use platform generative features rather than calling a model
+directly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> Legal asks whether customer data trains the model.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>No — zero retention means the provider does not store or train on prompts sent through the Trust
+Layer.</p>
+<p>That commitment is specifically what makes generative features viable for regulated
+data.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> What is grounding?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Injecting your own data — records, Knowledge, Data Cloud — into the prompt so the answer comes from your facts rather than the model's general
+knowledge.</p>
+<p>It is the single biggest determinant of output quality, and the main defence against
+hallucination.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> The output is plausible but wrong.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Hallucination — almost always insufficient grounding. Ground in authoritative content, instruct the model to answer only from what is supplied,
+and have it say when it does not know.</p>
+<p>Then verify against real cases rather than assuming the instruction was
+followed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> How do you build a prompt template?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Prompt Builder, with record data, related lists, Knowledge or Flow and Apex outputs merged in — version it and test on real
+examples.</p>
+<p>Treat it as code: it has inputs, behaviour and regressions, and it belongs in source
+control.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> A prompt needs computed data.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>An Apex or Flow grounding source — compute the value and merge it in, rather than hoping the model derives it from raw
+records.</p>
+<p>Models are poor at arithmetic over records and good at language about facts you
+supply.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> The prompt exceeds the context window.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Reduce what you send: retrieve the most relevant content rather than everything, summarise before including, and bound related
+records.</p>
+<p>More context is not better context — precision beats
+volume.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> Output quality varies between runs.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Expected — generation is non-deterministic. Reduce variance with tighter instructions, better grounding and a constrained output
+format.</p>
+<p>And test across many examples; a single good result tells you very
+little.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> You need structured output from a prompt.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Specify the format explicitly, give an example, and validate what comes back before using
+it.</p>
+<p>Never assume well-formed JSON — parse defensively and handle the failure
+path.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> How do you test a prompt template?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>An evaluation set of representative inputs with expected characteristics, run after every change, with results
+compared.</p>
+<p>Without it, prompt changes are guesswork — and this is the discipline most AI projects skip and later
+regret.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">33</span> A prompt change broke something else.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Exactly why the evaluation set exists — prompts have regressions like code, and a fix for one case commonly degrades
+another.</p>
+<p>Re-run the full set rather than spot-checking the case you were
+fixing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> Users try to manipulate the prompt.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Prompt injection. Treat all user input as untrusted, keep instructions separate from data, constrain what actions are reachable, and never
+let model output drive a privileged operation unchecked.</p>
+<p>Guardrails must be enforced outside the prompt — the model is not a security
+boundary.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> A record contains injected instructions.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Indirect injection — grounded content carrying instructions the model may follow. Anyone who can write to a grounded field can attempt
+it.</p>
+<p>Which is why permissions on grounded data matter, and why actions need their own authorisation
+checks.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> Does AI respect sharing rules?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Grounding runs in the user's context, so it should surface only what they can see — and that must be
+verified, not assumed, particularly where Apex grounding sources are involved.</p>
+<p>An Apex source running <code>without sharing</code> leaks through the
+prompt.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> How do you audit what AI was asked and answered?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The Trust Layer's audit trail, with feedback captured alongside.</p>
+<p>It is what lets you investigate a complaint and measure quality over time — and it needs someone to actually review
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> PII is appearing in prompts.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The Trust Layer masks detected PII, and you should also question whether the field needs to be in the prompt at
+all.</p>
+<p>Minimise what you send — masking is a safety net, not a licence to include
+everything.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> Toxic or inappropriate output is reported.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Toxicity detection scores and can block it, and the incident should be captured and reviewed rather than
+dismissed.</p>
+<p>For customer-facing output, keep a human in the loop until the evidence says it is
+safe.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> Can you bring your own LLM?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Yes — BYOLLM routes through the Trust Layer, so the governance applies to your own model
+too.</p>
+<p>Worth it where you have a fine-tuned or domain-specific model; unnecessary for most
+cases.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">41</span> Why not call OpenAI directly from Apex?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>You lose zero retention, PII masking, toxicity detection and the audit trail — and you own the key management and the compliance
+argument.</p>
+<p>Possible, occasionally justified, and a significant step backwards on governance for most
+uses.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> How are generative features consumed commercially?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Credit-based — generations and agent interactions draw down a balance, so an enthusiastic rollout has a real
+cost.</p>
+<p>Monitor consumption from day one and model it before scaling to a whole
+department.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> Credit consumption is higher than expected.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Find the heaviest use — usually one feature firing more often than designed, or an automatic trigger nobody
+intended.</p>
+<p>Review where generation is invoked and whether every invocation delivers
+value.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> Knowledge quality limits the output.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Grounded answers can only be as good as the grounded content, so Knowledge gardening <em>is</em> AI
+work.</p>
+<p>Articles that are out of date produce confidently wrong answers at
+scale.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> Search returns poor grounding results.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Retrieval quality — chunking, indexing and how the search query is formed. The best model cannot fix bad
+retrieval.</p>
+<p>Debug retrieval separately from generation: look at what was retrieved before blaming the
+answer.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> How do you measure whether a generative feature works?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Edit rate on drafts, handle-time change, deflection, thumbs-down rate, and sampled human review against a
+rubric.</p>
+<p>Not usage — usage measures curiosity. Edit rate is the most honest early
+signal.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> Agents say the summaries are not useful.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Look at real outputs with them and find what is missing or wrong — usually grounding gaps or a prompt optimised for the wrong
+audience.</p>
+<p>Reviewing twenty real outputs with the people who use them beats any amount of
+speculation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> Where should a human stay in the loop?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Anywhere an error is costly, irreversible or customer-visible — and until measurement shows the quality justifies
+removing them.</p>
+<p>The default is review; automation is earned with
+evidence.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> How do you roll out a generative feature?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A pilot team, an evaluation set, measured edit rates and feedback capture, then expand — with credit consumption
+monitored.</p>
+<p>Enabling it org-wide on day one produces both a cost surprise and an unmeasured quality
+problem.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> What determines generative quality most?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Grounding</strong> — the relevance and accuracy of the data you put in the prompt. Model choice and prompt wording matter far
+less.</p>
+<p>Which means most AI quality work is actually data and content
+work.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="models">Models, scoring &amp; drift (51–76)</h2>
+
+<details class="acc"><summary><span class="q-num">51</span> What does a 70% score mean?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A relative ranking signal, not a 70% certainty of the outcome — and that distinction matters enormously for how people use
+it.</p>
+<p>Teach users to triage by rank rather than to read the number as a
+probability.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> Users treat scores as certainties.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>An enablement problem with real consequences — ignoring a low-scored deal that was winnable, or trusting a high score
+blindly.</p>
+<p>Frame it as prioritisation, show the top factors, and say plainly that it is
+probabilistic.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> Why did the model predict this?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Top predictors and factor contributions provide the explanation, and surfacing them is what makes a score
+actionable.</p>
+<p>A score without reasons is ignored; a score with "because no activity in 30 days" gets acted
+on.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> A predictor is surprising.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Investigate rather than accept it — surprising predictors are frequently leakage, a proxy for something else, or an artefact of how data is
+entered.</p>
+<p>Occasionally it is a genuine insight. The investigation distinguishes
+them.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> Model performance degraded over months.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Drift</strong> — the world changed, the process changed, or the data distribution moved. Monitor accuracy over time and
+retrain.</p>
+<p>A model is not a deliverable you finish; it needs an owner and a monitoring
+cadence.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> Who owns a deployed model?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A named person responsible for monitoring accuracy, retraining, reviewing bias and deciding when to retire
+it.</p>
+<p>Unowned models quietly degrade and keep being trusted, which is worse than having no model at
+all.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> How often should you retrain?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>On a cadence informed by monitoring, and immediately after a material process or market change.</p>
+<p>Retraining on a schedule without monitoring misses drift between runs; monitoring tells you when it actually
+matters.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> A sales process changed. What happens to the model?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Its training data describes the old process, so its predictions are about a world that no longer exists — retrain, and expect reduced accuracy
+until enough new history accumulates.</p>
+<p>Flag the gap honestly rather than letting people trust stale
+scores.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> Is the model biased?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Check for protected-attribute proxies, measure outcomes across segments, and review whether historical bias is being
+learned and amplified.</p>
+<p>Models trained on biased history reproduce it at scale and with apparent objectivity, which is the real
+danger.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> Postcode is a strong predictor.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A classic proxy for protected attributes. Examine what it is really standing in for and whether using it is
+defensible.</p>
+<p>Strong and uncomfortable predictors deserve scrutiny rather than
+acceptance.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> AI affects a decision about a person.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Higher governance: documented purpose, bias testing, human review, an appeal path, and transparency about AI
+involvement.</p>
+<p>Regulations increasingly require this, and it is the right thing regardless of the
+regulation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> Must customers be told AI was involved?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Increasingly yes, and it is good practice regardless — particularly for generated customer-facing
+content.</p>
+<p>Check your jurisdiction's requirements rather than assuming they do not
+apply.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> What does AI governance need?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A register of AI use with purpose and owner, data sources documented, bias and accuracy review, human-in-the-loop decisions recorded,
+retention and retraining policy, and an incident path.</p>
+<p>Most organisations have none of this and considerable AI in
+production.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> How do you validate a model before launch?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Hold-out evaluation, a check for leakage, segment-level performance, and a shadow period comparing predictions against actual
+outcomes before anyone acts on them.</p>
+<p>The shadow period is the step most often skipped and the most
+informative.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> The model is accurate and nobody uses it.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Delivery problem: wrong place, wrong moment, no explanation, or no clear action
+attached.</p>
+<p>Put it in the list view or queue where the decision happens, with the reasons visible and the next action
+obvious.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> Can Einstein features run in a sandbox?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Availability varies by feature, and sandbox data is often unrepresentative for training
+anyway.</p>
+<p>Check availability early — discovering a feature cannot be tested pre-production reshapes the release
+plan.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> How do you deploy AI configuration?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Prompt templates and some configuration are metadata; trained models and certain settings are
+environment-specific.</p>
+<p>Document the manual steps, and keep prompt templates in source control with their evaluation
+set.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> A prompt template was edited in production.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Treat it as a code change made without review — because that is what it is.</p>
+<p>Prompts belong in the pipeline with versioning and an evaluation run, not edited live under
+pressure.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> How do you estimate AI project effort?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Weight data readiness heavily — it is usually the majority of the work — then grounding, evaluation, enablement and
+monitoring.</p>
+<p>Estimates that assume the data is ready are the reason AI projects
+overrun.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> The executive sponsor wants AI by next quarter.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Offer the fastest genuinely valuable thing — usually a grounded summarisation or drafting feature, which needs no training data and delivers
+measurable time savings.</p>
+<p>And be honest that predictive work waits on data
+readiness.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">71</span> What is the fastest AI win in most orgs?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Case or conversation summarisation grounded in existing data: no training, immediate time saving, human verification
+built in.</p>
+<p>It also builds the organisational confidence needed for anything more
+ambitious.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> Should AI be enabled everywhere it is available?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No — each feature needs a purpose, an owner, measurement and a credit budget.</p>
+<p>Enabling everything produces cost, inconsistent quality and no way to tell what is
+working.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> An AI feature gives a customer wrong information.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Treat it as an incident: contain by disabling or adding review, correct with the customer, find the cause through the audit trail, and add the
+case to the evaluation set.</p>
+<p>Then ask what else the same grounding gap could have gotten
+wrong.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> How do you decide to retire a model?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>When accuracy no longer justifies it, when nobody acts on it, or when a rule now does the job
+better.</p>
+<p>Retiring an unused model is a positive outcome, not a failure — stale models erode trust in the
+rest.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> Data Cloud costs are rising.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Review ingestion volume, segmentation frequency and calculated insights — consumption is driven by what you process, not just what you
+store.</p>
+<p>Ingest and recalculate what the use cases need and no
+more.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> What is the commonest AI project failure?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Starting from the technology rather than a decision someone will make differently — producing an accurate model nobody
+uses.</p>
+<p>Closely followed by proceeding on data that was never good
+enough.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="judgement">Judgement &amp; communication (77–100)</h2>
+
+<details class="acc"><summary><span class="q-num">77</span> The sponsor asks "can AI do this?"<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Answer with the decision, the data and the measurement: what choice changes, whether the history supports it, and how you will know it
+works.</p>
+<p>That reframing is more useful than a yes or
+no.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> How do you explain a probabilistic system to a business user?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It is a prioritisation aid that is right more often than chance, not an oracle — use it to order your day, not to make decisions you would
+otherwise reason about.</p>
+<p>Setting that expectation early prevents both over-trust and
+dismissal.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">79</span> A stakeholder wants 95% accuracy.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Discuss what accuracy means for their class balance — 95% is trivial if 95% of cases are negative, and that number alone is
+meaningless.</p>
+<p>Agree the metric that reflects the business cost of each error
+type.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> False positives and false negatives differ in cost.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Then set the threshold accordingly rather than defaulting to the midpoint — a missed churn risk and a wasted call are not equally
+expensive.</p>
+<p>The threshold is a business decision, not a technical
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">81</span> How do you present model results honestly?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Performance on held-out data with the relevant metrics, segment breakdowns, known limitations, and what would make it
+better.</p>
+<p>Overselling an AI result is how you lose the credibility you need for the next
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> A vendor claims their AI will solve it.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Ask what data it trains on, how it grounds, where data goes, how it is evaluated, and what happens when it is
+wrong.</p>
+<p>Those five questions separate real products from
+demos.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">83</span> AI is proposed to fix a process problem.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Say so. If cases are mis-routed because the routing rules are wrong, fixing the rules beats predicting the
+mis-routing.</p>
+<p>AI applied over a broken process automates the
+brokenness.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> Everyone wants a chatbot.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Ask what questions it answers and whether the content to answer them exists and is accurate.</p>
+<p>A chatbot over poor Knowledge is a faster route to wrong answers. See
+<a href="agentforce-scenarios.html">Agentforce scenarios</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> How do you build organisational trust in AI?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Start with low-risk, human-reviewed, obviously useful features; measure and publish the results; be candid about
+limitations.</p>
+<p>One oversold failure costs more trust than several modest successes
+build.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> Users distrust AI after a bad experience.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Acknowledge it, fix the specific cause, show the evidence of improvement, and re-introduce with their
+involvement.</p>
+<p>Dismissing the complaint guarantees the feature is never used
+again.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> How do you handle AI feature release velocity?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Track release notes, verify capabilities against current documentation rather than memory, and keep architectural decisions
+reversible.</p>
+<p>This area moves fast enough that year-old knowledge is a genuine
+liability.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> You are asked about a feature you are unsure about.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Say you will verify against current documentation rather than guessing — AI feature boundaries change every
+release.</p>
+<p>Confidently wrong answers about AI capability cause real project
+damage.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> Where does AI fit in the architecture?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>As a component with inputs, outputs, failure modes and an owner — not a layer sprinkled over everything.</p>
+<p>Which means designing what happens when it is unavailable, slow or
+wrong.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> An AI call needs to happen in a transaction.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Generation is slow and can fail, so keep it asynchronous and out of the synchronous save path where
+possible.</p>
+<p>An AI call inside a trigger is a latency and reliability risk for every save on that
+object.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> The AI service is unavailable.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Degrade gracefully — the feature is unavailable, the rest of the application works, and the user sees a clear
+message.</p>
+<p>A failed generation must never block a save or lose the user's
+work.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> How do you document an AI feature for handover?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Purpose and decision supported, data sources and grounding, the prompt template with its evaluation set, measurement and current
+results, the owner, and the known limitations.</p>
+<p>The evaluation set is the artefact that makes future change
+safe.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> Who should be on an AI project team?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Someone who owns the business decision, someone who knows the data, a platform person, and a reviewer for bias and
+governance.</p>
+<p>Data knowledge is the role most often missing and most often
+needed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> Data quality work is unglamorous and unfunded.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Frame it as the AI project, because it is the majority of the work and the determinant of the
+outcome.</p>
+<p>"We cannot do the AI you want until this data is reliable" is a fundable statement in a way that "data quality" alone is
+not.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> How do you prioritise between AI use cases?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Value of the decision, readiness of the data, risk if wrong, and effort — with data readiness usually the binding
+constraint.</p>
+<p>Pick the one with real value and ready data, even if it is less exciting than the
+alternative.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> A competitor announced an AI feature.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Separate the competitive pressure from the business case, and be clear that a rushed, unmeasured feature is worse than
+none.</p>
+<p>Offer the fastest genuinely valuable option rather than the fastest visible
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> How do you avoid AI technical debt?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Prompts in source control with evaluation sets, models with owners and monitoring, a use register, and retirement of what is no longer
+used.</p>
+<p>Unversioned prompts and unowned models are the two commonest forms of
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> What is the single biggest AI risk?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Confident wrongness at scale — a system producing plausible, trusted, incorrect output faster than anyone can check
+it.</p>
+<p>Grounding, human review and measurement are the three controls that address
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> What would you ask before any AI project?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>What decision changes; who will act on it; is the data good enough; what happens when it is wrong; how will we know it works; what does it
+cost.</p>
+<p>Answering those six honestly prevents most AI project
+failures.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit that most improves AI work?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Keeping an evaluation set and running it on every change</strong> — a set of real inputs with expected
+characteristics.</p>
+<p>It turns prompt and model work from guesswork into engineering, and it is the discipline that most reliably separates AI features that survive
+from ones that are quietly switched
+off.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="einstein-ai.html">Einstein &amp; AI</a>, the <a href="scenarios.html">scenario index</a>, or
+    <a href="agentforce-scenarios.html">Agentforce — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Einstein &amp; AI — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

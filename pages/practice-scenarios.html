@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mixed Practice · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>Mixed Practice</span></div>
+  <h1>Mixed Practice — 100 Scenarios</h1>
+  <p class="lede">Unsorted and unsignposted, the way real questions arrive. Every topic is in here — no section
+     heading tells you which, so you have to recognise the problem before you can solve it.</p>
+</header>
+
+<div class="callout warn">
+  <span class="c-ico">⚠️</span>
+  <div class="c-body"><span class="c-title">Harder by design</span>
+    The other banks group questions by topic, which gives away half the answer. These are deliberately shuffled.
+    If you can handle this page, you can handle an interview.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="set-1">Set one (1–25)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> A nightly job started failing last week. Nothing changed.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Something changed — data volume crossing a limit threshold, a selectivity boundary, a new trigger firing in the same transaction, or growth in a
+related list.</p>
+<p>"Nothing changed" usually means no <em>code</em> changed. Check the logs for which limit is now being hit and
+compare record counts to a month
+ago.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> A user says "the system is slow".<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Narrow it: which page, which record, which action, what time, and is it everyone or one user. A slow record page and a slow list view are
+different problems.</p>
+<p>Then look at the specific cause — component count, Apex in the page, a formula field with cross-object lookups, or row-level
+sharing
+calculation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Should this be a trigger or a flow?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Record-triggered flow for most automation; Apex when you need complex logic, callouts with careful handling, performance control or
+genuine unit testability.</p>
+<p>And one automation per object per timing, whichever you choose — the mess comes from having
+both.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> An integration is duplicating records.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>No idempotency. It is retrying and creating again. Use an external ID with upsert so a retry is
+harmless.</p>
+<p>Any integration that can retry must be idempotent, and most that break were never designed to
+be.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> 50,000 records need updating from a CSV tonight.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Bulk API 2.0, with automation considered: deactivate what is not needed, defer sharing recalculation if applicable, chunk sensibly and keep a
+pre-load extract.</p>
+<p>And run a subset first — a dry run on 100 records finds the mapping error before it is in 50,000
+rows.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> A customer can see another customer's data in the portal.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Contain immediately, then find the grant: Sharing Set match field, a sharing rule including external users, elevated Apex, a system-context flow, or
+External OWD left open.</p>
+<p>Containment before diagnosis — accepting a functionality outage is the correct trade
+here.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> Test coverage is 74% and deployment is blocked.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Find uncovered code and test it meaningfully — the temptation is to write assertion-free tests that lift the
+number.</p>
+<p>That passes the gate and leaves you with no safety net, which is a worse position than being
+blocked.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> "Too many SOQL queries: 101".<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A query inside a loop. Query once outside with a collection, build a map, then iterate.</p>
+<p>It is the single commonest Apex defect and it only appears once data volume grows past
+testing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> A report takes minutes to run.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Non-selective filters over large volumes, formula fields evaluated per row, or a very wide date
+range.</p>
+<p>Filter on indexed fields, narrow the range, and consider a reporting snapshot for the recurring
+case.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> Two developers' changes overwrote each other.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>They deployed from separate sandboxes without merging through source control — the second deployment reverted the
+first.</p>
+<p>Source control as the single source of truth is the fix; nothing else prevents
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> An LWC shows stale data after a save.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The wire is cached. Use <code>refreshApex</code>, or <code>notifyRecordUpdateAvailable</code> for record
+data.</p>
+<p>Imperative calls do not refresh wires, which is the usual reason the save appeared to work and the screen did
+not.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> A formula field cannot reference what you need.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Formulas cannot traverse child records or long chains. Consider a rollup, a flow-maintained field, or restructuring the
+relationship.</p>
+<p>And watch the compiled-size limit on deeply nested
+formulas.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> The business wants real-time sync with an ERP.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Challenge "real-time" — usually near-real-time is sufficient and far cheaper. Then choose: platform events for
+decoupling, request-reply for genuine synchronicity, or external objects to avoid copying at all.</p>
+<p>And define what happens when the ERP is
+down.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> A validation rule fires on an integration load.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The rule applies to all contexts. Either the data is genuinely invalid — in which case fix it upstream — or the rule needs to exempt the
+integration user.</p>
+<p>Prefer fixing the data; exemptions accumulate until the rule protects
+nothing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> Someone needs access to one record only.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Manual share or Apex managed sharing with a custom RowCause — the latter if it must survive ownership
+change.</p>
+<p>Do not widen OWD or add a sharing rule for a single
+record.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> A trigger runs twice per save.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Workflow field updates or a process re-entering the save, or a trigger updating its own object. Add a static recursion
+guard.</p>
+<p>And check whether the recursion is a symptom of automation that should be consolidated
+instead.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">17</span> An Apex callout fails in a trigger.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>You cannot call out from a trigger synchronously. Use <code>@future(callout=true)</code> or Queueable — and Queueable is generally the better
+choice.</p>
+<p>Also consider whether the callout belongs in the save path at
+all.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> A field needs to be encrypted.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Shield Platform Encryption, understanding the functional trade-offs — filtering, sorting and some operations are
+restricted.</p>
+<p>And remember encryption does not protect against a user who legitimately has access, which is the more common
+risk.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">19</span> A queue is not receiving cases.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Assignment rules not firing (check whether the creating context runs them), rule entry order, or criteria not
+matching.</p>
+<p>API and integration creates do not run assignment rules unless explicitly
+requested.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> You need to delete 10 million records.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Batch it, consider hard delete to skip the Recycle Bin, take a backup first, and expect it to take a long
+time — indexes and sharing recalculation make deletes expensive.</p>
+<p>Also check what cascades, and whether anything downstream depends on those
+records.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">21</span> A managed package is consuming most of your limits.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>You cannot change its code. Document the consumption with evidence, escalate to the vendor, and assess the exit
+cost.</p>
+<p>Which is exactly what the pre-install review was meant to
+prevent.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> A user reports data loss.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Check the Recycle Bin, field history, and the audit trail for who changed what. Then determine whether it was a delete, an overwrite, or a
+sharing change making it invisible.</p>
+<p>"Invisible" is more common than "deleted" and is far easier to
+fix.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> A flow is hitting CPU limits.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Loops with DML or queries inside, or multiple automations on the same object in one
+transaction.</p>
+<p>Move queries and DML outside loops, consolidate the automations, and consider Apex for genuinely heavy
+logic.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> An external system needs a daily extract of changes.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Query by <code>SystemModstamp</code> with a watermark the consumer maintains — not <code>LastModifiedDate</code>, which can be set on
+load.</p>
+<p>Or Change Data Capture if near-real-time is actually
+wanted.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> The sponsor wants it live on Friday and it is not ready.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Say what is ready, what is not, and the specific risk of shipping anyway — then let them decide with that
+information.</p>
+<p>Offer a reduced scope that is genuinely ready rather than a full scope that is
+not.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="set-2">Set two (26–50)</h2>
+
+<details class="acc"><summary><span class="q-num">26</span> A guest page calls an <code>@AuraEnabled</code> method.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>That method is a public endpoint. Audit CRUD and FLS enforcement, parameter validation, row bounds, and whether anything in the path runs
+<code>without sharing</code>.</p>
+<p>Elevated code reachable from a public page is the classic Salesforce exposure
+path.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> A query returns inconsistent results between users.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Sharing — the Apex is running <code>with sharing</code> and users see different records, which is usually
+correct.</p>
+<p>Verify it is intended rather than reaching for elevation to make the symptom go
+away.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> You inherit an org with 40 workflow rules and 20 processes.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Inventory by object and timing, map the dependencies, then migrate to record-triggered flows incrementally with tests — highest-risk object
+first.</p>
+<p>Not a big-bang migration; the order of operations is where the subtle breakages
+live.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> Users want a field on a report that is not available.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The report type does not include that object or the field is not in it — create a custom report type or extend the
+existing.</p>
+<p>And check FLS, which removes fields from reports for users who cannot see
+them.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> An approval process is stuck.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The approver is inactive, has no delegate, or the next-step criteria match nothing.</p>
+<p>Check the process instance and reassign — and add a delegate policy so it does not recur with the next
+leaver.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> A platform event subscriber missed events.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Retention is limited, so a subscriber down longer than the window loses events permanently — and replay IDs are the
+mechanism for catching up within it.</p>
+<p>Design for the gap: a reconciliation job, or an idempotent catch-up by
+query.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> A rollup is needed across a lookup.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Roll-up summary fields need master-detail. Across a lookup, use a flow, Apex, or reconsider the
+relationship.</p>
+<p>Changing lookup to master-detail has significant sharing and deletion consequences — do not do it
+casually.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">33</span> An admin accidentally emailed 10,000 customers.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Contain what can still be stopped, assess who received what, notify whoever needs to know, and then restrict who can send mass
+email.</p>
+<p>The control is permissions and a confirmation step, not
+training.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> A record page has 15 components and loads slowly.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Each may make its own server call. Consolidate, lazy-load below the fold, use tabs, and audit what is genuinely
+needed.</p>
+<p>Page layouts accumulate components one reasonable request at a
+time.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> A sandbox refresh broke all the integrations.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Endpoints, named credentials, certificates and identity configuration are environment-specific and reset on
+refresh.</p>
+<p>Script the post-refresh setup — doing it manually from memory costs days every
+time.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> A SOQL query is non-selective on 5 million records.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Filter on an indexed field — primary keys, external IDs, lookups, or a custom index — and meet the selectivity
+threshold.</p>
+<p>Nulls and negative operators defeat indexes, which is the usual reason an apparently indexed filter is still
+scanning.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> One account owner has 400,000 records.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Ownership skew. Keep that user out of the role hierarchy, or distribute ownership — sharing recalculation on that user becomes
+pathological.</p>
+<p>It commonly arises from a default owner on an integration, which is worth checking
+first.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> Marketing wants a public form that creates leads.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Web-to-Lead or an Experience Cloud page, with spam controls, server-side validation and a hardened guest
+profile.</p>
+<p>And a default owner that does not develop ownership
+skew.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> A deployment succeeded but behaviour is wrong.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Something environment-specific was not deployed: custom settings, a record type mapping, a named credential, or configuration done manually in the
+source org.</p>
+<p>Which is what a deployment checklist and a post-deploy smoke test
+catch.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> A junction object is needed.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Many-to-many: a junction object with two master-detail relationships, with the first master determining ownership and
+sharing.</p>
+<p>Which master comes first is a design decision, not an
+accident.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">41</span> A batch job is failing on one chunk.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Partial failure. Catch per-record errors, log them to an object, and let the rest
+proceed.</p>
+<p>A batch that aborts on the first bad record processes nothing on the second
+run.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> Someone asks for Modify All Data.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Ask what they are trying to do — there is almost always a narrower permission that
+suffices.</p>
+<p>If it is genuinely needed, grant it time-bound with an approval and an audit
+trail.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> A list view takes 30 seconds.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Non-selective filters, too many columns including formulas, or a very large underlying
+set.</p>
+<p>Filter on indexed fields, reduce columns, and avoid formula columns that traverse
+objects.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> Two systems both claim to own customer records.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Decide the system of record per field, not per object — and implement that decision in the sync so writes flow one
+way.</p>
+<p>Bidirectional sync without field-level ownership produces update loops and silent
+overwrites.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> A Visualforce page exceeds view state.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Reduce what is in the controller: mark fields transient, trim collections, and move work off the
+page.</p>
+<p>Or rebuild it as an LWC, which has no view state at
+all.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> An error appears only in production.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Data volume, data shape, a different user's permissions, an installed package, or configuration that differs from the
+sandbox.</p>
+<p>Reproduce with the affected user's access on production-like data rather than guessing from the sandbox's
+behaviour.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> A custom object needs 200 fields.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Challenge it — that is usually several entities, or fields nobody will populate.</p>
+<p>And check the limits for your edition, plus the effect on page layouts, reports and query
+performance.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> A scheduled job stopped running.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The scheduling user was deactivated, the job was aborted, or an unhandled exception removed
+it.</p>
+<p>Schedule jobs as a dedicated service user, not a person who might
+leave.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> An AI feature gave a customer wrong information.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Contain by adding review or disabling, correct with the customer, find the grounding gap through the audit trail, and add the case to the
+evaluation set.</p>
+<p>Then ask what else that same gap could have gotten
+wrong.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> You are asked to estimate work you do not understand.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Timebox an investigation and estimate afterwards, or give a range with the assumptions stated
+explicitly.</p>
+<p>A confident number you cannot justify is worse than a range with a named
+unknown.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="set-3">Set three (51–75)</h2>
+
+<details class="acc"><summary><span class="q-num">51</span> A trigger needs to run only on field change.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Compare the new value to <code>Trigger.oldMap</code> and exit early when it has not
+changed.</p>
+<p>Without that check the logic runs on every save, which is both wasteful and a source of recursion and spurious
+updates.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> An integration user needs to bypass validation rules.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A custom permission checked in the rule, or a bypass custom setting — applied narrowly and reviewed, not
+blanket.</p>
+<p>And ask whether the data is genuinely valid; the rule may be catching a real upstream
+problem.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> A customer asks for their data to be deleted.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A documented process covering records, activities, files, backups, sandboxes and downstream systems, with evidence of
+completion.</p>
+<p>Sandboxes and connected systems are the parts most commonly
+missed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> A field update in one flow triggers another.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Cascading automation — map the chain by object and timing, because each hop consumes limits and the order is hard to
+predict.</p>
+<p>Consolidate to one automation per object per timing, which is the only durable
+fix.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> A user needs read access to all records of one object.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>View All on that object via a permission set — not View All Data, which grants everything on every
+object.</p>
+<p>Object-level View All is the precise tool and it is routinely over-granted to the org-wide
+version.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> A Postman request works and Apex callout fails.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Remote site setting or named credential missing, a different TLS or certificate situation, or a header Postman set
+automatically.</p>
+<p>Compare the actual request Apex sent against what Postman sent, header by
+header.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> Field history is not showing a change.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>History tracking is not enabled on that field, or the change exceeded what history
+captures — and there is a limit on tracked fields per object.</p>
+<p>For a full audit trail of specific fields, plan tracking deliberately rather than
+retrospectively.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> A Lightning page is slow only for one profile.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Different component visibility, different record access causing more sharing evaluation, or a component that queries more for that
+role.</p>
+<p>Use the Lightning Usage app and reproduce as that user rather than as an
+admin.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> Someone wants to store 50MB of files per record.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check storage cost and limits — and consider external storage with Files Connect or a link, rather than holding everything in
+Salesforce.</p>
+<p>File storage is a recurring cost that grows without anyone deciding to grow
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> A duplicate rule is blocking legitimate records.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Matching rules are too loose. Tune them, and consider alerting rather than blocking so users can
+judge.</p>
+<p>Blocking rules that produce false positives get bypassed, which defeats the whole
+purpose.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> An LWC needs to talk to another on the same page.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Events up, properties down for parent-child; Lightning Message Service across the page or across
+technologies.</p>
+<p>Not a shared global — that breaks encapsulation and makes both components
+untestable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> A report needs data from two unrelated objects.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A join needs a relationship. Options: add a lookup, use a joined report if the structure allows, or build it in an analytics
+tool.</p>
+<p>Reporting requirements legitimately influence the data
+model.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> An org has 30 permission sets with overlapping grants.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Rationalise into permission set groups by role, with a muting set where needed — and audit what each actually
+grants.</p>
+<p>Overlapping sets make it impossible to answer "what can this user do", which is the question that
+matters.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> A process must not run during a data migration.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A bypass custom setting or custom permission the automation checks, enabled for the load user — and switched off
+afterwards.</p>
+<p>Deactivating automation wholesale risks forgetting to reactivate it, which is its own
+incident.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> You find <code>without sharing</code> in production code.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Determine why. Sometimes it is legitimate — a system process that must see everything — and it needs its own authorisation
+check.</p>
+<p>Often it was added to make something work, which means a sharing bug is being masked by
+elevation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> A time-based flow fired at the wrong time.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Timezone handling, a changed criteria field, or the scheduled path recalculating when the record
+changed.</p>
+<p>Check the scheduled actions on the record and the user and org timezone
+settings.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> An org needs to support three currencies.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Multi-currency, with dated exchange rates if historical accuracy matters — and it is effectively irreversible once
+enabled.</p>
+<p>It affects reports, roll-ups and formulas throughout, so test the reporting impact before
+committing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> A lookup should prevent deletion of the parent.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Set the lookup's delete behaviour to restrict deletion — the options are clear the field, restrict, or cascade with
+master-detail.</p>
+<p>Default behaviour clears the field silently, which is how orphaned records
+appear.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> Users are copying data into spreadsheets.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A signal that reporting does not meet their needs — find out what they are doing in the
+spreadsheet.</p>
+<p>It is also a data governance risk, so the fix is making the platform answer their question, not banning
+exports.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> An API returns 500 intermittently.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Retry with exponential backoff and jitter, with a cap and a dead-letter path — and log correlation IDs so the vendor can
+investigate.</p>
+<p>Immediate uncapped retries make an overloaded service
+worse.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">71</span> A custom metadata type or a custom setting?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Custom metadata deploys with the release and is queryable without limits — right for configuration. Hierarchy custom settings are right for
+per-user or per-profile values.</p>
+<p>Configuration that should move between orgs belongs in custom
+metadata.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> A trigger framework is proposed.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Worth it for a single entry point per object, ordered handlers, recursion control and bypass support — on an org with meaningful Apex
+automation.</p>
+<p>Overkill for three small triggers, which is also a legitimate answer to
+give.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> You need to expose Salesforce data to a website.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Decide authenticated or anonymous first. For anonymous, prefer CMS or published content over exposing records, and harden the guest
+profile.</p>
+<p>For authenticated, Experience Cloud with the appropriate licence and Sharing
+Sets.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> A deployment needs a destructive change.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Deploy it separately and deliberately, after verifying nothing references the component — integrations, reports, flows, formulas and
+code.</p>
+<p>Destructive changes bundled with features are how an unrelated release takes down an
+integration.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> A stakeholder wants a feature that will not scale.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>State the specific volume at which it breaks and what it would cost to fix later, then offer the scalable
+alternative.</p>
+<p>"It will not scale" is unpersuasive; "at 2 million rows this takes 40 seconds" is
+not.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="set-4">Set four (76–100)</h2>
+
+<details class="acc"><summary><span class="q-num">76</span> An agent gave a customer an incorrect refund amount.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The limit was in the instruction, not the action. Enforce amount caps and eligibility inside the action so the agent cannot exceed
+them.</p>
+<p>Instructions are guidance; code is a guarantee. That distinction is the whole of agent
+safety.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">77</span> Two teams need different page layouts on one object.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Record types with different layouts, or dynamic forms with visibility rules — and dynamic forms are usually the lighter
+answer.</p>
+<p>Record types proliferate and affect automation, picklists and reporting, so do not create them for layout
+alone.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> A query needs to filter on a formula field.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Formula fields are generally not indexed, so this will be non-selective at
+volume.</p>
+<p>Store the value in a real indexed field maintained by automation if you must filter on it at
+scale.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">79</span> Users need offline access on mobile.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check what the mobile app caches and what the Field Service mobile app supports — genuine offline with conflict handling is a real design
+problem.</p>
+<p>And define what happens when two people edited the same record
+offline.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> A composite API call partially failed.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Decide whether it should be all-or-none — the composite API supports that — or whether partial success is acceptable and
+reconcilable.</p>
+<p>Unhandled partial success leaves data in a state neither system expects, which is worse than a clean
+failure.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">81</span> An admin changed a picklist value and reports broke.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Report filters, automation criteria, formulas and integrations may all reference the old
+value.</p>
+<p>Deactivate rather than delete, migrate the data, then remove — and check what references it
+first.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> A long-running transaction times out.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Move the work asynchronous — Queueable or Batch — and give the user feedback rather than holding the
+request.</p>
+<p>And find what is actually slow: usually a query, a callout, or cascading
+automation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">83</span> A permission set grants more than intended.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Audit what it actually contains — object, field, system permissions and Apex class access — rather than what its name
+suggests.</p>
+<p>Permission sets accumulate grants, and the name stops describing them within a
+year.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> Someone proposes storing JSON in a long text field.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Workable for opaque payloads you never query, and a problem the moment anyone wants to report on or filter by what is
+inside.</p>
+<p>If the structure matters, model it; if it is genuinely a blob, document that
+decision.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> A test fails only when run with the full suite.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Test interdependence — shared state, order dependence, or reliance on existing org
+data.</p>
+<p>Use <code>@isTest(SeeAllData=false)</code>, create your own data, and never rely on what happens to be in the
+org.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> An executive asks why a simple change takes two weeks.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Show where the time goes — usually review, testing, release windows and coordination rather than
+build.</p>
+<p>If the answer is embarrassing, it is a governance problem worth fixing rather than
+explaining.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> A flow needs to call an external service.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>An HTTP callout action with a named credential, or invocable Apex — and not from a record-triggered flow in the save
+path.</p>
+<p>Handle the failure explicitly; a flow that errors on a callout can block the user's
+save.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> A picklist needs 500 values.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Almost certainly a lookup to a custom object instead — picklists that large are unusable and hit
+limits.</p>
+<p>And a lookup gives you reporting, maintenance by non-admins and additional fields per
+value.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> Two automations need to run in a specific order.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Flow trigger order on record-triggered flows, or consolidate into one flow with ordered
+branches.</p>
+<p>Relying on implicit order between different automation types is how a release reorders your business logic by
+accident.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> A user has access they should not and nobody knows why.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Work the sharing model in order and check each grant: OWD, role hierarchy, sharing rules, teams, manual shares, Apex shares, territory, and
+permission sets with View All.</p>
+<p>The Sharing Hierarchy button and "why can this user see this" analysis is the systematic
+route.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> An integration needs to call Salesforce 10 times per second.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Model the daily API consumption, and challenge the pattern — that is usually per-record chatter that should be bulk or
+event-driven.</p>
+<p>And consider whether Salesforce should be the system answering that volume of
+reads.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> A field needs a different label per business unit.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Translation Workbench handles language; per-business-unit labelling on one field generally does
+not work.</p>
+<p>Which may indicate two fields, or that the business units should agree on
+terminology.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> A data model decision is proving irreversible.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Then the design time should have been proportionate to that. Now: assess the cost of living with it against the cost of migrating, and
+decide explicitly.</p>
+<p>Master-detail conversions, field type changes and org strategy deserve scrutiny precisely because of
+this.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> Nobody can explain why an automation exists.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Trace what it does, find who it affects, and ask before removing — undocumented automation usually encodes a real requirement
+badly.</p>
+<p>Then write the decision record its author did not
+write.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> You disagree with an architectural decision.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>State the concern once with the specific consequence and cost, listen to the reasoning you may be missing, and if overruled, document it and
+build it well.</p>
+<p>Re-litigating a settled decision costs more credibility than the point is usually
+worth.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> A critical update is enforced next release.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Test in a preview sandbox now and fix before the deadline — enforcement happens whether you are ready or
+not.</p>
+<p>Unmanaged critical updates are the most predictable outage available on the
+platform.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> You have one hour to assess an unfamiliar org.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Automation per object, Apex volume and test quality, installed packages, integrations and their auth, who holds dangerous permissions, limit
+headroom, and whether source control is the truth.</p>
+<p>That gives you the risk picture; detail can
+follow.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> Everything is on fire and you must pick one thing.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Whatever is losing data, exposing data or blocking revenue — in that order.</p>
+<p>Say explicitly what you are not doing and why, so nobody believes it is being
+handled.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> What question do you ask about every design?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>What happens at ten times the volume, and what happens when it fails
+halfway?</p>
+<p>Those two questions find most of the defects that would otherwise be found in production by a
+customer.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit that most improves platform work?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Reproducing the problem before changing anything</strong> — as the affected user, on representative data, with the actual
+error.</p>
+<p>Most wasted debugging time is spent fixing a theory rather than a fault, and most bad fixes are changes made before the cause was
+understood.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="practice.html">Practice questions</a>, the <a href="scenarios.html">scenario index</a>, or
+    pick a topic bank to go deeper.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Mixed Practice — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>
