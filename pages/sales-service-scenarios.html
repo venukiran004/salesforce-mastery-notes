@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sales &amp; Service Cloud · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>Sales &amp; Service</span></div>
+  <h1>Sales &amp; Service Cloud — 100 Scenarios</h1>
+  <p class="lede">Forecasting, pricing and revenue structures, territories, Omni-Channel routing, entitlements and the
+     SLA clock, Knowledge, and the metrics the business will judge you on.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on <a href="sales-service.html">Sales &amp;
+    Service Cloud</a> and its <a href="sales-service.html#advanced">Advanced</a> section.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="pipeline">Pipeline &amp; forecasting (1–20)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> The forecast does not match the pipeline report.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Forecast categories. Stages map to categories (Pipeline, Best Case, Commit, Closed), and the forecast sums
+<em>categories</em> while your report probably sums stages or all open opportunities.</p>
+<p>The stage-to-category mapping <em>is</em> the forecast design — stage names are just labels on top of
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> A manager's forecast roll-up is wrong.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Forecasts roll up the forecast hierarchy, which is derived from roles — so a broken or out-of-date role hierarchy produces a broken
+forecast.</p>
+<p>Check the role hierarchy before investigating the opportunities.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> A manager wants to override their team's number.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Adjustments</strong> — the manager overrides the roll-up without touching the underlying opportunities, and both numbers are
+retained.</p>
+<p>That is the auditable "my rep is optimistic" mechanism, and it is what stops managers editing their team's
+records.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> You need forecasts by product family and by revenue.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Multiple forecast types can run simultaneously — revenue, quantity, by product family, by split, by
+territory.</p>
+<p>That is how sales and finance get different views of the same pipeline without arguing about which one is
+correct.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> Quotas need loading for 400 users.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Via the API or a data load — the UI is not viable at that scale, and quotas are per user per period.</p>
+<p>Plan the load as a recurring process, since quotas change every
+period.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> Amount became read-only on opportunities.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>You added Opportunity Products, so Amount is now a roll-up of line items.</p>
+<p>That is expected and usually desirable — but it changes how reps work, so it needs communicating before you enable
+products.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> Revenue must be recognised monthly over a year.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Product Schedules</strong> — revenue or quantity spread across periods, per line item.</p>
+<p>They get large quickly (a line item times twelve months times thousands of opportunities), so treat them as a volume
+consideration.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> Two reps share credit for a deal.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Opportunity Splits</strong> — revenue splits must total 100%; overlay splits can total anything.</p>
+<p>Enabling splits on a large org is a long-running background process, so plan it as a change rather than a
+checkbox.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> A product is not selectable on an opportunity.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No Price Book Entry for that product in the selected price book <em>and</em> currency — the usual cause by a wide
+margin.</p>
+<p>Check the price book on the opportunity, then the entry, then whether the product is
+active.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> Different channels need different prices.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Multiple price books, with the right one selected per opportunity.</p>
+<p>Every product needs an entry per book and per currency, which is the maintenance cost people
+underestimate.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> When do you outgrow standard products and schedules?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>When you need configurable bundles with options and rules, discount schedules, subscription pricing, amendments mid-term and
+renewals.</p>
+<p>That is CPQ. Standard pricing covers simple catalogue selling and then stops
+abruptly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> Opportunity stages do not match the real sales process.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Fix the sales process, not the reporting — stages that nobody follows produce a pipeline nobody
+trusts.</p>
+<p>And remember each stage maps to a forecast category, so changing stages changes the
+forecast.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> Reps leave close dates in the past.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A validation rule on save, plus a data-quality report grouped by owner so it is visible and
+actionable.</p>
+<p>Past close dates silently corrupt the forecast, which is why this small rule earns its
+place.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> Territory management or role hierarchy?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Role hierarchy when access follows management lines and ownership is stable. <strong>Enterprise Territory Management</strong> when access follows
+territory assignment that changes independently — and when you need territory-based forecasting.</p>
+<p>Territories are a second hierarchy to maintain, with their own assignment rules and recalculation. Powerful and genuinely
+heavy.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> Pipeline velocity is requested.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>(Opportunities × win rate × average deal size) ÷ sales cycle length — more actionable than any single stage conversion
+number.</p>
+<p>Define each component explicitly, because "average deal size" and "sales cycle" both have several plausible
+definitions.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> Win rate differs between two reports.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Denominator: all opportunities, closed opportunities, or opportunities created in a period? Each gives a different
+number.</p>
+<p>And beware averaging per-rep win rates, which weights a rep with three deals equally with one who had three
+hundred.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">17</span> Forecast accuracy is poor.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Usually the stage-to-category mapping does not reflect reality — "Commit" includes deals reps are not actually committing
+to.</p>
+<p>Measure committed versus actual by period and by manager; that number tells you whether the mapping is real or
+aspirational.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> Leads are not converting cleanly.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Custom lead fields need explicit <strong>field mapping</strong> to Account, Contact and Opportunity, with compatible
+types.</p>
+<p>Unmapped fields are silently lost at conversion and discovered months later when someone asks where the data
+went.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">19</span> Duplicate leads block conversion.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Prefer alert over block, with the matched Account and Contact offered so the rep converts into the <em>existing</em>
+records.</p>
+<p>Blocking produces workarounds — slightly altered names — which is worse than a visible duplicate with a merge
+path.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> Campaign influence shows nothing.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It requires campaign members, an influence time window, and an agreed attribution model — all three.</p>
+<p>Without them every marketing-ROI report becomes a debate about the numbers. Set the window and model in writing
+first.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="routing">Routing &amp; case management (21–42)</h2>
+
+<details class="acc"><summary><span class="q-num">21</span> Agents are overwhelmed while others are idle.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Omni-Channel <strong>capacity weights</strong>. If every work item costs 1, an agent with three voice calls looks the same as one with three
+chats.</p>
+<p>Weight a call at 5 and a chat at 1 against a capacity of 5, and the engine balances correctly. Getting weights right fixes most of these
+complaints.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> Queue-based or skills-based routing?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Queue-based is simple and predictable: items go to a queue, assigned agents receive them. Skills-based matches required skills on the item to
+agents who hold them.</p>
+<p>Skills-based also supports timed skill dropping, which relaxes requirements if nothing matches — essential to stop items
+starving.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> High-priority items are overtaking everything.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Routing configuration priority, with secondary routing priority as the tie-break — usually oldest-first.</p>
+<p>Without a tie-break, old low-priority items are never worked, which surfaces as complaints about ignored
+cases.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> Least Active or Most Available?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Least Active balances workload across agents; Most Available fills the quietest agent first.</p>
+<p>Least Active is the usual default for fairness; Most Available suits specialist pools where concentration is
+acceptable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> An item sat unrouted for an hour.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No agent matched its skill requirements, or nobody with capacity was available in the right presence
+status.</p>
+<p>Timed skill dropping and a fallback queue both prevent starvation. Monitor the oldest unrouted item as a
+metric.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> Cases are assigned to the wrong team.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Assignment rule entries are evaluated in order and the <strong>first match wins</strong> — a broad entry near the top swallows records intended
+for a specific entry below it.</p>
+<p>Reorder most-specific first, and keep a catch-all last so nothing silently stays with the default
+owner.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> Escalation fires at the wrong time.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Business Hours — the wrong set applied, holidays missing, or a timezone mismatch between the business hours and the
+case.</p>
+<p>Missing holidays is the standard cause of "it escalated while we were
+closed".</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> SLA metrics measure the customer's response time, not yours.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>You are not stopping the clock. The case's <code>IsStopped</code> flag pauses the SLA while you wait on the
+customer.</p>
+<p>Without it, every slow customer reply counts against you — and the metric becomes
+meaningless.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> How do milestones work?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>An Entitlement Process defines them; the Business Hours on the entitlement or case define what "four hours" means; time triggers fire warning
+actions before and violation actions after.</p>
+<p>Configure both warning and violation — a violation you only learn about afterwards is a report, not a
+process.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> Changing the entitlement process broke open cases.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Milestones are per case per process, and changing the process does not retrofit history — open cases can end up in an inconsistent
+state.</p>
+<p>Plan it as a data exercise: complete or migrate in-flight cases
+deliberately.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> Email-to-Case creates new cases instead of threading.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Thread identification failing — the token missing from outbound templates, or a mechanism the customer's client
+strips.</p>
+<p>Test with the mail clients your customers actually use. Forked reply chains wreck both metrics and customer
+experience.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> Attachments are lost on inbound email.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Size limits, and differences between standard and On-Demand Email-to-Case handling.</p>
+<p>Test with a large attachment before go-live — discovering the limit from a customer is the expensive way to learn
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">33</span> You hit the daily Email-to-Case limit.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Find what is consuming it: auto-reply loops, spam, or a mailbox forwarding notifications as well as customer
+email.</p>
+<p>Filter before forwarding, suppress auto-reply loops, and alert on approaching the
+limit.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> Agents cannot find Knowledge articles.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Search is the whole product — articles nobody can find have no value.</p>
+<p>Invest in titles, keywords and synonyms, and review the search terms that returned nothing. That report is your content
+backlog.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> Customers see internal-only articles.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Data category group visibility — that is the mechanism controlling which articles which audiences see, including guest
+users.</p>
+<p>Test as an authenticated customer <em>and</em> a guest; this is a realistic exposure
+path.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> Knowledge is never updated.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Build attach-and-close into the console workflow: agents attaching the article that solved the case is what makes the knowledge base improve
+itself.</p>
+<p>If it is a nice-to-have rather than part of the flow, it will not
+happen.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> Deflection is claimed but not measured.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Then it is not deflection. Track self-service sessions resolved without creating a case, against cases created on the same
+topic.</p>
+<p>And define "resolved" before reporting it, or the number is
+unfalsifiable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> A case needs multiple people working it.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Case teams for ongoing collaboration, or swarming patterns where specialists join temporarily.</p>
+<p>Decide how ownership and SLA responsibility work when several people are involved — that is the part usually left
+undefined.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> Agents work in six browser tabs.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A console app with sub-tabs, a utility bar and the Workspace API for programmatic tab control.</p>
+<p>But watch performance: console tabs stay alive, so leaked listeners and timers accumulate across a
+shift.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> CTI integration is required.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Open CTI for a browser-based softphone in the utility bar, or Service Cloud Voice for a deeper telephony
+integration.</p>
+<p>Either way, routing capacity must account for voice alongside digital channels, or agents get
+overloaded.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">41</span> Macros and quick text are underused.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Usually a discoverability and curation problem — too many, poorly named, or not available where agents
+work.</p>
+<p>Curate a small, well-named set and surface them in the console; they are among the cheapest handle-time
+reductions.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> Omni-Channel routing needs external logic.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>External Routing via API lets a third-party engine make the assignment decision while Salesforce handles presence and
+capacity.</p>
+<p>Justified when routing logic genuinely exceeds what the platform expresses — and it adds an availability
+dependency.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="entitlements">Entitlements, pricing &amp; contracts (43–62)</h2>
+
+<details class="acc"><summary><span class="q-num">43</span> Two clocks disagree about an SLA.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The <strong>SLA clock</strong> runs on the entitlement's Business Hours; other processes may run on different hours or timezones.</p>
+<p>Reconcile them deliberately. A contract promising four working hours against business hours nobody checked produces breaches that every rule
+"passed".</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> Entitlement is not found on a case.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No active entitlement on the contact, account or asset — or it has expired, or the case was created before the entitlement
+started.</p>
+<p>Automate entitlement assignment on case creation rather than relying on agents to pick
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> Service contracts versus entitlements.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Entitlements define the support level and milestones; service contracts (with contract line items) represent the commercial
+agreement.</p>
+<p>You can use entitlements alone for simple support tiers; contracts matter when you are tracking what was sold and for how
+long.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> A customer disputes an invoice total.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Work the pricing chain: list price from the price book entry, then discounts, then tax, then the roll-up to the parent
+record.</p>
+<p>And confirm which currency and which rate applied, since multi-currency conversion is a frequent
+cause.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> How do order and opportunity relate?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Opportunity is the pursuit; Order (with order products) is what was actually committed, often generated from the quote or
+opportunity.</p>
+<p>Many orgs skip Orders and integrate to an ERP instead — which is legitimate, but then the ERP owns fulfilment
+truth.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> Quotes and opportunities are out of sync.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Standard quotes sync to the opportunity only when you designate a synced quote — otherwise they drift
+deliberately.</p>
+<p>Decide whether the opportunity or the quote is authoritative, and make the sync behaviour match that
+decision.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> Pricing needs approval above a discount threshold.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>An approval process on the quote or opportunity, with a dynamic approver rather than named individuals.</p>
+<p>Remember submitted records lock, so sequence any automation around that — see
+<a href="admin.html#advanced">approvals</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> Multi-currency totals look wrong.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Static conversion rates mis-state history; Advanced Currency Management applies dated rates to opportunities but changes roll-up and report
+behaviour.</p>
+<p>Both are effectively irreversible decisions, so settle them with finance before enabling
+anything.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">51</span> Products need different prices per customer.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Price books per segment for broad differences; negotiated per-customer pricing is a CPQ contracted-price
+concern.</p>
+<p>Hand-maintaining per-customer prices in standard price books does not scale past a handful of
+accounts.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> A renewal needs generating from a contract.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Standard objects do not do this well — renewals and amendments are CPQ territory, driven from
+subscriptions.</p>
+<p>Building renewal logic by hand on standard objects is a common and regretted
+decision.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> Assets are not tracking what customers own.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Assets need creating from orders or fulfilment, with a hierarchy if equipment contains components.</p>
+<p>They are the foundation for warranty, maintenance and field service — and they are frequently left empty, which blocks all
+three.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> Warranty coverage must drive billing.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Warranty terms define what is covered and the customer's share of parts, labour and travel — which then flows into work order
+pricing.</p>
+<p>See <a href="field-service-advanced.html#assets">warranties</a> for how this connects to
+maintenance.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> Time tracking is needed for billing.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Time Sheets and Time Sheet Entries capture work, travel and breaks per resource per period — the feed to payroll and to billable
+time.</p>
+<p>Entry types matter: billing "travel" as "work" is a conversation with a customer you do not want to
+have.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> Work order totals are read-only.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>They roll up from work order line items — subtotal, discount, tax, grand total.</p>
+<p>So pricing happens at line level, and attempting to set the header total directly is the wrong
+model.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> Billing integration is required.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually an integration: completed work with consumed products and labour becomes an invoice in ERP or Revenue
+Cloud.</p>
+<p>Define which system owns the invoice and the tax calculation — that decision shapes the whole
+interface.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> Person Accounts are proposed.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Appropriate for B2C where the customer <em>is</em> an individual — but enabling it is <strong>irreversible</strong> and it changes duplicate
+management, sharing and integration behaviour.</p>
+<p>Decide it deliberately, and test the implications in a throwaway org
+first.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> B2B and B2C in one org.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Possible with Person Accounts plus record types, and genuinely more complex: different processes, different duplicate rules, different
+reporting.</p>
+<p>Model it explicitly rather than letting both grow on the same objects by
+accident.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> Contacts relate to multiple accounts.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Contacts to Multiple Accounts handles it, with a primary account plus related ones and roles.</p>
+<p>Report carefully: the relationship object means a contact can appear under several accounts, which changes
+counts.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> Account hierarchy reporting is needed.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Parent/child accounts give you the structure, but roll-up reporting across a hierarchy is weak in standard
+reports.</p>
+<p>Maintain hierarchy roll-up fields via automation, or use CRM Analytics where hierarchy flattening is
+straightforward.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> Which object owns the customer's "status"?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Decide and document it — Account, a related object, or an external system. Multiple competing status fields is a common and corrosive
+problem.</p>
+<p>Then make every other surface read it rather than maintaining its
+own.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="metrics">Metrics (63–82)</h2>
+
+<details class="acc"><summary><span class="q-num">63</span> How do you define First Contact Resolution honestly?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Cases closed with one customer interaction <strong>and no reopen within n days</strong>.</p>
+<p>Without the reopen window, closing cases prematurely improves the metric — which is exactly the behaviour you did not want to
+reward.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> AHT is falling and reopens are rising.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A problem being hidden, not solved — agents are closing faster and not resolving.</p>
+<p>Always pair a throughput metric with a quality metric. Measuring AHT alone reliably produces this
+outcome.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> How should AHT be calculated?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Agent time on the case, excluding stopped-clock periods when you are waiting on the customer.</p>
+<p>Including customer-wait time measures your customers' responsiveness, which nobody can
+manage.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> SLA attainment is reported as 100% and customers complain.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The milestone definition does not reflect the customer's experience — perhaps it measures first response while customers care about
+resolution.</p>
+<p>Measure what the contract promises and what customers feel, and be explicit about the
+difference.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> CSAT is high but churn is rising.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Survey response bias — the satisfied respond, and the dissatisfied leave without answering.</p>
+<p>Look at response rates, and pair CSAT with behavioural signals (reopens, escalations, contact
+frequency).</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> Agents are gaming a metric.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Every metric gets gamed in the direction you point it — case volume closed produces split cases, AHT produces premature closes, CSAT produces
+avoidance of hard cases.</p>
+<p>The fix is paired metrics reviewed together, not better enforcement.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> Which service metrics actually matter?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Resolution quality (FCR with a reopen window, reopen rate), timeliness against the promise (SLA attainment on business hours), effort (AHT,
+transfers), and outcome (CSAT).</p>
+<p>Four numbers reviewed together beats twenty on a
+dashboard.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> Which sales metrics actually matter?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Pipeline coverage, win rate (correctly computed), average deal size, sales cycle length, and forecast
+accuracy.</p>
+<p>Forecast accuracy is the one that tells you whether the rest of your pipeline data is real or
+theatre.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">71</span> A metric has no agreed definition.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Then reports will disagree and meetings will be about the number. Write the definition down: numerator, denominator, date basis,
+exclusions.</p>
+<p>Put it in the report description so it travels with the
+metric.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> The business wants a single health score.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Composite scores hide the inputs and are hard to act on. Be clear about the weighting and keep the components
+visible.</p>
+<p>A score that drops without telling anyone <em>why</em> generates investigation rather than
+action.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> How do you baseline before a change?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Capture the metrics for a comparable period before you change anything, and keep the definitions
+fixed.</p>
+<p>Without a baseline you cannot distinguish improvement from seasonality, and every claim becomes
+contestable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> Reports show different case volumes.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Date basis (created versus closed), record type scope, or queue-owned cases excluded by an ownership filter.</p>
+<p>Compare the filters side by side; those three account for most case-volume
+discrepancies.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> Averages are hiding the problem.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Show the distribution or the median — an average handle time containing one 40-day case tells nobody
+anything.</p>
+<p>Percentiles are usually the honest statistic for durations.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> A manager wants per-agent rankings.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Be careful: case mix varies, so ranking on throughput penalises whoever takes the hard cases.</p>
+<p>Normalise for complexity where you can, and always show a quality metric
+alongside.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">77</span> How do you measure deflection credibly?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Self-service sessions that did not result in a case, on the same topic, over the same period — with "resolved" defined in
+advance.</p>
+<p>Comparing total case volume before and after conflates deflection with demand
+changes.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> Nobody acts on the dashboard.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Each number needs an owner and a decision it informs. Numbers without either are
+decoration.</p>
+<p>Ask which three decisions the dashboard supports and rebuild around
+those.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">79</span> Metrics look good and customers are unhappy.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>You are measuring process compliance rather than outcomes — SLA met, case closed, survey not returned.</p>
+<p>Add outcome measures (reopens, repeat contacts, churn) and listen to the qualitative signal. Good metrics with unhappy customers means the
+metrics are wrong.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> How often should metrics be reviewed?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Operationally weekly, definitions quarterly — because processes change and definitions quietly stop matching
+them.</p>
+<p>A metric nobody has revisited in two years is probably measuring a process that no longer
+exists.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">81</span> Leadership wants a new metric every month.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Push back gently: each metric is reporting, definition and maintenance cost, and attention is finite.</p>
+<p>Ask what decision the new one informs, and whether an existing one already answers
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> What single metric would you add to most service orgs?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Reopen rate</strong>, paired with whatever throughput metric they already watch.</p>
+<p>It is cheap to compute, hard to game, and it exposes the premature-closure behaviour that most other service metrics actively
+encourage.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="judgement">Design judgement (83–100)</h2>
+
+<details class="acc"><summary><span class="q-num">83</span> The business wants a custom object for cases.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Almost always wrong: you lose entitlements, milestones, Omni-Channel routing, Email-to-Case, Knowledge integration and the whole service
+feature set.</p>
+<p>Establish what Case cannot do. Usually it is a field or a process question rather than an object
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> Opportunity does not fit the sales motion.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Try record types, sales processes and page layouts first — the standard object flexes further than people
+expect.</p>
+<p>A custom object means losing forecasting, products, quotes and every report type built on
+Opportunity.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> Which licence do service agents need?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Service Cloud, plus permission set licences for console, Omni-Channel and any add-ons.</p>
+<p>Check object availability before designing: discovering a licence restriction after the build is an expensive
+week.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> Sales and service want conflicting Account layouts.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Dynamic Forms with visibility by profile, or separate page assignments per app — one page definition where
+possible.</p>
+<p>Two maintained layouts drift apart, and the drift is invisible until someone
+complains.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> Where should the customer's single view live?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>If sales and service share customers, one org — a fragmented customer view is the hardest thing to
+retrofit.</p>
+<p>If they genuinely do not, separate orgs plus integration is defensible. That question decides the architecture more than any
+other.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> A process spans sales and service.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Model the handoff explicitly — which object carries it, who owns it at each stage, and what the SLA is across the
+boundary.</p>
+<p>Unowned handoffs are where customer experience actually
+fails.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> Einstein features are proposed for service.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Case classification and article recommendation are genuinely useful <em>if</em> the data supports them — enough closed cases, clean
+categorisation, maintained Knowledge.</p>
+<p>On poor data they produce confident wrong suggestions that agents learn to
+ignore.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> Agents complain the console is slow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Measure EPT and component cost — usually too many components, several Apex calls on load, or an unselective related
+list.</p>
+<p>Console tabs also persist, so leaks accumulate. See <a href="ux-mobile.html#advanced">page
+performance</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> How do you reduce handle time legitimately?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Fewer clicks (macros, quick text, guided flows), better information on screen, and better Knowledge so agents are not
+searching.</p>
+<p>Not by pressuring the number, which produces premature closes and
+reopens.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> A customer wants a portal.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Experience Cloud with case submission, case tracking and Knowledge — and the licence choice is driven by volume and whether they need
+CRM objects.</p>
+<p>Guest and external sharing design is the risky part. See
+<a href="experience-cloud.html#advanced">Experience Cloud</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> Field service is being considered.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Justified when you send people to places and travel is a real cost. If nobody drives anywhere and there are no parts, it is expensive machinery
+you will not use.</p>
+<p>See <a href="field-service-advanced.html#scheduler-vs-fs">Scheduler versus Field
+Service</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> The sales team will not update the CRM.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually because it costs them more than it returns — too many required fields, no benefit visible to
+them.</p>
+<p>Reduce the ask, surface something useful back (next best action, account context), and measure whether adoption
+follows.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> How do you validate a service design before building?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Walk three real cases through it with the agents who will work them, end to end, including the awkward
+ones.</p>
+<p>Designs fail on the exceptions — transfers, reopens, multi-party cases — and those only surface when you walk real
+examples.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> The business asks for every field to be required.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Required fields slow every save and push users to enter anything to get past them — which produces worse data, not
+better.</p>
+<p>Require what is genuinely needed at that stage, and use data-quality reporting for the
+rest.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> Two teams define "customer" differently.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>That is the real problem, and it is organisational. Resolve the definition before modelling it.</p>
+<p>Building two parallel representations to avoid the conversation gives you permanent reconciliation work and the conversation
+anyway.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> How do you prioritise a long service backlog?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>By frequency × population × pain: a small improvement on something 200 agents do fifty times a day beats a large one on a monthly
+task.</p>
+<p>And prefer items that remove work over items that add
+features.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> What is the most common Sales/Service design mistake?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Replacing standard objects with custom ones and losing the feature set — followed by stage-to-forecast-category mappings nobody agreed, and
+SLA clocks that never stop.</p>
+<p>All three are hard to unwind once data
+exists.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit that most improves these implementations?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Agreeing the <strong>metric definitions</strong> before building the process — because the metrics reveal what the business actually
+means.</p>
+<p>Defining FCR with a reopen window, or forecast categories against real commitment, forces the process conversation that configuration otherwise
+papers over.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="sales-service.html">Sales &amp; Service Cloud</a>, the <a href="scenarios.html">scenario index</a>,
+    or <a href="cpq-scenarios.html">CPQ — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Sales &amp; Service — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CPQ &amp; Revenue Cloud · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>CPQ</span></div>
+  <h1>CPQ &amp; Revenue Cloud — 100 Scenarios</h1>
+  <p class="lede">The pricing waterfall and calculation events, price and product rules, bundles, amendments and
+     renewals, proration disputes, performance ceilings, and the config that is data.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on <a href="cpq.html">CPQ &amp; Revenue Cloud</a>
+    and its <a href="cpq.html#advanced">Advanced</a> section.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="pricing">The pricing waterfall (1–20)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> "The price is wrong." Where do you start?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Walk the <strong>pricing waterfall</strong> stage by stage and find the first point where the number diverges from
+expectation.</p>
+<p>Then: which price rules fired, at which <em>event</em>, in what evaluation order; is a discount schedule or contracted price applying; is the
+QCP overwriting a value after pricing ran.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> A discount rule works in the editor and not on save.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>It is set to run <strong>After Calculate</strong>, so pricing has already happened — the value is written but never priced
+from.</p>
+<p>Anything that feeds pricing must run <strong>Before Calculate</strong>. "Works sometimes" is almost always the wrong
+event.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> What are the calculation events, in order?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>On Initialization, Before Calculate, the pricing engine, On Calculate, After Calculate, then totals saved.</p>
+<p>Knowing the order is how you choose where a rule belongs — and why the same logic behaves differently at two different
+events.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> When do you use On Initialization?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Setting defaults when the quote line editor opens, before the user sees anything.</p>
+<p>Not for pricing logic — it runs once at open, not on each
+recalculation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> What belongs in After Calculate?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Values derived <em>from</em> the final price — margin, display text, a rounded presentation value.</p>
+<p>Anything written there will not re-price, which is exactly why it suits derived
+output.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> Two price rules produce an unpredictable result.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>They fire at the same event with no deterministic order, or one overwrites the other's field.</p>
+<p>Set evaluation order explicitly, and document why — ordering that exists only as numbers is ordering nobody can safely
+change.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> List price is not what the price book says.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A contracted price or negotiated rate is overriding it — the waterfall applies special prices above
+list.</p>
+<p>Check contracted prices at account and contract level before suspecting the price book
+entry.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> A volume discount is not applying.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Discount schedule configuration: the tier boundaries, whether it is range or slab, and whether it is attached at the right
+level.</p>
+<p>Also check the quantity the schedule is evaluating — bundle quantities can differ from what the user
+entered.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> Net price differs from what finance expected.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Work the chain: list → special → prorated → regular → customer → partner → net. Each stage has a reason to
+differ.</p>
+<p>Identify the first divergent stage; debugging from the final number backwards is far
+slower.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> A lookup query is needed for rate cards.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Lookup Queries let a price rule read a custom table of rates — the standard pattern for rate cards and matrix
+pricing.</p>
+<p>Each is a query during calculation, so index the lookup object's filter
+fields.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> Pricing differs between two reps for the same configuration.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Different price books, different contracted prices on the account, or a rule conditioned on a user or profile
+field.</p>
+<p>Compare the two quotes' inputs before examining the rules — the inputs differ more often than the logic
+does.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> Rounding produces a penny difference.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Where the rounding happens matters: per line, per bundle, or at the total.</p>
+<p>Agree the convention with finance and encode it explicitly, with a test case stating expected figures to the
+penny.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> Multi-currency quotes price incorrectly.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Price book entries must exist per currency, and the conversion behaviour interacts with Advanced Currency Management if
+enabled.</p>
+<p>Test each currency explicitly — a missing entry silently produces a wrong or unavailable
+price.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> A product should be free in a bundle.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Set the option's pricing method so it does not contribute, or price it at zero via a rule at Before
+Calculate.</p>
+<p>Decide whether it should appear on the quote document at zero or not appear at all — that is a separate
+decision.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> Percent-of-total pricing is required.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>CPQ supports percent-of-total pricing for services priced as a share of the bundle — configured on the
+option.</p>
+<p>Watch the ordering: it depends on the other lines being priced first, which constrains where other rules can
+run.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> A quote total does not match the opportunity.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The quote is not the primary, or the opportunity has not been synced — CPQ syncs on demand rather than
+continuously.</p>
+<p>Decide which is authoritative and make the sync behaviour match
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">17</span> Pricing must consider a competitor's quote.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>That is a field on the quote plus a rule or approval threshold — CPQ cannot infer it.</p>
+<p>Keep such inputs explicit and reportable, so discounting decisions can be analysed
+later.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> How do you test pricing changes?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A <strong>golden set</strong> of quotes with known expected totals, recalculated after every rule change, package upgrade and
+migration.</p>
+<p>It is the only reliable regression test for a pricing engine, and it takes an afternoon to
+build.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">19</span> A price rule fires for the wrong products.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Its conditions are too broad, or the condition evaluates a field that is not yet populated at that
+event.</p>
+<p>Check both the condition and the event — a correct condition at the wrong event behaves
+erratically.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> Finance disputes a total and nobody can explain it.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>That is a documentation failure as much as a configuration one. Record the intended waterfall behaviour and the active rules per
+scenario.</p>
+<p>Then the golden set proves it. Pricing nobody can explain is pricing nobody can
+defend.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="rules">Rules &amp; configuration (21–42)</h2>
+
+<details class="acc"><summary><span class="q-num">21</span> What are the four product rule types for?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Validation</strong> blocks an invalid configuration; <strong>Alert</strong> warns without blocking; <strong>Selection</strong> auto-adds,
+removes or hides options; <strong>Filter</strong> narrows what is selectable in a dynamic bundle.</p>
+<p>Choosing the wrong type produces either a blocked sale or an unenforced
+rule.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> A validation message says "Invalid combination".<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Useless to the person configuring. Say what is wrong and what to change: "A 400V chassis requires the high-output power
+supply."</p>
+<p>Message quality in CPQ directly affects how long a quote takes to
+build.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> Choosing a chassis should auto-add a power supply.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A <strong>Selection</strong> product rule, which adds the required option automatically.</p>
+<p>Decide whether the user can then remove it — if not, hide or lock it rather than relying on a validation rule to catch the
+removal.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> A catalogue of 4,000 products is unusable.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Filter</strong> product rules plus search filters in the product selection screen, narrowing by the attributes that
+matter.</p>
+<p>Presenting thousands of options and expecting the user to know is a configuration failure, not a user
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> One question should apply across the bundle.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Configuration attributes</strong> — asked once, applied to the options beneath.</p>
+<p>Combined with <strong>twin fields</strong> (matching API names) they propagate values between objects without
+code.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> What are twin fields?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Fields with the same API name on related CPQ objects, which CPQ copies automatically — product to quote line, quote line to order product, and
+so on.</p>
+<p>A very powerful convention, and a confusing one when someone creates a matching field name by
+accident.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> Bundles are nested three deep.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Deep nesting multiplies configuration work and calculation cost. Flatten where the business will accept
+it.</p>
+<p>Each level also makes rules harder to reason about, which is where configuration bugs
+concentrate.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> A rule must consider a field on the Account.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Bring it onto the quote (twin field, formula or a lookup query) so the rule can evaluate it — rules work on the quote's
+data.</p>
+<p>Pulling it in once is cleaner than referencing across objects
+repeatedly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> How many rules is too many?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Every rule is evaluated on every calculation, so rule count is a direct performance cost.</p>
+<p>Consolidate, add tight conditions, and delete the ones nobody remembers creating — which is usually a meaningful
+fraction.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> A QCP is proposed for logic rules could do.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Prefer declarative rules: visible to admins, no deployment, and no JavaScript to maintain.</p>
+<p>Reserve the <strong>Quote Calculator Plugin</strong> for logic genuinely too complex for rules — and expect it to be where performance problems
+appear.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> The QCP is slow.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>It runs client-side over the whole quote model, so a loop inside a loop over all lines is the standard cause of a sixty-second
+quote.</p>
+<p>Build maps once and iterate linearly — the same discipline as bulk
+Apex.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> Which QCP hook should you use?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The same event points as price rules — on initialisation, before calculate, on calculate, after calculate.</p>
+<p>Choose for the same reason: anything feeding pricing goes before, anything derived from price goes
+after.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">33</span> A rule should only apply to one sales channel.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A condition on a quote field identifying the channel — populated from the account, the user or the price
+book.</p>
+<p>Keep the channel on the quote so rules, approvals and reporting all read the same
+value.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> Users bypass a validation rule by reordering steps.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The rule evaluates at a point the user can avoid. Move it to a later, unavoidable event — or enforce it at quote
+submission.</p>
+<p>A rule that only fires on one path is not a
+control.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> A configuration takes twenty minutes to build.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Too many manual choices. Use selection rules for the forced ones, configuration attributes for the repeated ones, and defaults for the
+common case.</p>
+<p>Measure the time before and after — quote build time is a metric worth
+tracking.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> Advanced Approvals is being considered.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A separate package with its own configuration records, suited to complex, conditional, multi-level quote
+approvals.</p>
+<p>It also brings its own migration problem, since that configuration is data
+too.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> Approvals are slowing deals down.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually thresholds set too low, or approvers who are bottlenecks. Measure time-in-approval by
+step.</p>
+<p>Raising a threshold with a reporting control is frequently better than a faster approval
+process.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> A quote document has the wrong terms.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Quote template content and conditional sections — terms driven by the quote's data rather than a single static
+block.</p>
+<p>Review templates when products or jurisdictions change; stale terms on a generated document are a legal
+problem.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> The quote document generation is slow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Large quotes with many lines and conditional sections. Reduce what is rendered, paginate, or split the
+document.</p>
+<p>And set expectations: a 400-line quote document is not going to render
+instantly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> How do you document CPQ configuration?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Per rule: its purpose, event, conditions and the scenario it serves — plus the golden-set quote that proves
+it.</p>
+<p>CPQ configuration is business logic expressed as data, and undocumented it becomes
+untouchable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">41</span> A rule was changed and quotes broke.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No regression test. Recalculate the golden set after every configuration change.</p>
+<p>Because the configuration is data, there is no deployment gate to catch it — the golden set <em>is</em> your
+gate.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> Who should own CPQ configuration?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A named owner who understands both the pricing intent and the event model — it sits between admin and
+developer.</p>
+<p>Shared, undocumented ownership of pricing rules is how a quote becomes unexplainable to
+finance.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="amendments">Contracts, amendments &amp; renewals (43–64)</h2>
+
+<details class="acc"><summary><span class="q-num">43</span> What does ordering a quote create?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A Contract with <strong>Subscriptions</strong> representing what the customer now owns — and subscriptions, not quote lines, are the system of
+record for entitlement.</p>
+<p>Everything about amendments and renewals is driven from
+subscriptions.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> A customer adds 10 licences mid-term.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>An <strong>amendment</strong> quote, pre-filled from current subscriptions, priced <strong>prorated</strong> from the amendment date to the
+contract end.</p>
+<p>The proration convention is where disputes originate, so it must be agreed and
+tested.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> Proration is a penny out and finance objects.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Day-based versus month-based proration, whether the amendment date is inclusive, and how partial months round — each changes the
+invoice.</p>
+<p>Agree the convention <strong>in writing</strong>, encode it in a test case with figures to the penny, and re-run it after every package
+upgrade.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> A renewal needs a 5% uplift.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Renewal uplift configuration on the contract, applied when the renewal quote is generated.</p>
+<p>Verify how it interacts with contracted prices — a negotiated rate may be intended to survive the uplift, or not, and that is a business
+decision.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> The renewal forecast is wrong.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Renewal forecasting is driven from the contract's subscriptions and dates — so missing or incorrect subscription data produces a wrong
+pipeline.</p>
+<p>Check the contract data before investigating the
+forecast.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> A customer wants everything to renew on one date.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Co-termination</strong> — aligning multiple subscriptions to a single end date, which is essential for account management and fiddly
+with partial periods.</p>
+<p>Test the proration on the shortened subscriptions specifically; that is where co-termination goes
+wrong.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> What are contracted prices for?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Negotiated prices stored at account or contract level that override list on future quotes — "this customer always gets that
+rate".</p>
+<p>They sit high in the waterfall, which is why a quote can ignore the price book
+entirely.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> An evergreen subscription behaves oddly on amendment.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Evergreen (no end date) subscriptions amend differently from termed ones.</p>
+<p>Decide the model before go-live; changing between evergreen and termed later means data
+remediation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">51</span> A cancellation mid-term is required.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>An amendment reducing quantity to zero or terminating the subscription, with proration determining any credit.</p>
+<p>Agree whether credits are issued and how, because CPQ computes the figure but the commercial policy is
+yours.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> Amendment quotes show unexpected lines.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>They are pre-filled from <em>current subscriptions</em>, so anything the customer owns appears — including things added by previous
+amendments.</p>
+<p>That is correct behaviour, and it surprises users who expect a blank
+quote.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> Two amendments are in flight simultaneously.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Risky: both were pre-filled from the same subscription state, so the second does not know about the
+first.</p>
+<p>Control it with process — one open amendment per contract — because the data model does not prevent
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> A contract was created with wrong dates.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Everything downstream (proration, renewal forecasting, co-termination) depends on them, so correcting them is a data exercise rather than a
+field edit.</p>
+<p>Validate dates at order time, where the cost of fixing is
+lowest.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> How do subscriptions relate to assets?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Subscriptions represent recurring entitlement; assets represent physical or licensed items owned.</p>
+<p>Many implementations need both, and keeping their lifecycles consistent is a design decision people leave
+implicit.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> Billing needs to know about amendments.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The amendment's prorated amounts and the updated subscription state must reach the billing system — usually via
+integration.</p>
+<p>Define which system calculates the invoice; duplicating proration logic in two systems guarantees
+divergence.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> Revenue Cloud is proposed over CPQ.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Establish what it must do that CPQ does not — billing, revenue recognition, broader lifecycle management.</p>
+<p>And verify the migration path and feature parity for your specific needs rather than assuming it is a
+superset.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> A customer disputes what they are entitled to.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Subscriptions on the contract are the answer — not the original quote, which may have been amended several
+times.</p>
+<p>If subscriptions do not reflect reality, that is the bug to fix, because everything downstream reads
+them.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> How do you test amendments and renewals?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Scenario tests with known expected figures: an add mid-term, a reduction, a co-termination, a renewal with
+uplift.</p>
+<p>Each with expected totals to the penny. These are the paths that cost money when
+wrong.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> A renewal was generated but not sent.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Renewal generation is automated; the sales process around it usually is not.</p>
+<p>Build the follow-up into the process with a task or alert — generated renewals nobody actions are lost revenue that looks like a
+forecast.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> Amendments are being done as new quotes.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Then subscriptions do not reflect reality, proration is wrong, and renewals will be
+wrong.</p>
+<p>Fix the process and training — this is a common and damaging shortcut, because the data corruption accumulates
+silently.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> A contract needs splitting between entities.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Not a standard operation — it requires terminating and re-creating subscriptions, with careful proration and credit
+handling.</p>
+<p>Treat it as a data exercise with finance involved, not a configuration
+change.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> How far ahead should renewals generate?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Far enough for the sales cycle to complete before expiry — which is a business input, not a technical
+default.</p>
+<p>Too early and the quote is stale; too late and renewals slip past the end
+date.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> What is the most common amendment mistake?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Not agreeing the proration convention, so finance and CPQ disagree about every mid-term change.</p>
+<p>Followed by amendments done as new quotes, which corrupts subscriptions and therefore every renewal that
+follows.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="performance">Performance &amp; deployment (65–84)</h2>
+
+<details class="acc"><summary><span class="q-num">65</span> A 600-line quote times out.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Calculation time grows with lines × rules, and large quotes hit ceilings.</p>
+<p>Split into multiple quotes, reduce rule evaluation scope with tighter conditions, and audit the QCP for nested loops — in that
+order.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> Calculation is slow with only 50 lines.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Rule count or lookup queries, not line count. Every rule is evaluated on every calculation.</p>
+<p>Consolidate rules, tighten conditions, and index the lookup objects' filter
+fields.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> How do you profile CPQ performance?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Time a representative quote with rules progressively disabled to attribute the cost, and check the browser for QCP execution
+time.</p>
+<p>Bisecting the rule set is cruder than a profiler and considerably more
+effective.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> Quote line editor is unusable on a large catalogue.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Filter rules and search filters to narrow selection, and fewer displayed fields in the editor.</p>
+<p>Presenting everything and relying on scrolling is the usual
+cause.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> CPQ configuration is missing after deployment.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Because almost all of it is <strong>data</strong>: price rules, conditions, actions, lookup queries, discount schedules, product options and
+features, configuration attributes, package settings.</p>
+<p>Change sets and source deployments do not carry it. You need a scripted, version-controlled
+migration.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> What order do you migrate CPQ config in?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Products → options and features → rules → conditions and actions → lookup queries, re-pointing references at each
+step.</p>
+<p>Record Ids differ per org, so references must be resolved by name or external key during the
+load.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">71</span> A package upgrade changed calculation behaviour.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>It happens. Install the upgrade in a Full sandbox and recalculate the golden set before touching
+production.</p>
+<p>Treat CPQ upgrades as a project with regression time, not a
+click.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> How do you keep sandbox CPQ config in sync?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Run the same scripted migration into each environment, and re-run it after every sandbox
+refresh.</p>
+<p>Hand-configuring each environment guarantees they diverge, and then sandbox testing proves nothing about
+production.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> A refresh wiped the CPQ configuration.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Expected — it is data. Re-run the seeding migration as part of the post-refresh
+checklist.</p>
+<p>Which is why the migration must be scripted and repeatable rather than a one-off done at
+go-live.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> How do you version CPQ configuration?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Export it as data files in version control, with the migration script, so a change is reviewable in a
+diff.</p>
+<p>It is less convenient than metadata, and it is the only way to get a review trail for pricing
+logic.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> Someone changed a price rule in production.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>There is no deployment gate, so it took effect immediately with no review — and metadata drift detection will not see
+it.</p>
+<p>Restrict who can edit CPQ configuration in production, and reconcile against your version-controlled
+export.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> How do you test CPQ in CI?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Apex tests can cover custom code, but the pricing behaviour needs a scenario test: seed configuration, build a quote, calculate, assert
+totals.</p>
+<p>That is slower than a unit test and it is the only thing that verifies the engine behaves as
+intended.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">77</span> Quote data volume is growing fast.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Quote lines, and especially subscription and schedule records, multiply quickly — a line times twelve periods times thousands of
+quotes.</p>
+<p>Plan retention for abandoned quotes, and watch storage as a
+metric.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> Reporting on CPQ data is difficult.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The object model is deep (quote → line → option → subscription), so report types get complex and joins
+multiply.</p>
+<p>Flatten key values onto the quote or opportunity with twin fields for reporting, rather than reporting across the whole
+chain.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">79</span> Integration needs quote data.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Expose a business contract (an Apex REST endpoint shaped for the consumer) rather than raw CPQ objects, whose structure will change with
+upgrades.</p>
+<p>CPQ's internal model is not an API you want partners depending
+on.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> CPQ needs to work on mobile.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The quote line editor is not designed for phones. Realistically, configuration happens on a laptop.</p>
+<p>If field sales genuinely need mobile quoting, scope it to a simplified flow rather than the full
+editor.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">81</span> A sandbox has no realistic quote data.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Seed the golden set as part of the environment setup, so every environment can be validated the same
+way.</p>
+<p>Testing CPQ with three hand-built quotes tells you very little about the behaviour that
+matters.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> How do you hand over a CPQ implementation?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The configuration export and migration script, the documented waterfall behaviour, the rule inventory with purposes and events, the golden set,
+and the proration conventions.</p>
+<p>Without those, the next person cannot change pricing
+safely.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">83</span> CPQ is slow and the vendor says it is your config.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Produce evidence: rule count, quote line count, timings with rules progressively disabled, and QCP execution
+time.</p>
+<p>Frequently it <em>is</em> the configuration — and the measurement tells you which part rather than leaving it a
+dispute.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> What is the biggest CPQ deployment risk?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>That the configuration is data, so there is no deployment gate, no review trail and no drift detection unless you build
+them.</p>
+<p>A pricing change can reach production unreviewed — which is why the golden set and the version-controlled export
+matter.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="judgement">Judgement (85–100)</h2>
+
+<details class="acc"><summary><span class="q-num">85</span> When is CPQ genuinely justified?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Configurable bundles with options and rules, discount schedules, subscription pricing, amendments mid-term and
+renewals.</p>
+<p>Standard Products, Price Books and Schedules cover simple catalogue selling — and if that is the requirement, CPQ is a large amount of
+machinery to operate.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> The business wants CPQ for "better quotes".<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Establish what "better" means: fewer errors, faster build, better documents, or discount control. Each has a cheaper
+path.</p>
+<p>CPQ brings a real operating cost — configuration-as-data, upgrades, a regression suite — which must be justified by the
+requirement.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> A CPQ implementation is six months late.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Usually pricing rules that were never agreed in writing, discovered one scenario at a time.</p>
+<p>Stop building and document the intended waterfall behaviour and the scenarios with expected figures. The configuration follows quickly once the
+pricing intent is settled.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> Two stakeholders describe pricing differently.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>That is the project risk. Resolve it with a documented waterfall and a golden set they both sign
+off.</p>
+<p>Configuring both interpretations and seeing which complaints arrive is the expensive
+approach.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> Should pricing logic live in CPQ or an external system?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>In CPQ if sales needs it during configuration. In an external pricing engine if it is genuinely complex, shared with other channels, or owned by
+another team.</p>
+<p>Duplicating it in both guarantees divergence, which is the worst
+outcome.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> How do you reduce CPQ complexity?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Fewer rules with tighter conditions, flatter bundles, fewer price books, and configuration attributes instead of repeated
+questions.</p>
+<p>Complexity accumulates one reasonable request at a time, so periodic consolidation is
+necessary.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> Reps are quoting outside CPQ in spreadsheets.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Because it is faster for them. Find out which part is slow — configuration time, approvals, or document
+generation.</p>
+<p>Shadow quoting is a usability signal, and enforcement without fixing the cause just moves it further out of
+sight.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> How do you measure whether CPQ is working?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Quote build time, quote error and rework rate, discount distribution, time in approval, and quote-to-order conversion.</p>
+<p>Baseline them before go-live, or you cannot demonstrate the
+benefit.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> Discounting is out of control.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Report the distribution by rep, product and deal size before changing thresholds — the pattern usually points at a specific
+cause.</p>
+<p>Then use discount schedules and approval thresholds rather than blanket
+restrictions.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> A new product family needs adding.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Products, price book entries per book and currency, options and features if bundled, rules, and a golden-set quote to prove
+it.</p>
+<p>The last step is the one skipped, and it is the one that catches the pricing
+mistake.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> How do you onboard someone to CPQ?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The waterfall, the event model, the rule inventory, and the golden set — in that order.</p>
+<p>Without the event model they will put a rule at After Calculate and spend a day confused, which is the standard CPQ onboarding
+experience.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> The sales process changed. What breaks?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Rules conditioned on stage or channel fields, approval thresholds, and quote templates with stage-dependent
+content.</p>
+<p>Review the rule inventory against the new process rather than waiting for the first wrong
+quote.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> Is CPQ or standard quoting right for this org?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Ask whether products are configurable, whether pricing is tiered or negotiated, and whether contracts are amended and
+renewed.</p>
+<p>Two or more yeses point to CPQ. One yes usually does not justify the operating
+cost.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> A CPQ consultant has left and nothing is documented.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Reconstruct from the configuration: export it, inventory the rules with their events and conditions, and build a golden set from recent real
+quotes.</p>
+<p>That gives you a regression baseline before you dare change anything — which is the first priority, not the
+documentation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> What is the most common CPQ mistake?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Rules at the wrong calculation event — right logic, wrong moment, so it works in the editor and not on
+save.</p>
+<p>Followed by not agreeing proration in writing, and treating the configuration as deployable
+metadata.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit that most improves CPQ work?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Maintaining a <strong>golden set of quotes with expected totals</strong>, recalculated after every rule change, migration and package
+upgrade.</p>
+<p>Because the configuration is data with no deployment gate, that set is the only regression test you have — and it is the difference between
+changing pricing confidently and changing it hopefully.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="cpq.html">CPQ &amp; Revenue Cloud</a>, the <a href="scenarios.html">scenario index</a>, or
+    <a href="sales-service-scenarios.html">Sales &amp; Service — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · CPQ — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

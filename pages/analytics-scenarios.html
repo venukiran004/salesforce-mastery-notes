@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CRM Analytics · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>CRM Analytics</span></div>
+  <h1>CRM Analytics — 100 Scenarios</h1>
+  <p class="lede">Recipes and joins that silently change your numbers, security predicates, bindings, SAQL, Einstein
+     Discovery model operations, consumption, and choosing the right tool in the modern stack.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on <a href="analytics.html">CRM Analytics</a> and
+    its <a href="analytics.html#advanced">Advanced</a> section.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="prep">Data prep (1–20)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Your dataset total does not match a Salesforce report.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Nearly always a join in the recipe: an inner join silently dropping rows with no match, or a one-to-many join <strong>multiplying</strong> rows
+so every subsequent sum is inflated.</p>
+<p>Check the row count after <em>every</em> join node, and reconcile the dataset total against a report before anyone builds a
+dashboard.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> Rows disappeared after a join.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>An inner join dropped records with no match on the key. Switch to a left join if the left-hand rows must
+survive.</p>
+<p>The node preview shows the count before and after — which is why previewing at each step beats debugging the
+output.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Revenue is suddenly three times too high.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A one-to-many join multiplied the parent rows — each opportunity now appears once per line item, so summing the opportunity amount triples
+it.</p>
+<p>Aggregate the child side <em>before</em> joining, or sum the child's value rather than the parent's.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Recipe or dataflow for new work?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><strong>Recipe</strong> (Data Prep) — visual, with a live preview at each node, more capability, and where Salesforce is
+investing.</p>
+<p>Dataflows are maintenance-only now; migrate when you next need to touch
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> A recipe takes two hours to run.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually unnecessary volume: filtering late rather than early, joining before aggregating, or ingesting fields nobody
+uses.</p>
+<p>Filter and trim as early as possible in the node chain, and aggregate before joining where the grain
+allows.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> How often should a recipe run?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>From the <em>decision latency</em> the business genuinely needs — not "hourly just in case".</p>
+<p>Recipe runtime and row ingestion both meter, so an hourly refresh of a 200-million-row dataset is a budget conversation waiting to
+happen.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> A field is the wrong type in the dataset.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Fix it in the recipe with an explicit transform rather than working around it in every dashboard
+query.</p>
+<p>Numeric fields arriving as text is the common case, and it breaks aggregation
+silently.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> You need data from an external system.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A connector, an external data upload, or — preferably if it already lives in a warehouse — <strong>Data Cloud zero-copy</strong> rather than
+ingesting it twice.</p>
+<p>Ingesting a copy means you now own its freshness, its volume and its
+reconciliation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> Dates are not grouping by fiscal period.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Date fields need the fiscal settings applied during data prep, and the dataset must carry the fiscal attributes you want to group
+by.</p>
+<p>Fiscal grouping is a data-prep decision, not a dashboard
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> A dataset is approaching its row limit.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Filter to the rows that are actually analysed (a date window), pre-aggregate to a coarser grain, or split by
+period.</p>
+<p>Most datasets at the limit contain years of detail nobody queries at row
+level.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> You need a derived metric in every dashboard.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Compute it once in the recipe so every query reads a plain field — dashboards should read, not
+calculate.</p>
+<p>Repeating the same derivation in twelve queries guarantees they drift
+apart.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> A recipe failed overnight.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check the run history for the failing node — commonly a source field that was renamed or removed, or a connector credential that
+expired.</p>
+<p>Alert on failure <em>and</em> on absence, because a recipe that silently stops leaves yesterday's data looking
+current.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> The dataset is stale and nobody noticed.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Show the last-refreshed timestamp on every dashboard. Users cannot assess staleness they cannot
+see.</p>
+<p>That single addition prevents most "the numbers are wrong" conversations, which are frequently "the numbers are from
+Tuesday".</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> You need row-level detail and aggregates.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Two datasets at different grains, or one detailed dataset with the dashboard aggregating — depending on volume and query
+cost.</p>
+<p>Pre-aggregating is usually faster; keeping detail is more flexible. Decide deliberately rather than keeping
+both.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> A recipe joins on a key that is not unique.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>That is the row-multiplication problem in disguise. Verify key uniqueness before joining — or aggregate the many-side
+first.</p>
+<p>Non-unique join keys are the most common cause of inflated numbers that look plausible for
+months.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> Nulls are breaking your calculations.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Handle them explicitly in the recipe with a default or an exclusion, rather than letting each query decide.</p>
+<p>Null handling scattered across dashboards produces inconsistent totals from the same
+dataset.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">17</span> You need to track changes over time.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Append a dated snapshot in the recipe so each run adds a period's rows — which is how you get genuine trending rather than current
+state.</p>
+<p>Plan the volume: a daily snapshot grows quickly, so choose the grain
+carefully.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> A transformation is complex and undocumented.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Name the nodes descriptively and document the recipe's purpose and key decisions — a recipe is business logic, and it will be inherited by
+someone.</p>
+<p>An unnamed twenty-node recipe is as unmaintainable as any undocumented
+code.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">19</span> How do you test a recipe change?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Preview node by node, then compare the output dataset's row count and key totals against the previous version before
+publishing.</p>
+<p>A golden set of expected totals is the only reliable regression test for data
+prep.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> What is the single most common data-prep mistake?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Joining without checking the row count, so an inner join loses rows or a one-to-many join multiplies
+them.</p>
+<p>Both produce confidently wrong dashboards. Checking counts after every join is the cheapest quality control
+available.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="security">Security (21–38)</h2>
+
+<details class="acc"><summary><span class="q-num">21</span> Everyone can see everyone's data in a dashboard.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>No row-level security on the dataset. CRM Analytics does not inherit Salesforce sharing
+automatically.</p>
+<p>You need <strong>sharing inheritance</strong> (for supported objects, within a row-count ceiling) or a <strong>security
+predicate</strong> you write yourself.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> What is a security predicate?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A row-level filter expression evaluated per user — for example <code>'OwnerId' == "$User.Id"</code>.</p>
+<p>It is entirely your responsibility: a predicate matching nothing shows an empty dashboard, and one matching everything leaks data with no error
+at all.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> A predicate shows nothing for everyone.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Field name, case, or type mismatch — predicates fail closed and silently.</p>
+<p>Test as several personas with known expected row counts, which is the only way to tell "correctly restrictive" from
+"broken".</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> Managers need to see their team's rows.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Flatten the role hierarchy in the recipe into a list you can reference in the predicate, so a manager's roll-up is
+expressible.</p>
+<p>And re-run the flatten when the hierarchy changes, or the predicate silently becomes
+stale.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> Sharing inheritance is enabled but access is wrong.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>It is supported for a limited set of objects and has a row-count ceiling — beyond it, access falls back to something
+else.</p>
+<p>You must know what the fallback is for your dataset, because that is the behaviour users will actually
+get.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> App sharing versus row-level security.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>App sharing controls who can open the app, dashboards and datasets. Row-level security controls which rows they
+see.</p>
+<p>Both are needed: app access without a predicate is a data leak, and a predicate without app access is
+pointless.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> How do you test a predicate properly?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A test matrix of personas — a rep, a manager, a regional lead, an exec — with expected row counts, verified before release and again after
+any hierarchy change.</p>
+<p>"It looked right as an admin" is how analytics data leaks, and the leak is invisible until someone
+notices.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> A dataset contains data some viewers must never see.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Prefer excluding it at the recipe stage for those populations — a separate dataset — over relying on a predicate for highly sensitive
+data.</p>
+<p>Defence in depth: the safest row is the one that was never
+ingested.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> Does CRM Analytics respect field-level security?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Not automatically at query time the way reports do — the dataset contains whatever the recipe ingested, for anyone with
+access.</p>
+<p>So FLS must be enforced by what you choose to ingest and by dataset-level access, not
+assumed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> A predicate is slowing queries down.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It is evaluated per query, so a complex expression over a large dataset costs real time.</p>
+<p>Simplify by pre-computing the comparison values into dataset fields during data prep.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> You need different security for two dashboards.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Security lives on the <em>dataset</em>, not the dashboard — so different rules mean different datasets.</p>
+<p>That is a design consequence worth knowing before building one dataset for every
+audience.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> An auditor asks who can see what.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Produce the app sharing settings, the dataset predicates, and the persona test matrix with expected row
+counts.</p>
+<p>That evidence is only available if the test matrix exists, which is an argument for creating it during
+build.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">33</span> A new hire sees no data.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Their user attributes do not satisfy the predicate — frequently a missing role, a blank custom field, or a hierarchy flatten that has not
+re-run.</p>
+<p>Predicates depend on user data being correct, which makes user provisioning part of your analytics
+security.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> Should predicates reference custom user fields?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>They can, and it is often the cleanest way to express a business rule — but it makes that field load-bearing for
+security.</p>
+<p>Document it, and validate it is populated for every user who needs
+access.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> External users need a dashboard.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Possible with the right licensing and embedding, and the row-level security becomes critical — an over-broad predicate exposes one customer's
+data to another.</p>
+<p>Test as the actual external persona, and prefer separate datasets per population for anything
+sensitive.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> A predicate was changed and nobody tested it.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>That is a potential data-exposure change with no error to signal it.</p>
+<p>Treat predicate changes like security changes: reviewed, with the persona matrix re-run before
+release.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> How do you handle sensitive fields in a shared dataset?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Do not ingest them, or mask or bucket them during data prep — salary bands rather than salaries.</p>
+<p>Bucketing frequently satisfies the analytical need without carrying the sensitive
+value.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> What is the biggest analytics security risk?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A dataset with no predicate, or an incorrect one — because it fails silently in the permissive direction and nobody
+reports seeing too much.</p>
+<p>Which is why the persona test matrix is not optional for anything beyond your own
+data.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="dashboards">Dashboards &amp; bindings (39–60)</h2>
+
+<details class="acc"><summary><span class="q-num">39</span> Clicking one chart should filter another.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A <strong>selection binding</strong> — one widget's query depends on what the user selected in another. That is the basis of
+drill-down.</p>
+<p>Faceting handles the simple same-dataset case automatically; bindings are for everything
+else.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> A total changed unexpectedly when a user clicked something.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Automatic <strong>faceting</strong> — widgets on the same dataset cross-filter each other by default.</p>
+<p>Turn it off deliberately for widgets that should stay global, which is a frequent source of "why did my grand total
+change".</p></div></details>
+
+<details class="acc"><summary><span class="q-num">41</span> You need to compute a cohort then filter by it.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A <strong>results binding</strong> — one query consumes another query's results, so step one defines the cohort and step two filters by
+it.</p>
+<p>That is the pattern for most genuinely analytical dashboard
+requirements.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> Binding syntax is hard to get right.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>{{cell(stepName.selection, 0, "field").asString()}}</code> and its relatives — verbose, and worth learning properly because it unlocks
+most real requirements.</p>
+<p>Build and test one binding at a time; debugging three simultaneously is
+unproductive.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> A filter should offer a fixed list of options.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A static step with the values you choose, rather than a dynamic step querying live
+values.</p>
+<p>Static steps also avoid offering options that return nothing, which looks like a
+bug.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> A dashboard is slow to load.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Too many steps, expensive queries, or calculation that should have happened in the recipe.</p>
+<p>Pre-compute in data prep so dashboards read rather than calculate — that is the main lever for dashboard
+performance.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> You need a period-over-period comparison.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A <strong>compare table</strong> handles many of these declaratively — try it before writing SAQL.</p>
+<p>For moving averages and running totals you will need SAQL windowing, which is the usual reason to drop down a
+level.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> When do you actually need SAQL?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Windowing (moving averages, running totals), custom cohort logic, and anything the builder cannot express.</p>
+<p>Compact form is what the builder generates and is sufficient for most dashboards — SAQL is a capability, not a default
+style.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> A SAQL query is unmaintainable.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Push the complexity into the recipe and keep the query simple — dataset design beats query cleverness
+consistently.</p>
+<p>A dashboard whose logic lives in hand-written SAQL is one nobody else can
+modify.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> Users want to export dashboard data.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Supported, with limits on row counts — and it is worth asking why, since heavy export usually signals a missing report or
+integration.</p>
+<p>It is also a security surface worth being aware
+of.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> A dashboard must be embedded in a record page.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Supported, filtered by the record's context — which is one of the strongest arguments for CRM Analytics over an external BI
+tool.</p>
+<p>Watch page performance: an embedded dashboard runs its queries on page
+load.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> Mobile users need the dashboard.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Design for it explicitly — a desktop dashboard with twelve widgets is unusable on a phone.</p>
+<p>Fewer widgets, larger targets, and the one number they actually need at the
+top.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">51</span> How many widgets should a dashboard have?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>As many as the decisions it supports — usually far fewer than people request.</p>
+<p>Each widget is a query. Twenty widgets is both slow and unreadable, and the unreadability is the bigger
+problem.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> A dashboard shows different numbers from a report.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Join behaviour in the recipe, a security predicate filtering the viewer's rows, a staleness gap, or a different filter
+definition.</p>
+<p>Check the recipe joins and the refresh time first — those two account for most
+discrepancies.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> You need a dashboard for 500 users.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Query concurrency and consumption both matter at that scale, so keep the queries cheap and pre-aggregate
+aggressively.</p>
+<p>Also verify the security predicate performs acceptably per user, since it is evaluated on every
+query.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> Nobody uses the dashboard.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It probably does not answer a question they have, or it is not where they work.</p>
+<p>Embed it in their path, and pair each number with the decision it supports — an unused dashboard is a requirement nobody actually
+had.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> How do you version a dashboard?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>CRM Analytics assets are metadata and deploy — but the datasets they depend on must exist in the target, which is the fiddly
+part.</p>
+<p>Keep the recipe and dashboard definitions in version control and promote them
+together.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> A dashboard deployed but shows no data.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The dataset does not exist in the target org, or the recipe has not run there yet, or the security predicate fails for the target org's
+users.</p>
+<p>Promote the data pipeline before the presentation layer.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> Users want to build their own.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Encourage it on well-designed datasets — self-service scales and a build queue does not.</p>
+<p>Your effort belongs in the datasets, the metric definitions and the security, which are the things they cannot get
+right themselves.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> A metric needs the same definition everywhere.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Compute it in the recipe as a field, so every dashboard reads the same value.</p>
+<p>Defining it per dashboard produces the "two dashboards, two revenues" conversation
+reliably.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> A dashboard needs data from two datasets.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Possible with separate steps and bindings, but faceting will not work across datasets automatically.</p>
+<p>If the widgets must interact, joining into one dataset in the recipe is usually
+simpler.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> How do you make a dashboard trustworthy?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A visible last-refreshed timestamp, documented metric definitions, reconciled totals against a known source, and a tested security
+predicate.</p>
+<p>Trust comes from provenance. Polish without provenance produces confident wrong
+decisions.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="einstein">Einstein Discovery (61–80)</h2>
+
+<details class="acc"><summary><span class="q-num">61</span> A model predicts churn beautifully and is useless.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Leakage</strong> — it was trained on a field only populated after the outcome, such as the cancellation
+reason.</p>
+<p>Remove any field that would not be known at prediction time. A model that looks too good almost always
+is.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> Accuracy is 98% and the model is worthless.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Class imbalance: with a 2% event rate, "always predict no" scores 98%.</p>
+<p>Judge on precision and recall for the <em>rare</em> class, never raw accuracy — this is the most common misreading of a model's
+quality.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> How do you define the outcome variable?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Precisely, with the business. "Won" and "won within 90 days" are different models with different meanings and different
+usefulness.</p>
+<p>An imprecise outcome definition produces a model nobody can act
+on.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> There is not much historical data.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Scoring needs a meaningful volume of <em>closed</em> outcomes. Below that, the model is noise with a confidence
+interval.</p>
+<p>Be honest about it rather than shipping a model that will be trusted and
+wrong.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> Bias checks flag a variable.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Review it, and review the <em>proxies</em> too — postcode, job title and tenure can encode protected characteristics even when the protected
+field is absent.</p>
+<p>Removing the obvious field while keeping its proxy is a common and serious
+mistake.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> A model's quality has degraded.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Drift — pricing changes, market shifts and process changes all invalidate a model quietly.</p>
+<p>Schedule refreshes and compare predicted versus actual. A model nobody re-trains is a model nobody should
+trust.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> Sales ignore the score.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A number without a reason gets ignored. Surface the top contributing factors alongside it.</p>
+<p>And tie it to a decision: a score that does not change what anyone does is pure
+cost.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> Where should predictions be written?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Onto the record, so they are usable in reports, list views, automation and Apex — and visible where the decision is
+made.</p>
+<p>A prediction visible only inside an analytics dashboard reaches far fewer
+decisions.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> How do you measure whether a model helped?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Measure the <em>decision</em>, not the model: did the outcome improve for the population where the score changed
+behaviour?</p>
+<p>Model accuracy metrics are necessary and insufficient. Business impact needs a baseline and ideally a holdout
+group.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> Prediction Builder or Einstein Discovery?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Prediction Builder for a simple field prediction configured by an admin. Discovery for richer analysis, explanation, bias checks and deployment
+options.</p>
+<p>Start with the simplest tool that answers the question.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">71</span> Should you bring your own model?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>If the team has genuine data-science capability and the problem warrants it, model hosting and BYOM options
+exist.</p>
+<p>But you then own training, monitoring, drift and governance — which is a standing commitment, not a
+project.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> A model needs to explain itself to a regulator.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Discovery provides contributing factors, which helps — but "explainable" in a regulatory sense is a higher bar than "shows top
+factors".</p>
+<p>Involve compliance early, and prefer a simpler, more interpretable model where explanation is a
+requirement.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> How often should you re-train?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>On a schedule informed by how fast the business changes, plus whenever predicted-versus-actual
+diverges.</p>
+<p>Set the schedule when you deploy; "we will re-train when it gets worse" means nobody is
+watching.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> Predictions appear for records where they make no sense.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The scoring scope is too broad — scoring records outside the training population produces meaningless
+numbers.</p>
+<p>Scope predictions to the segment the model was trained on, and suppress them
+elsewhere.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> The model's data is poor quality.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Then the model is poor quality, confidently. Data work comes first — it is the highest-value AI activity and the one most often
+skipped.</p>
+<p>A model on bad data produces fluent, wrong guidance that people
+follow.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> How do you pilot a model safely?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A limited population, a measured baseline, a human in the loop, and a defined success criterion before you
+start.</p>
+<p>Then widen only if the data supports it. Launching to everyone and watching is not a
+pilot.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">77</span> A stakeholder wants AI on day one of an implementation.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>There is no history to train on, no clean data, and no measured baseline — so there is nothing to learn from and nothing to prove improvement
+against.</p>
+<p>Deliver the core process, instrument it, clean the data, then add models. Saying that costs enthusiasm and saves a failed
+pilot.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> Predictions need to drive automation.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Possible — the score is on the record and usable in flows and Apex — but put a human in the loop for anything
+consequential.</p>
+<p>A model acting unsupervised on an irreversible decision is a risk nobody signed off
+for.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">79</span> Two models disagree about the same record.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>They were trained on different outcomes or populations, which makes disagreement expected rather than
+contradictory.</p>
+<p>Name each model's question explicitly on the page, or users will treat the numbers as
+competing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> What is the most common modelling mistake?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Leakage, followed by judging on raw accuracy with an imbalanced class, and then deploying a score nobody acts
+on.</p>
+<p>All three produce something that looks successful and changes
+nothing.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="judgement">Tool choice, cost &amp; judgement (81–100)</h2>
+
+<details class="acc"><summary><span class="q-num">81</span> Reports or CRM Analytics?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Reports for operational, live, single-object-with-children analysis — free, buildable by anyone, far cheaper to
+maintain.</p>
+<p>CRM Analytics when you must blend sources Salesforce cannot join, trend beyond snapshots, or handle multi-million-row
+datasets.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> CRM Analytics or Tableau?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>CRM Analytics when the audience works inside Salesforce and the data is mostly Salesforce — embedding is its real
+advantage.</p>
+<p>Tableau for enterprise BI across many non-Salesforce sources and deeper visual
+analysis.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">83</span> Data Cloud or CRM Analytics?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Different jobs. Data Cloud unifies and resolves identity across systems and activates segments; CRM Analytics analyses and
+visualises.</p>
+<p>They compose: Data Cloud as the unified source, CRM Analytics as the analysis
+layer.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> The data already lives in a warehouse.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Prefer <strong>zero copy</strong> over ingesting it again — you avoid duplication, credit consumption and a second freshness
+problem.</p>
+<p>Ingesting a copy means you own its reconciliation
+forever.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> Consumption costs are rising unexpectedly.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Rows ingested, recipe runtime, query concurrency and Data Cloud credits all meter.</p>
+<p>The usual cause is a frequent refresh of a large dataset "just in case" — set the cadence from the decision latency
+instead.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> How do you reduce consumption?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Ingest fewer rows and fewer fields, refresh less often, pre-aggregate, and delete datasets nobody
+queries.</p>
+<p>Also check for recipes running on schedules nobody owns — they are a common quiet
+cost.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> A stakeholder wants real-time analytics.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Ask what decision depends on sub-hourly freshness. Usually the answer reveals that daily is fine, or that the decision belongs in an
+operational report rather than analytics.</p>
+<p>Real-time analytics is expensive and frequently
+unexamined.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> Who should own CRM Analytics?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A named owner for the datasets, security predicates, metric definitions and consumption — the presentation layer can be more
+distributed.</p>
+<p>Unowned analytics produces contradictory dashboards and surprise
+bills.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> Nobody trusts the analytics.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually one bad experience: a number that did not reconcile, or stale data presented as current.</p>
+<p>Fix provenance — reconcile to a known source, show refresh times, document definitions — and trust returns slowly. It is much harder to
+rebuild than to establish.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> How do you reconcile analytics to the source?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Compare dataset row counts and key totals against a Salesforce report for the same scope and period, as a repeatable
+check.</p>
+<p>Do it at build time and after every recipe change — that is your regression
+test.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> An analytics project is six months in with no output.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually trying to model everything before delivering anything. Ship one dataset answering one decision, then
+extend.</p>
+<p>A perfect unified model nobody has used is worth less than one reconciled dashboard someone
+opens.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> How do you prioritise what to build?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>By the decisions that would change: which recurring decision is currently made without data, and what would it take to inform
+it?</p>
+<p>Starting from available data rather than needed decisions produces dashboards nobody
+requested.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> A dataset duplicates one that already exists.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Consolidate — duplicate datasets with slightly different logic are how two dashboards come to disagree.</p>
+<p>Maintain a register of datasets with their purpose and owner, and review it
+periodically.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> Users keep exporting to spreadsheets.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The clearest signal that the analytics is not meeting the need — usually a missing dimension, a missing grain, or an inability to
+filter.</p>
+<p>Ask what they do in the spreadsheet; that is the requirement you
+missed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> How do you document an analytics estate?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Dataset purpose, source, refresh cadence, owner, security predicate, and the metric definitions it
+supports.</p>
+<p>Without that, nobody can safely change a recipe, and nobody can answer where a number came
+from.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> An analytics change broke a dashboard.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A recipe field renamed or removed, or a grain change — dashboards depend on dataset structure.</p>
+<p>Treat dataset schema as a contract: additive changes are safe, removals and renames need consumer
+checks.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> Should every metric live in analytics?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No — operational metrics belong in reports where they are live and free, and on the record where the decision
+happens.</p>
+<p>Reserve analytics for what reports genuinely cannot do; otherwise you have built an expensive second reporting
+layer.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> How do you hand over an analytics estate?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The dataset register, the recipes in version control, the security test matrix, the metric definitions, and the consumption
+picture.</p>
+<p>The security matrix is the part most often missing and the most expensive to
+reconstruct.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> What is the most common CRM Analytics mistake?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Unchecked joins producing wrong numbers, followed by an untested security predicate, and then computing in dashboards what should have been
+computed in the recipe.</p>
+<p>The first two are correctness failures that look fine for
+months.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit that most improves analytics work?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Checking the row count after every join</strong>, and reconciling the dataset total against a known report before anything is built on
+it.</p>
+<p>Almost every wrong analytics number traces back to one of those two checks not happening, and both take
+seconds.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="analytics.html">CRM Analytics</a>, the <a href="scenarios.html">scenario index</a>, or
+    <a href="reports-scenarios.html">Reports &amp; Dashboards — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · CRM Analytics — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>
