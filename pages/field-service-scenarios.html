@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Field Service · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>Field Service</span></div>
+  <h1>Field Service — 100 Scenarios</h1>
+  <p class="lede">The object model in practice, scheduling and dispatch, the mobile app, parts and assets, and the day
+     a technician cannot do their job — framed as situations rather than configuration.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on <a href="field-service.html">Field Service</a>,
+    with the deep material on <a href="field-service-advanced.html">Field Service — Advanced</a>.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="model">The object model (1–20)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Someone is trying to schedule a Work Order.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>They have misunderstood the model. A <strong>Work Order</strong> is <em>what needs doing</em>; a <strong>Service Appointment</strong> is
+<em>a visit to do some of it</em>.</p>
+<p>The scheduling engine, the Gantt and the mobile app all operate on Service
+Appointments.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> A job needs three visits.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>One Work Order with three Service Appointments — diagnose, return with the part, sign off — each scheduled independently, possibly to
+different engineers.</p>
+<p>That separation is the whole reason both objects
+exist.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> Where do required skills come from?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Usually the <strong>Work Type</strong>, which acts as a template: default duration, required skills, and the appointment
+window.</p>
+<p>Getting Work Types right is the highest-leverage configuration in Field Service, because everything downstream inherits
+them.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Durations are consistently wrong.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The Work Type's estimated duration does not match reality, and every plan inherits that error.</p>
+<p>Compare estimated against actual times from the mobile app and recalibrate — bad durations poison scheduling, travel and
+capacity.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> What does Assigned Resource do?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>It is the junction linking a Service Resource to a Service Appointment — which is how one appointment can have more than one
+resource.</p>
+<p>Reporting on "who did what" goes through Assigned Resource, not through a field on the
+appointment.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> A resource does not appear anywhere.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check in order: is the Service Resource active, is it linked to a User, and is it a <strong>Service Territory Member</strong> with current
+effective dates.</p>
+<p>Expired territory membership is the single most common cause of a resource vanishing from the
+Gantt.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> What is a Service Territory actually for?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It is the unit of scheduling, optimisation runs, the Gantt and usually sharing — a geography with operating hours, whose members are the
+resources.</p>
+<p>Its shape therefore sets your performance ceiling and your dispatcher
+workload.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> Operating Hours exist in several places.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Deliberately: territory hours define when work can be scheduled; account hours define when the customer can be visited; and appointment windows
+derive from the ones designated for booking.</p>
+<p>They can conflict, which is why the visiting-hours rule
+matters.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> An engineer's holiday did not block scheduling.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No <strong>Resource Absence</strong>, or it was created after the appointment was already
+scheduled.</p>
+<p>Absences are frequently fed from an HR integration, which means a day's plan can evaporate without anyone in Salesforce doing
+anything.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> Preventive maintenance visits are needed.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A <strong>Maintenance Plan</strong> on the asset (or account/location) with a frequency and a Work Type, generating Work Orders ahead of
+time.</p>
+<p>Those then flow into scheduling like any other job — the value is shifting from reactive to
+planned.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> Maintenance Work Orders did not generate.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Work through it: the plan's date range and next-suggested date, the generation horizon (it may simply not be time), whether the batch is
+scheduled and completing, and whether the covered assets are active.</p>
+<p>It is a background job and it fails
+quietly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> Where do parts fit in the model?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Product Items are stock <em>at a Location</em> (a van is a location that moves); Products Consumed records what was used on the job and feeds
+billing.</p>
+<p>Product Requests and Transfers move stock; Return Orders bring it
+back.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> A Service Report is required for sign-off.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Template-driven, generated on the mobile app with signature capture, then synced.</p>
+<p>Design the template with the content the customer and the business actually need — it is the artefact of the
+visit.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> Two engineers are needed at once.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A <strong>Crew</strong> if the same people always work together — one schedulable resource, far easier to
+optimise.</p>
+<p><strong>Complex work dependencies</strong> (same start) when the pairing varies or you need two different
+specialists.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> How does a Case become a Work Order?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Usually automation or an action on the Case, using a Work Type that sets duration and skills — with the entitlement and SLA checked
+first.</p>
+<p>That SLA should then become the appointment's Due Date, or scheduling has no way to honour
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> An appointment has no arrival window.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It derives from operating hours designated for booking, via the Work Type or the booking
+process.</p>
+<p>Without one, the customer has no promise and the engine has no customer-facing constraint to
+respect.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">17</span> What are the appointment time fields?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Earliest Start Permitted and Due Date are the hard edges; Arrival Window is the customer promise; Scheduled Start/End is the engine's plan;
+Actual Start/End is what happened.</p>
+<p>Squeeze the first two together and you get "no candidates" regardless of
+availability.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> Custom appointment statuses are being added.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Fine — but every one must map to the correct <strong>status category</strong>, because the engine, Gantt and mobile app all key off the
+category rather than your label.</p>
+<p>A wrong category produces appointments optimisation will not move, or work that never reaches a
+device.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">19</span> Which licences do you need?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Dispatcher, technician (plus mobile), and a scheduling/optimisation entitlement with a nominated running
+user.</p>
+<p>Contractors are separate again. Getting this wrong is a common reason a go-live
+slips.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> What is the one distinction to get right?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Work Order versus Service Appointment. Everything else follows from understanding that one is the work and the other is a visit to do part of
+it.</p>
+<p>If someone is scheduling Work Orders, stop and fix the model
+understanding first.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="scheduling">Scheduling &amp; dispatch (21–46)</h2>
+
+<details class="acc"><summary><span class="q-num">21</span> "No candidates found." Walk your diagnosis.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>In order: skills (level and expiry), territory membership dates, operating hours and shifts including time zone, absences and existing
+bookings, capacity, Match Fields rules, then the Earliest Start to Due Date window.</p>
+<p>Compare against a stripped-down <strong>diagnostic policy</strong> to bisect which rule is excluding
+everyone.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> Candidates appear but the wrong engineer is chosen.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>That is objectives, not rules. Rules decide who is <em>allowed</em>; objectives decide which allowed slot
+<em>wins</em>.</p>
+<p>Check preferred-resource and skill-level objective weights
+particularly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> Work rules versus service objectives.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Work rules are <strong>hard constraints</strong> — fail one and the resource disappears. Service objectives are
+<strong>weighted preferences</strong> ranking the survivors.</p>
+<p>Too many hard rules and nothing schedules; too few and you send an unqualified engineer 200
+km.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> A customer was booked at 03:00.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The visiting-hours rule is missing from the policy — that rule enforces the <em>customer's</em> allowed hours, not the
+engineer's.</p>
+<p>Then check the account's operating hours and the time
+zones.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> A booking is an hour out from what the customer was told.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Time zones. Operating hours, the territory, the resource's user record, the customer's account and the dispatcher's browser can all
+differ.</p>
+<p>Write down all five before touching a rule — that resolves most of these
+cases.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> What does a candidate's grade mean?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A weighted sum of that policy's objectives normalised to 0–100. It is <strong>not</strong> a probability and <strong>not comparable across
+policies</strong>.</p>
+<p>And a cluster of near-identical grades means your objectives are not discriminating at
+all.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> How many scheduling policies should you have?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>One per <em>intent</em> — routine, emergency, contractor fill, optimisation — plus a <strong>diagnostic</strong> policy with rules stripped
+for debugging.</p>
+<p>One policy with compromise weights serves none of those intents
+well.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> Which policy actually applied?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It depends on the entry point: the console's selection, the booking component's parameter, the recipe's named policy, or the optimisation
+request's — which is frequently a different one.</p>
+<p>Check the entry point before investigating the
+policy.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> A policy Id is hard-coded in Apex.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>It will break in every other org and after every sandbox refresh, because policies are <em>records</em>.</p>
+<p>Resolve by name at runtime, with the name in Custom Metadata.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> Travel time is far higher than expected.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>In order: objective weights (is travel actually beating ASAP and preferred resource), pinned and dispatched appointments, territory overlap,
+arrival windows too narrow, wrong home base, horizon too small, and travel settings.</p>
+<p>Calibrate travel <em>before</em> tuning weights, or you are tuning against a broken
+model.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> Engineers have stopped following the schedule.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Usually travel estimates that do not match reality — they fall behind by mid-morning and quietly go their own
+way.</p>
+<p>That failure is silent, because nobody raises a ticket saying "the plan is optimistic". Compare estimated travel against actual start
+times.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> Optimisation runs and changes almost nothing.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Check the <strong>optimisation request record</strong> for status and result, then how many appointments are <strong>pinned</strong> or already
+dispatched.</p>
+<p>Dispatchers pinning everything is the most common cause — and then they report that optimisation "stopped
+working".</p></div></details>
+
+<details class="acc"><summary><span class="q-num">33</span> What does pinning do?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Tells optimisation never to move that appointment. Legitimate for genuine customer commitments; corrosive when used
+habitually.</p>
+<p>Report on pinned counts weekly and train dispatchers on what it
+costs.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> Which optimisation run type do you need?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Global for the nightly re-plan; in-day for recovering a bad morning; resource schedule for one messy route; reshuffle for an emergency;
+fill-in for a gap; group nearby for squeezing value from a trip.</p>
+<p>They are different tools with different
+scopes.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> A dispatcher needs to insert an emergency job.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Reshuffle from the console with an emergency policy, which moves lower-priority work aside.</p>
+<p>Define in advance what may be bumped and who is allowed to do it, or the emergency path becomes the normal
+path.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> The optimisation running user matters. Why?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Optimisation executes as a nominated user, so its record access limits what it can see and
+move.</p>
+<p>A narrow running user silently optimises a smaller world than you think — the output looks merely disappointing rather than
+broken.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> Fifteen short jobs are at one site.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Appointment bundling</strong> — one visit, one arrival promise, scheduled and dispatched as a single
+appointment.</p>
+<p>Decide the unbundling behaviour before go-live: what happens to member statuses and actual times when a bundle is broken
+mid-visit.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> A survey must precede the install.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Complex work dependencies (start after finish), and optionally same-resource if continuity matters.</p>
+<p>The dependency rule must be in <strong>both</strong> the scheduling and optimisation policies, or overnight optimisation will undo your
+sequence.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> A three-day installation needs scheduling.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A <strong>multiday</strong> appointment with the multiday rule enabled, spread across consecutive working days.</p>
+<p>Optimisation treats these as heavy blocks, and they frequently explain why a territory's plan looks
+poor.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> Contractors tell you capacity, not hours.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Capacity-based resources</strong> with Service Resource Capacity records and the capacity work rule.</p>
+<p>Capacity is consumed by scheduled work, so cancellations must release it or contractors silently go
+"full".</p></div></details>
+
+<details class="acc"><summary><span class="q-num">41</span> How should appointments be released to technicians?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Auto-dispatch per territory within a horizon, or <strong>drip feed</strong> releasing only the next few.</p>
+<p>Dispatch too early and the plan freezes before the day settles; too late and technicians start
+blind.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> Appointments keep rescheduling themselves.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>An automation loop: a trigger updates the appointment, a recipe reschedules it, the reschedule fires the trigger
+again.</p>
+<p>Because the engine is asynchronous, this is invisible in a single debug log. Guard with explicit conditions and never react to engine-written
+fields.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> Should scheduling be automated?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Eventually — but prove it manually first. If dispatchers do not trust the candidate grades, no automated scheduling will be
+accepted.</p>
+<p>Then enable one recipe at a time, measuring against the
+baseline.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> Never call the scheduling API from a trigger. Why?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It is slow, effectively a round trip to the engine, and cannot be bulkified — so a 200-record load blows CPU and a retry corrupts the
+plan.</p>
+<p>Use a recipe, a platform event or a Queueable
+instead.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> The Gantt is unusably slow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Territory size. Gantt rendering and candidate calculation grow superlinearly with resources × appointments.</p>
+<p>Split into territories a dispatcher can actually hold in their head, and use a hierarchy for
+reporting.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> What single change most improves scheduling quality?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Calibrating travel so the engine's estimates match reality — because every decision it makes is built on
+them.</p>
+<p>Until that is true, objective tuning is tuning against
+fiction.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="mobile">The mobile app (47–70)</h2>
+
+<details class="acc"><summary><span class="q-num">47</span> A technician completed eleven jobs in a basement and lost them.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Validation fires at <strong>sync</strong> time, not edit time. A required field or rule they could not satisfy offline rejected the upload into a
+sync-error queue.</p>
+<p>Audit every validation rule and required field for offline-satisfiability, and move unsatisfiable checks server
+side.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> What determines what is available offline?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Offline priming</strong> configuration: which objects, related lists and date range are downloaded.</p>
+<p>More priming means longer sync, more storage and staler data — tighten the date window
+aggressively.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> A technician sees blank screens on a record.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check record access in the <em>browser</em> as that user first. If a related list is empty there too, it is sharing — not the
+app.</p>
+<p>That one check saves days of debugging the wrong
+layer.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> What can mobile flows do offline?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Screen flows on the device with restricted element support: no callouts, no server-side Apex, and Get Records only against primed
+data.</p>
+<p>Which means guided procedures work offline and anything needing a server does
+not.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">51</span> A technician needs to launch a manufacturer's diagnostic app.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>App extensions</strong> — launch another app, a URL, a flow or a component from the appointment.</p>
+<p>That is how you integrate a meter-reading or diagnostic tool without rebuilding it in
+Salesforce.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> How does conflict resolution work?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The app generally uploads <em>changed fields</em>, which limits genuine collisions — but it does not eliminate them on the same
+field.</p>
+<p>Decide what happens when the office edited a record the technician also changed, rather than discovering the default
+behaviour.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> Post-sync automation ran twice.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Records can arrive twice, late, and out of order. Post-sync logic must be <strong>idempotent and order-tolerant</strong>.</p>
+<p>Guard with your own processed flag, key off status <em>category</em> rather than label, and make re-running a
+no-op.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> Actual end time is before actual start time.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Clock skew or manual entry — and it will happen. Post-sync logic must tolerate it rather than
+throwing.</p>
+<p>Validate and flag for review instead of blocking the sync, which would strand the technician's
+work.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> Initial sync takes fifteen minutes.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Over-priming. Narrow the objects, related lists and date window — most technicians need days of data, not
+months.</p>
+<p>It also reduces device storage and battery
+consumption.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> Technicians are not using the app.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually too many taps, fields they do not need, or it failing where they have no signal.</p>
+<p>Watch three technicians do a real job. The fix is almost always fewer fields and a guided flow for the
+task.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> How do you test offline properly?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>On a real device, in genuine aeroplane mode, with a full day's work queued — then reconnect and inspect the sync-error
+queue.</p>
+<p>Emulators and "turn off wifi" do not reproduce the sync queue
+behaviour.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> Parts consumed are not reaching van stock.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Products Consumed should decrement the Product Item at the van's Location — check the location is set on the resource and the stock exists
+there.</p>
+<p>Without it, van stock becomes fiction and the next job's parts check is
+meaningless.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> A signature is required but the customer is absent.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Design the exception path: a "customer unavailable" option that still allows completion with a reason, rather than a hard
+requirement.</p>
+<p>A mandatory signature with no alternative is a rule technicians will work
+around.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> Push notifications are not arriving.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Notification configuration, device permissions, or the status change not being one that triggers
+them.</p>
+<p>They matter most if you drip-feed, since the technician has no other signal that new work
+arrived.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> Location tracking is proposed.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It feeds travel estimation, customer tracking and "who is nearest" decisions — and it is a works-council and privacy
+conversation.</p>
+<p>Have that conversation early rather than enabling it and explaining
+afterwards.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> An LWC is needed in the mobile app.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Supported, with offline data access through the GraphQL wire adapter and device capabilities such as barcode
+scanning.</p>
+<p>Verify current targets and offline-supported adapters in the mobile developer guide for your release rather than
+assuming.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> Service reports must be generated offline.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>They are generated on the device and synced, which is why the template must not depend on server-side
+data.</p>
+<p>Test the report on a device with no signal, with realistic content
+lengths.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> A technician needs a knowledge article on site.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Attach articles to the Work Type so they are primed and available offline.</p>
+<p>Which only works if the knowledge base is maintained — unfindable or outdated articles are worse than
+none.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> Sync errors are accumulating unnoticed.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Nobody is monitoring the queue. Build a report and an alert on sync errors by
+technician.</p>
+<p>A technician's whole day can sit in that queue, and they will not notice until
+tomorrow.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> A field must be editable offline but validated centrally.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Accept it on the device, then validate server side after sync — raising a task or flagging the record rather than rejecting the
+upload.</p>
+<p>That is the general pattern for anything that cannot be checked
+offline.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> What should never be on the mobile critical path?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Anything requiring a callout, server-side Apex or real-time validation — it will fail in a basement or a rural
+site.</p>
+<p>Keep on-device logic to mobile flows and simple field updates, and do the heavy processing after
+sync.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> Battery drain is a complaint.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Location polling frequency and large priming volumes are the usual contributors.</p>
+<p>Tune both. A technician whose device dies at 15:00 cannot complete the day's work, which costs more than the data
+freshness.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> How do you roll out a mobile change safely?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A pilot group of technicians on real jobs, with the sync-error queue monitored, before a wider
+release.</p>
+<p>Mobile problems surface in the field rather than in testing, so the pilot is the
+test.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> What is the commonest mobile mistake?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Validation rules and required fields that cannot be satisfied offline — which strand a day's work in a queue nobody
+watches.</p>
+<p>Followed by over-priming, and post-sync automation that is not
+idempotent.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="parts">Parts, assets &amp; the business (71–88)</h2>
+
+<details class="acc"><summary><span class="q-num">71</span> An engineer arrived without the part.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>There is no out-of-the-box rule for "only schedule to someone carrying the part". The practical patterns: do not release the appointment until
+parts are confirmed; stamp a field from your own check and use a Match Fields rule; or accept the second visit.</p>
+<p>Most organisations do the third while claiming the first. Decide
+explicitly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> First-time fix rate is the business's main metric.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Then the parts chain and the skills matching are where the work is — not scheduling
+efficiency.</p>
+<p>Measure the reasons for repeat visits; usually parts and diagnosis dominate, and both are addressable
+upstream.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> Van stock does not match reality.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Products Consumed not being recorded, transfers not received, or returns not processed.</p>
+<p>Without accurate Product Items, every parts decision is guesswork — and technicians stop trusting the
+system.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> How does a part get to a van?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Product Required on the job signals demand; a Product Request sources it; a Product Transfer (with a Shipment if in transit) moves it; the van's
+Product Item updates.</p>
+<p>Each step is a record, and a gap anywhere breaks the
+chain.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> Faulty parts need returning.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Return Orders and line items — unused, faulty, or for warranty and repair.</p>
+<p>Design the process, because unreturned stock sits on vans indefinitely and distorts both inventory and
+cost.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> Serialised equipment needs tracking.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Individually, as <strong>Assets</strong> — not as quantities of Product Items.</p>
+<p>That is also what enables warranty, maintenance plans and service history per unit.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">77</span> Asset history is empty.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Assets are not being created from orders or fulfilment, or work orders are not being related to them.</p>
+<p>An empty asset base blocks warranty, maintenance and condition-based service — it is foundational rather than
+optional.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> Warranty should determine what the customer pays.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Warranty terms define coverage and the customer's share of parts, labour and travel, flowing into work order
+pricing.</p>
+<p>Without them, every warranty question becomes a manual
+judgement.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">79</span> A chiller is inside a plant room inside a building.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Asset hierarchy — parent/child assets, so faults and history roll up meaningfully.</p>
+<p>It also lets a maintenance plan cover a structure rather than a list of unrelated
+units.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> Maintenance should be driven by usage, not the calendar.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Criteria-based maintenance using readings held on the Asset — which requires a reliable feed of those
+readings.</p>
+<p>No feed, no plan. Condition-based via telemetry is the next step up, and needs real
+integration.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">81</span> Where does the SLA come from?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The entitlement or service contract, with milestones tracked on the work order and Business Hours defining what "four hours"
+means.</p>
+<p>And it must be translated into the appointment's Due Date, or scheduling cannot honour
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> SLAs are breaching while every rule passes.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Two clocks: the SLA runs on the entitlement's Business Hours; scheduling runs on territory operating hours in the territory's
+zone.</p>
+<p>Reconcile them, and make the SLA an explicit constraint on the appointment rather than a parallel
+measure.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">83</span> Billing needs completed work.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Work order line items price from a price book and roll up to the work order; consumed products and labour feed the
+invoice.</p>
+<p>Usually an integration to ERP or Revenue Cloud — define which system owns the invoice and the
+tax.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> Payroll needs technician hours.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Time Sheets and Time Sheet Entries capturing work, travel and breaks per resource per period.</p>
+<p>Entry types matter — and so do actual times from the app, which is why accurate completion data has a payroll consequence as well as an
+operational one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> Customers want to know when the engineer will arrive.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Real-time tracking and reminders — the single biggest CSAT lever in field service, and it cuts no-access
+failures.</p>
+<p>It needs location from the app, honest travel estimates and a privacy
+position.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> No-access failures are wasting visits.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Confirmation and reminder messaging before the visit, and self-service rescheduling so customers move the appointment rather than missing
+it.</p>
+<p>Pure wasted travel is the cheapest cost to
+eliminate.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> Where is the money in field service?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Ranked: avoid the visit (remote resolution, better triage), fix it first time (skills and parts), cut travel (territories, bundling,
+optimisation), then shave minutes on site.</p>
+<p>Teams start at the last one because it feels technical, then wonder why the business case never
+lands.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> Remote assistance is proposed.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A video call with annotation frequently resolves the job with no visit at all — the cheapest visit is the one you
+avoid.</p>
+<p>It needs agent training more than technology, which is where such initiatives usually
+fail.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="judgement">Rollout &amp; judgement (89–100)</h2>
+
+<details class="acc"><summary><span class="q-num">89</span> Where do you start a Field Service implementation?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The operating model on paper: territories, shifts, skills, who may do what, and the three numbers the business will judge you on (first-time
+fix, SLA, travel).</p>
+<p>Then Work Types with honest durations — because every downstream plan inherits
+them.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> Why calibrate travel before tuning objectives?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Because every scheduling decision is built on travel estimates. If they are wrong, the plan is fiction and your tuning is tuning against
+it.</p>
+<p>Compare a week of estimates against actual start times, then
+tune.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> Dispatchers do not trust the system.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually candidate grades that do not reflect their judgement, or travel estimates they know are wrong.</p>
+<p>Prove it manually first — if dispatchers do not trust the grades, no automation will be
+accepted.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> The deployment is missing all the configuration.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Because scheduling policies, work rules, objectives, territories, operating hours and shift patterns are <strong>records</strong>, not
+metadata.</p>
+<p>You need a repeatable, version-controlled data migration — and never hard-code the resulting
+Ids.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> How do you test a scheduling change?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A sandbox with realistic geography, resources, skills and a full week of appointments — run the actual policies and inspect the
+plan.</p>
+<p>Keep that as a regression set and re-run it after every policy change and package
+upgrade.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> You cannot unit-test the optimiser.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Correct — so do not pretend to. Unit-test your own handlers, guards and idempotency; scenario-test the engine's
+behaviour.</p>
+<p>Conflating the two produces tests that pass and a plan that is
+wrong.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> What should you instrument from day one?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Unscheduled count, travel minutes, SLA attainment, first-time fix, overtime, pinned appointments and sync
+errors.</p>
+<p>Review weekly and tune from evidence. Without the baseline you cannot show the programme
+worked.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> Is Field Service the right product at all?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>If nobody drives anywhere and nothing gets fitted, it is a large amount of machinery you will pay for and not
+use.</p>
+<p>Salesforce Scheduler covers appointments <em>with</em> people. Field Service is for sending people <em>to</em>
+places.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> The business wants everything automated at go-live.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Sequence it: manual scheduling first to build trust, then one recipe at a time measured against a baseline, then
+optimisation piloted on one territory.</p>
+<p>Automating before dispatchers trust the grades produces a system they fight rather than
+use.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> A contractor population needs onboarding.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Capacity-based resources, Experience Cloud access with Sharing Sets or contractor licences, and sharing tested with a real contractor
+login.</p>
+<p>Under-sharing shows up as blank screens on their device, which looks like a mobile bug for
+days.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> What is the commonest Field Service mistake?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Uncalibrated travel, followed by custom statuses mapped to the wrong category, and configuration treated as deployable
+metadata.</p>
+<p>All three produce behaviour that looks like a platform problem and is a configuration
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit that most improves Field Service work?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Comparing <strong>estimated against actual</strong> — travel, durations, arrival times — every week, and correcting the
+model.</p>
+<p>Scheduling quality is downstream of estimate accuracy. Everything else is tuning parameters against numbers that may not be
+true.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="field-service.html">Field Service</a>, the deep dive on
+    <a href="field-service-advanced.html">Field Service — Advanced</a>, or the
+    <a href="scenarios.html">scenario index</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Field Service — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

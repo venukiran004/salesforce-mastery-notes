@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marketing &amp; Pardot · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>Marketing</span></div>
+  <h1>Marketing &amp; Pardot — 100 Scenarios</h1>
+  <p class="lede">Connector sync behaviour, Contact Key decisions you cannot undo, journeys and re-entry, deliverability
+     and DMARC alignment, consent architecture, and attribution that survives scrutiny.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on <a href="marketing.html">Marketing &amp;
+    Pardot</a> and its <a href="marketing.html#advanced">Advanced</a> section.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="choice">Product choice &amp; the connector (1–20)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Account Engagement or Marketing Cloud Engagement?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Account Engagement (Pardot) for B2B: prospect nurture, scoring and grading, tight CRM integration, modest
+volumes.</p>
+<p>Marketing Cloud Engagement for B2C scale, cross-channel journeys and complex data-driven personalisation — with a far larger implementation
+cost.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> A value keeps reverting after someone edits it.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Connector field sync behaviour. Each field is configured as Salesforce-wins, Account Engagement-wins, or
+most-recently-updated-wins.</p>
+<p>Leaving it at the default and then debugging this is a rite of passage. Set it per field, deliberately, and document
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> A prospect synced to the wrong Contact.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Matching is by email, so duplicate emails in CRM make it ambiguous.</p>
+<p>Which makes duplicate management a marketing <em>prerequisite</em> rather than hygiene — fix the duplicates before blaming the
+connector.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> A change took twenty minutes to appear.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>The sync queues rather than applying instantly. That is normal.</p>
+<p>So any automation assuming immediate sync will misfire — design for the delay rather than against
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> Score and grade are being used interchangeably.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Score</strong> is engagement — behavioural, accumulating. <strong>Grade</strong> is fit — profile-based, a letter.</p>
+<p>"Highly engaged but a poor fit" is the distinction sales actually needs. Conflating them wastes sales
+time.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> Sales ignore the scores entirely.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually because the thresholds were never calibrated against actual conversions, so a "hot" lead is not
+hot.</p>
+<p>Analyse historical conversion by score band and set thresholds from the data, then review them
+periodically.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> Connected Campaigns is proposed.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It unifies Account Engagement campaigns with Salesforce Campaigns, and is a prerequisite for sensible attribution
+reporting.</p>
+<p>Enabling it is effectively one-way, so plan it rather than switching it on to
+see.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> Deleting a prospect did not delete it.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Prospects go to a recycle bin, and deletion semantics differ between the two systems — which also affects consent
+records.</p>
+<p>Understand the behaviour before relying on deletion for a privacy
+request.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> Which records should sync?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Only what marketing needs — syncing every Lead and Contact inflates volume, cost and the matching problem.</p>
+<p>Use a marketing-relevant flag or a campaign-based scope, and review it as the database
+grows.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> A custom field is not available for segmentation.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>It needs creating in Account Engagement and mapping to the Salesforce field — the sync is per mapped field, not
+automatic.</p>
+<p>And the type must be compatible, which is the second most common
+cause.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> Engagement Studio is not progressing prospects.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check the entry criteria, the wait steps, and whether a rule earlier in the program is holding
+them.</p>
+<p>Also whether the prospect is suppressed or opted out, which silently stops everything
+downstream.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> Completion actions fire unexpectedly.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>They fire on the asset's interaction (a form submit, an email click), not on a program step — so an old form keeps
+acting.</p>
+<p>Audit completion actions on assets, not just the
+programs.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> Marketing wants to write to Salesforce directly.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Possible via the connector user, but it needs the same scrutiny as any integration: field ownership, validation rules, and the automation it
+triggers.</p>
+<p>Decide field ownership explicitly or you get the reverting-value problem at
+scale.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> A form is creating duplicate prospects.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Different email variants, or a form not matching against existing prospects.</p>
+<p>Normalise email at capture, and match-and-update rather than always creating — repeat enquiries should enrich, not
+fragment.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> Which system owns the lead lifecycle?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Decide explicitly: marketing nurtures until a threshold, then CRM owns it — with the handoff criteria written
+down.</p>
+<p>Ambiguous ownership produces leads worked by both or neither, which is the commonest marketing-sales
+friction.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> Sales complain leads are unqualified.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The handoff threshold is wrong, or grade is being ignored in favour of score.</p>
+<p>Agree the definition of a qualified lead with sales, encode it, and measure acceptance
+rate.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">17</span> How do you test connector changes?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>In a sandbox with a sandbox Account Engagement instance where available — and with a small set of test prospects you control
+end to end.</p>
+<p>Testing sync behaviour in production is how real prospects receive test
+emails.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> Volume is growing and costs are rising.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Mailable prospect counts and sends drive cost. Suppress and archive unengaged prospects rather than carrying them
+indefinitely.</p>
+<p>It also improves deliverability, so it is two benefits for one
+decision.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">19</span> Marketing Cloud Growth is suggested instead.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Packaging in this area changes frequently, so verify current capability and licensing against your actual requirements rather than a
+comparison written last year.</p>
+<p>The architectural questions — identity, consent, data ownership — matter more than the product
+name.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> What is the commonest connector mistake?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Not setting field sync behaviour deliberately, so values revert unpredictably and nobody can explain
+it.</p>
+<p>Followed by syncing everything, and by duplicate emails in CRM making the match
+ambiguous.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="mce">Marketing Cloud data model (21–42)</h2>
+
+<details class="acc"><summary><span class="q-num">21</span> What is the most consequential early decision?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The <strong>Contact Key</strong> — the immutable identifier across the whole platform. Every journey, data extension relationship, suppression
+list and send log keys off it.</p>
+<p>Choosing an email address is close to unrecoverable at scale. Use a stable system
+identifier.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> The Contact Key was set to email and must change.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Re-keying the estate means rebuilding journeys, relationships and suppression logic — in practice, a
+rebuild.</p>
+<p>Which is why it needs settling with the CRM team on day one, not discovered in year
+two.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> A data extension import keeps appending duplicates.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No <strong>primary key</strong> on the data extension, so imports insert rather than update.</p>
+<p>Set the key, and the same import then behaves as an upsert — which is almost always what was
+intended.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> A data extension is not usable for sending.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>It must be <strong>sendable</strong>, with a relationship to the subscriber established.</p>
+<p>That relationship in Contact Builder is also what makes its attributes available in journeys and
+content.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> Data extensions are growing without limit.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No retention policy. Unmanaged extensions grow forever, slow every query and eventually cost real
+money.</p>
+<p>Set retention per extension at creation, which is far easier than retrofitting
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> All Contacts and All Subscribers differ.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Two overlapping populations with different deletion semantics — and contact deletion is a long-running, partially irreversible
+process.</p>
+<p>Understand it before you need it, particularly for privacy
+requests.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> Personalisation renders "Hi ,".<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A null first name with no default. Always provide a fallback in the personalisation
+string.</p>
+<p>It erodes trust faster than sending nothing, and it is entirely
+preventable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> A send is extremely slow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Per-recipient work: AMPscript lookups inside the email, complex dynamic content, or large exclusion
+queries.</p>
+<p>Pre-compute into the sending data extension so the send reads rather than looks
+up.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> AMPscript, SSJS or GTL?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>AMPscript for personalisation and lookups; SSJS for logic and API calls; GTL for performance-critical templated
+content.</p>
+<p>Lookups are the expensive part regardless of language — minimise them rather than optimising the
+syntax.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> A query activity is timing out.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Volume and joins. Narrow the source, filter earlier, and index-align where the platform allows.</p>
+<p>Also check whether the query is doing work that belongs upstream in the data
+feed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> You need data from Salesforce in Marketing Cloud.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Marketing Cloud Connect for synchronised data extensions, or an integration writing to data extensions
+directly.</p>
+<p>Decide which system owns each attribute, or you get the reverting-value problem in a second
+place.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> Suppression is not working.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Check the exclusion script, the suppression list, the publication list status, and the contact's opt-out state — suppression has several
+layers.</p>
+<p>Test with a known-suppressed address before every significant
+send.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">33</span> Someone received an email after unsubscribing.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A serious issue. Likely a send using a data extension that bypasses the publication list, or an opt-out recorded in one system and not the
+other.</p>
+<p>Fix the send logic, then fix the consent architecture so one opt-out reaches every
+channel.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> How do you test a send safely?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A test send to a controlled list, with suppression verified, in a non-production business unit where
+available.</p>
+<p>And a send-size sanity check: an unintended 200,000-recipient send is not
+recallable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> Business units are being proposed.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>They partition data, permissions and sending — useful for brands, regions or agencies, and they add real
+complexity.</p>
+<p>Shared data and suppression across units needs deliberate design rather than assumption.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> An automation failed overnight.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check the activity that failed in Automation Studio — commonly a file import that did not arrive, or a query
+error.</p>
+<p>And alert on failure <em>and</em> absence, because an automation that silently stops leaves yesterday's segment looking
+current.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> A file-based feed did not arrive.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Build in a manifest or row-count check so a missing or truncated file is detected rather than processed as
+complete.</p>
+<p>File integrations fail silently more than any other kind, and a partial import corrupts the
+segment.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> How do you handle preference management?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Granular preferences (newsletter, product updates, events) retain more subscribers than a single global unsubscribe — and regulators expect
+them.</p>
+<p>Keep the preference centre writing to the system of record, not to a local
+copy.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> Einstein engagement scoring is suggested.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Useful for send-time optimisation and engagement prediction <em>if</em> you have enough history and clean
+data.</p>
+<p>On thin data it produces confident recommendations nobody should
+follow.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> Marketing data volume is unmanageable.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Retention policies per data extension, archiving send logs, and suppressing long-unengaged contacts.</p>
+<p>Also question whether every attribute needs to be in the platform, or whether it can stay in the warehouse and be queried when
+needed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">41</span> Two business units send to the same person.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Without shared suppression and a frequency policy, the customer receives both — which reads as organisational
+incompetence.</p>
+<p>Implement a global frequency cap and shared suppression, which is a design decision rather than a
+feature.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> What is the commonest Marketing Cloud mistake?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The Contact Key decision, followed by data extensions without primary keys or retention, and suppression logic that a single send can
+bypass.</p>
+<p>All three are expensive to correct once journeys depend on
+them.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="journeys">Journeys &amp; automation (43–62)</h2>
+
+<details class="acc"><summary><span class="q-num">43</span> A customer received the welcome series three times.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Re-entry mode</strong>: no re-entry, re-entry anytime, or re-entry after exit.</p>
+<p>"Re-entry anytime" plus an entry event that fires repeatedly is exactly this
+outcome.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> You need to fix a running journey.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Running journeys cannot be meaningfully edited — you create a new version, and contacts already in flight stay in the
+old one.</p>
+<p>Plan for two versions running concurrently, and for how you will report across
+both.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> Contacts are stuck in a journey.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A wait activity — a 30-day wait means they sit there for a month, and your edit cannot reach
+them.</p>
+<p>Which is a reason to keep waits short and use re-entry rather than long holds where
+possible.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> Someone who purchased is still being nurtured.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>No <strong>exit criteria</strong>. They are not automatic, and without them the journey continues
+regardless.</p>
+<p>Define exit conditions for every journey — it is the most commonly omitted
+configuration.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> Entry is too slow for a transactional message.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Event-driven entry evaluates on the event; scheduled entry runs on a cadence.</p>
+<p>Anything needing a response within minutes needs the former — and a transactional send may be more appropriate than a journey
+entirely.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> A journey behaves differently for some contacts.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Missing attributes taking a default decision path, or data arriving after entry so the decision evaluates
+nulls.</p>
+<p>Ensure the entry data is complete at entry, and test with records that have gaps on
+purpose.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> How do you test a journey?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>With real data shapes — including nulls, odd characters and edge-case values — and a controlled test population
+you can follow all the way through.</p>
+<p>Journey testing is mostly about the decision paths, which is where unexpected behaviour
+lives.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> A journey sends at 3am local time.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Timezone handling on the send, and whether you are using send-time optimisation or a fixed
+schedule.</p>
+<p>For a global audience, this is a design decision rather than an
+oversight.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">51</span> You need to pause a journey urgently.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Journeys can be paused, and you should know how before you need to — including what happens to contacts mid-flight when
+you resume.</p>
+<p>Rehearse it. An incident is not the time to discover the
+semantics.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> Reporting across journey versions is confusing.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Each version reports separately, so metrics fragment every time you publish a new one.</p>
+<p>Decide how you will aggregate before you need the number, or accept that a mid-campaign change breaks the
+trend.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> An automation and a journey both act on the same contacts.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Likely duplicate sends or conflicting updates. Establish which owns the contact at each stage.</p>
+<p>Overlapping marketing automation is as damaging as overlapping CRM automation, and harder to see because the effects are
+external.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> How many journeys is too many?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>When nobody can say which journeys a given contact is in, or when frequency capping becomes
+guesswork.</p>
+<p>Maintain an inventory with owners and purposes, and retire journeys that have served their
+campaign.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> A contact should never receive more than two emails a week.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A frequency cap — implemented centrally (shared suppression plus send logs), not journey by
+journey.</p>
+<p>Per-journey logic cannot see other journeys, which is why the cap has to be a platform-level
+design.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> Engagement Studio versus Journey Builder.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Different products: Engagement Studio in Account Engagement for B2B nurture; Journey Builder in Marketing Cloud for cross-channel
+orchestration.</p>
+<p>They are not interchangeable, and the choice follows from the product
+decision.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> A journey needs CRM data mid-flight.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A data extension updated by integration, or an API call activity — and remember the contact is already in
+flight, so late data may miss its decision.</p>
+<p>Fetch what you need at entry where the decision depends on
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> Journey decisions use stale data.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Entry data is captured at entry; later changes are not reflected unless you explicitly re-read
+it.</p>
+<p>For long journeys, add a decision that re-checks current state rather than trusting the entry
+snapshot.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> How do you handle a failed send inside a journey?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Bounces and errors surface in tracking and send logs — but the journey continues unless you branch on
+it.</p>
+<p>Add handling for hard bounces specifically, since continuing to send to them damages
+deliverability.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> Marketing wants a journey for everything.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Journeys are for multi-step, time-based orchestration. A single triggered email is a transactional send or an
+automation.</p>
+<p>Using journeys for one-step sends makes the estate harder to reason about and frequency harder to
+control.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> How do you document a journey?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Purpose, entry source and criteria, re-entry mode, exit criteria, the decision logic, and the owner.</p>
+<p>Re-entry and exit are the two that cause incidents, so they belong at the top of the
+description.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> What is the commonest journey mistake?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Re-entry mode left permissive, and no exit criteria — which together produce repeated sends to people who have already
+converted.</p>
+<p>Both are configuration defaults rather than oversights, which is why they recur across
+implementations.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="deliverability">Deliverability &amp; consent (63–82)</h2>
+
+<details class="acc"><summary><span class="q-num">63</span> Emails are landing in spam despite SPF, DKIM and DMARC.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Alignment</strong>. DMARC requires SPF or DKIM to align with the From domain, and all three can be configured while alignment still
+fails.</p>
+<p>Check the DMARC reports — that is what they are for, and most teams never read
+them.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> What does each of SPF, DKIM and DMARC do?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>SPF authorises sending IPs for the domain; DKIM signs the message so it is verifiably unaltered; DMARC tells receivers what to do when SPF or
+DKIM fails, and provides reporting.</p>
+<p>DMARC without alignment is the configuration that looks complete and is
+not.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> SPF is failing intermittently.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Often the DNS lookup limit — too many includes in the SPF record cause soft
+failures.</p>
+<p>Flatten or consolidate the record, and audit which senders genuinely still need
+authorising.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> A new dedicated IP is performing badly.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It has no reputation. <strong>Warm it</strong> gradually, starting with your most engaged recipients and increasing
+volume.</p>
+<p>Blasting a cold IP with a large send gets you throttled or blocked, and recovery takes
+weeks.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> Deliverability degraded after a list purchase.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Unengaged and invalid addresses damage reputation quickly, and complaints compound it.</p>
+<p>Purchased lists are a reliable way to harm deliverability for your legitimate mail — and in many jurisdictions a consent problem
+too.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> Engagement is the dominant reputation signal now.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>So sending to years-old unengaged addresses damages deliverability for everyone on the IP.</p>
+<p>Suppress long-unengaged contacts. It reduces volume, improves deliverability and cuts cost
+simultaneously.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> Hard bounces are still being sent to.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>They must suppress immediately — continuing is the fastest route to a blocklist.</p>
+<p>Verify the suppression is actually applying, since a send using a custom data extension can bypass
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> Complaint rates are rising.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Frequency, relevance, or an unsubscribe that is hard to find. Check all three before blaming the
+content.</p>
+<p>Feedback loops surface complaints — make sure they are being consumed and acted
+on.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">71</span> Where does consent live?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Nominate <strong>one system of record per channel</strong> and sync outward — Salesforce's <code>Individual</code> and consent fields,
+Account Engagement opt-out, Marketing Cloud subscriber status.</p>
+<p>A preference centre updating one and not the others is a regulatory finding waiting to be
+found.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> What proof of consent do you need?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Timestamp, source, IP, and <strong>the exact wording shown</strong>.</p>
+<p>"They ticked a box in 2021" without the wording is not evidence, and the wording is the part nobody
+retains.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> Double opt-in is proposed.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It costs list size and buys deliverability and defensibility — and for B2C in strict jurisdictions it is usually the right
+trade.</p>
+<p>Measure the drop-off so the decision is informed rather than
+assumed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> A customer asks to be forgotten.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Deletion must reach data extensions, send logs, suppression lists, journeys, CRM and any downstream system — and contact deletion in
+Marketing Cloud is long-running and partially irreversible.</p>
+<p>Build it as a documented process with verification, not an ad-hoc
+deletion.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> Unsubscribes are not honoured across brands.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Business-unit-scoped opt-outs. Decide whether an unsubscribe is brand-specific or global — and make sure the preference centre says
+which.</p>
+<p>Customers generally expect global unless told otherwise, and regulators tend to
+agree.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> A test send went to real customers.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Treat it as an incident: assess who received it, communicate if required, and fix the process.</p>
+<p>Prevention is a non-production business unit, a controlled test list, and a send-size sanity check before every
+send.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">77</span> How do you monitor deliverability?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Delivery rate, bounce rate by type, complaint rate, and engagement by domain — plus the DMARC
+reports.</p>
+<p>Watch per-domain: a problem with one major provider is invisible in an aggregate
+number.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> Transactional and marketing mail share a domain.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Risky: marketing complaints can affect transactional delivery, which is the mail you cannot afford to
+lose.</p>
+<p>Separate subdomains (and ideally IPs) for transactional and marketing
+streams.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">79</span> Legal asks who can be emailed.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Produce the consent model: the system of record per channel, the proof retained, the suppression mechanisms, and how a request is
+honoured.</p>
+<p>If you cannot produce that, the answer to their question is "we are not
+sure".</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> Marketing wants to email everyone in CRM.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Consent is the constraint, not capability. Existing CRM contacts are not automatically a marketable
+audience.</p>
+<p>Establish lawful basis per contact before the send — retrospective justification is not
+available.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">81</span> A preference centre is being built.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It must write to the system of record and propagate outward, offer granular choices, and be reachable from every
+email.</p>
+<p>And it is a public endpoint, so it needs the same validation and rate-limiting scrutiny as any
+form.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> What is the commonest consent failure?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Consent recorded in one system and not synced, so an opt-out in the preference centre does not stop a send from a different
+platform.</p>
+<p>It is a design problem rather than a bug, which is why it survives until someone
+complains.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="attribution">Attribution &amp; judgement (83–100)</h2>
+
+<details class="acc"><summary><span class="q-num">83</span> Marketing and sales disagree about attribution.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Agree the <strong>model</strong> and the <strong>influence window</strong> in writing before building any
+dashboard.</p>
+<p>Without those, every ROI report becomes a debate about the numbers rather than a decision from
+them.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> First touch or last touch?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>First touch judges top-of-funnel demand generation; last touch judges closing content and enablement.</p>
+<p>They answer different questions, so reporting both is usually more honest than choosing
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> Campaign Influence shows nothing.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It needs campaign members, an influence time window, and a model — all three
+configured.</p>
+<p>And Connected Campaigns if you want Account Engagement activity to participate
+properly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> A custom attribution model is requested.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Fine, with the weights <em>written down</em> and the influence window stated — otherwise it is unauditable and will be
+re-litigated.</p>
+<p>Even distribution is a defensible default when nobody can
+agree.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> ROI numbers look implausible.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check the influence window (a 12-month window attributes almost everything to almost everything) and whether costs are included at
+all.</p>
+<p>Attribution without cost data is revenue reporting dressed as
+ROI.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> How do you measure a nurture program?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Progression through the funnel for the nurtured cohort versus a comparable one — not open and click rates, which measure
+activity.</p>
+<p>Engagement metrics are diagnostic; conversion is the
+outcome.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> Open rates have become unreliable.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Privacy features inflate opens by pre-fetching images, so opens are a weak signal.</p>
+<p>Shift to clicks, conversions and downstream pipeline — and stop using opens as a success
+measure.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> Marketing reports more leads than sales received.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Definition and handoff: marketing counts captures, sales counts accepted leads, and the gap is qualification and
+routing.</p>
+<p>Measure the funnel with both numbers and the acceptance rate between them — the gap is the useful
+metric.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> How do you prove marketing's contribution?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>An agreed model, consistent reporting, and ideally a holdout group for the campaigns where that is
+feasible.</p>
+<p>Holdouts are the only genuinely convincing evidence, and they are rarely offered because they cost
+reach.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> Data quality is undermining segmentation.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Segmentation can only be as good as the attributes. Measure completeness of the fields you segment on, and fix capture at
+source.</p>
+<p>Enriching downstream papers over a capture problem that will keep
+recurring.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> Who should own the marketing database?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A named owner for data quality, consent, suppression and retention — spanning marketing and CRM, because the data
+does.</p>
+<p>Split ownership between teams is how opt-outs get lost and duplicates
+accumulate.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> Data Cloud is proposed for marketing.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Valuable for unified profiles, identity resolution and segment activation across channels — particularly where customer data is
+fragmented.</p>
+<p>And identity resolution is a business decision with real over-merge and under-merge consequences. See
+<a href="einstein-ai.html#advanced">Data Cloud</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> A campaign needs to launch tomorrow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The non-negotiables are suppression, consent and a send-size check. Everything else can be
+simplified.</p>
+<p>Shortcuts on those three produce incidents that outlast the
+campaign.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> How do you hand over a marketing implementation?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The Contact Key definition, the field sync behaviour matrix, the consent model, the suppression mechanisms, the journey inventory with re-entry
+and exit, and the retention policies.</p>
+<p>Those six are what make the estate safe to
+change.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> Marketing and CRM teams do not talk.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>That shows up as field ownership conflicts, duplicate records, lost opt-outs and attribution
+disputes.</p>
+<p>The technical problems are symptoms. The field-level ownership matrix is a good artefact to force the
+conversation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> Scoring thresholds have never been reviewed.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Then they reflect assumptions from implementation, not current conversion behaviour.</p>
+<p>Review quarterly against actual outcomes — scoring that nobody calibrates is scoring sales learn to
+ignore.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> What is the commonest marketing-technology mistake?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Consent scattered across systems with no system of record — so an opt-out is honoured in one channel and not
+another.</p>
+<p>Followed by the Contact Key decision, and by field sync behaviour left at defaults.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit that most improves marketing work?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Deciding <strong>one system of record per channel for consent</strong> — and testing that an opt-out there stops every
+send.</p>
+<p>It is the control with the highest regulatory and reputational stakes, it is cheap to verify, and it is the one most often
+assumed rather than checked.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="marketing.html">Marketing &amp; Pardot</a>, the <a href="scenarios.html">scenario index</a>, or
+    <a href="sales-service-scenarios.html">Sales &amp; Service — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Marketing — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>
