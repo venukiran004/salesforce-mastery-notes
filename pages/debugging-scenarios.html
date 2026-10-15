@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Debugging &amp; Troubleshooting · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>Debugging</span></div>
+  <h1>Debugging &amp; Troubleshooting — 100 Scenarios</h1>
+  <p class="lede">Reading logs properly, the tools beyond them, debugging production without logs, async and events, and
+     the "works in sandbox" problems that are really data, permissions or drift.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on <a href="debugging.html">Debugging &amp;
+    Troubleshooting</a> and its <a href="debugging.html#advanced">Advanced</a> section.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="logs">Reading logs (1–20)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> Which part of a debug log do you read first?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>CUMULATIVE_LIMIT_USAGE</code> — the actual SOQL, DML, CPU and heap consumed, broken down <strong>per namespace</strong>.</p>
+<p>It tells you which limit you are near and whether the consumption is yours or a managed package's. Everything else is detail by
+comparison.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> You need to know which automation ran on a save.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>CODE_UNIT_STARTED</code>/<code>FINISHED</code> gives you the execution tree: every trigger, flow, validation rule and package unit, in
+order, with timings.</p>
+<p>It routinely reveals automation nobody documented — which is why reading the log beats reasoning from
+configuration.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> The log is truncated before the interesting part.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Logs are capped and the UI truncates sooner. Lower the levels: set everything to NONE except the one category you
+need.</p>
+<p>Everything at FINEST produces a half-log that answers nothing — and slows the transaction enough to change the behaviour you are
+investigating.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> What log levels for a limits problem?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>APEX_PROFILING=FINEST</code>, everything else NONE. That gives you the cumulative limits without the
+noise.</p>
+<p>For "which automation ran": <code>WORKFLOW=FINER</code> plus <code>APEX_CODE=FINE</code>. For query plans:
+<code>DATABASE=FINEST</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> A query returns 3 rows and takes 4 seconds.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>SOQL_EXECUTE_BEGIN</code>/<code>END</code> gives you rows <em>and</em> elapsed time — so this is a selectivity problem, not a volume
+one. The optimiser scanned to find those three rows.</p>
+<p>Run the Query Plan tool: cost above roughly 1 means a table
+scan.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> You cannot see your own log.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No trace flag for that user, it expired, or the log storage filled and older logs were purged.</p>
+<p>Also check whether the code actually ran as <em>you</em> — async and event-driven work often runs as a different
+user.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> A platform event subscriber produces no log.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It runs as the <strong>Automated Process</strong> user, so your trace flag catches nothing.</p>
+<p>Set the trace flag on that user. This is one of the most common wasted hours in Salesforce
+debugging.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> How do you prove a managed package is the problem?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>LIMIT_USAGE_FOR_NS</code> and the cumulative section break consumption down by namespace.</p>
+<p>Isolate further by disabling your own logic and re-measuring, so the evidence is clean. A log naming their namespace is what gets a support case
+taken seriously.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> A flow's behaviour is unclear from the log.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>WORKFLOW=FINER</code> gives element-by-element execution, showing which decision branch was taken.</p>
+<p>Verbose, but it is the only way to see inside a flow's logic without adding temporary log
+records.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> Your <code>System.debug</code> output is missing.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p><code>APEX_CODE</code> is below DEBUG level, or the statement is in a branch that did not execute.</p>
+<p>Also note <code>System.debug</code> itself costs CPU and heap — leaving verbose debugging in production code is a real
+cost.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> How do you find a specific transaction's log?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>By user and timestamp — and if you logged <code>Request.getCurrent().getRequestId()</code> in your own error record, by matching that
+correlation id.</p>
+<p>That correlation id is why instrumentation beats log-hunting.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> The log shows a trigger running twice.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually a workflow field update re-firing the save path, a roll-up recalculation saving the parent, or an after-save flow updating its own
+record.</p>
+<p>The execution tree shows which. Then guard by record Id rather than with a blunt static
+boolean.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> Log storage keeps filling up.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Trace flags left on, at high levels, for many users. Logs are capped org-wide and older ones are
+purged.</p>
+<p>Set trace flags deliberately with short expiry, and delete them when
+finished.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> You need a log for a user you cannot impersonate.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Set a trace flag on that user and ask them to reproduce — you do not need to log in as them to capture their
+log.</p>
+<p>Login As is for reproducing behaviour; trace flags are for capturing
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> A log shows "skipped frames".<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Output was dropped because the log exceeded its size budget mid-transaction. What you are reading is
+incomplete.</p>
+<p>Reduce the levels and reproduce rather than drawing conclusions from a partial
+log.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> Validation rules do not appear where you expect.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>They run after before-triggers and before after-triggers — and a workflow field update re-fires triggers without re-running validation by
+default.</p>
+<p>The execution tree shows the real order, which is frequently not the one people
+assume.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">17</span> A batch job's log is enormous.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Each <code>execute</code> is its own log. Lower the levels, reduce the scope for the debug run, and target a single chunk rather than the
+whole job.</p>
+<p>For ongoing visibility, your own job-log records beat trying to read batch
+logs.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> How do you compare two transactions?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Capture both logs at the same levels and diff the cumulative limits and the execution tree.</p>
+<p>That is how you answer "why is it slow for this record and not that one" — the difference is almost always in what automation
+fired.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">19</span> Do debug logs affect behaviour?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Yes — high log levels add real overhead, which can change timing and occasionally mask or create a limit
+problem.</p>
+<p>So a transaction that only fails <em>without</em> logging is plausible, and a transaction that only fails <em>with</em> it is also
+possible.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> What is the method, in order?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Reproduce</strong> (as the right user, with the right data, through the right entry point) → <strong>isolate</strong> (bisect by
+disabling automation) → <strong>measure</strong> (cumulative limits and query plan) → <strong>fix</strong> → <strong>write the failing test
+first</strong>.</p>
+<p>The step people skip is the first: half of all "unreproducible" bugs reproduce immediately once you stop testing as a system
+administrator.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="tools">Tools beyond logs (21–40)</h2>
+
+<details class="acc"><summary><span class="q-num">21</span> A report times out. Which tool?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>The <strong>Query Plan</strong> tool in the Developer Console — paste the equivalent SOQL and read the cost and which index (if any) is
+used.</p>
+<p>Cost above roughly 1 means a table scan, which tells you to change the filter rather than the
+report.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> You need to step through Apex.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Apex Replay Debugger</strong> in VS Code — free, replays a debug log with real breakpoints, stepping and variable
+inspection.</p>
+<p>Post-mortem rather than live, since it needs a log. The licensed Interactive Debugger gives you live breakpoints in a
+sandbox.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> A collection is unexpectedly empty.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Developer Console <strong>checkpoints</strong> capture full object state at a line — far more useful than guessing from debug
+statements.</p>
+<p>Heap dumps are the right tool for "what is actually in this structure at this
+moment".</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> "The org is slow." Which tool?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>The <strong>Lightning Usage App</strong> — EPT by page, browser, user and over time.</p>
+<p>It frequently shows one browser or one geography rather than a platform problem, which changes the investigation
+entirely.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> You need to know who exported a report last month.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Event Monitoring</strong> — report export events are among its most valuable log types, and it is the only retrospective
+answer.</p>
+<p>Without it you cannot answer the question at all, which is worth knowing before an
+incident.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> An error happened in production and the log has expired.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>You need instrumentation you built in advance: a structured error log published as a <strong>platform event</strong> so the record survives
+rollback.</p>
+<p>Capture class, method, message, stack, record Id, correlation id, quiddity and a limit snapshot. That answers most incident questions without a
+log.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> A bug only happens from the mobile app.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>Request.getCurrent().getQuiddity()</code> tells you the invocation context — AURA, REST, BATCH_APEX, SYNCHRONOUS and so
+on.</p>
+<p>Log it on every error and "it only fails from X" becomes a provable statement rather than a
+theory.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> You need to test a snippet quickly.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Execute Anonymous in the Developer Console or the CLI — but note it runs <em>with sharing</em> by default, which differs from a class's
+default.</p>
+<p>So a query that works there may behave differently inside your
+code.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> An LWC is slow and you suspect the server.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Browser devtools: the network tab shows Aura/Apex call count, payload size and timing — which usually reveals too many calls rather than one
+slow one.</p>
+<p>Then component instrumentation on the page to attribute the rendering
+cost.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> Setup Audit Trail — when is it the right tool?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>"What changed in configuration, and who changed it" — the first question when something worked yesterday and does not
+today.</p>
+<p>Review it weekly as a habit, not just during incidents, so drift is caught before it causes
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> You need per-test coverage and failure stacks.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>The Developer Console Tests tab, or the CLI's test results — both give you per-class coverage and the failure stack without leaving your
+workflow.</p>
+<p>For CI, JUnit output so the pipeline names the failing
+test.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> Salesforce Optimizer — what is it good for?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Org-wide hygiene: unused fields, too many layouts, excessive components per page, inactive rules.</p>
+<p>Treat it as a backlog rather than a to-do list, prioritised by what affects users or blocks
+change.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">33</span> Health Check — what does it tell you?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>How your security settings compare with a baseline, scored. Run it quarterly — the score drifts downward as "temporary" relaxations
+accumulate.</p>
+<p>Each regression should be a ticket with a justification or a
+fix.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> You need to alert on a condition in real time.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Real-Time Event Monitoring with a Transaction Security policy — block or notify on a large export, an unexpected login
+region.</p>
+<p>Start in notify mode to measure false positives before blocking anything, or you will cause business
+disruption.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> A scheduled job stopped and nothing errored.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Query <code>CronTrigger</code> for <code>NextFireTime</code> and state — a deployment or an abort can leave a schedule
+broken.</p>
+<p>And add a heartbeat: the job writes a completion record, and a separate check alerts if none appeared
+today.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> How do you monitor async failures programmatically?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Query <code>AsyncApexJob</code> on a schedule for Failed and Aborted, and alert. The Apex Jobs UI is for humans and nobody looks at
+it.</p>
+<p><code>NumberOfErrors</code> gives a count, never a cause — your own error log supplies
+that.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> You need production debugging for one user only.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A custom permission that switches on verbose logging in your own framework, assigned to that user.</p>
+<p>That gives you production tracing without logging for everyone, and without relying on catching a trace flag at the right
+moment.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> A managed package's internals are opaque.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>You get cumulative totals per namespace and nothing more. Isolate by disabling your logic, measure the difference, and raise it with the
+vendor.</p>
+<p>Debugging inside a managed package is not available to you — do not spend hours trying.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> Which tool for "why can't this user see the record"?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Login As, then the sharing chain — and querying the object's share table with its <code>RowCause</code> to see what grants
+exist.</p>
+<p>That field turns sharing archaeology into a
+lookup.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> What should every org have before an incident?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Structured error logging via platform events, correlation ids, limit snapshots at thresholds, async job monitoring with alerts, drift detection,
+and Apex exception emails going to a monitored address.</p>
+<p>Each is roughly a day's work, and together they change every future incident from an investigation into a
+lookup.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="production">Debugging production (41–60)</h2>
+
+<details class="acc"><summary><span class="q-num">41</span> Your error log is empty exactly when it matters.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>You wrote it with DML, so it was rolled back with the failing transaction. This is the single most common logging
+mistake.</p>
+<p>Publish a <strong>platform event</strong> instead — event publication survives rollback, and a subscriber writes the durable
+record.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> What belongs in a production error record?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Class, method, message, stack trace, record Id, correlation id, quiddity, running user, and the limit snapshot at
+failure.</p>
+<p>That set answers most incident questions without a debug log — which is exactly when you cannot get
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> An intermittent failure you cannot reproduce.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Intermittent usually means concurrency, data shape or ordering: lock contention, a null only in old data, async arriving out of order, or a
+limit approached under load.</p>
+<p>Correlate occurrences — same user? same hour? same record type? "Random" is usually "a condition we have not
+characterised".</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> A user reports an error with no details.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Ask for the time, the record and what they clicked — then find it by user and timestamp, or by correlation id if your UI surfaces
+one.</p>
+<p>Showing a correlation id in the error message is a small change that makes support dramatically
+faster.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> The error email went to a developer who left.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Set the Apex exception recipients to a monitored distribution list, and build real alerting off your error
+log.</p>
+<p>Single-person notification is a guaranteed future gap, and one of the most common findings when an org changes
+hands.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> How do you debug without affecting users?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Trace flags are per user, so target the affected user rather than enabling broadly — and keep levels low to avoid changing
+timing.</p>
+<p>For anything structural, reproduce in a sandbox with production-shaped
+data.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> A failure happens once a week at random.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Look for a weekly trigger: a scheduled integration, a batch overlapping with interactive usage, or a particular record with unusually many
+children.</p>
+<p>Correlate by hour and by record. Weekly patterns almost always have a weekly
+cause.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> The business asks what caused an incident.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Answer with evidence: the correlation id, the log record, the cumulative limits, the audit trail entry — not a
+theory.</p>
+<p>If you cannot produce evidence, say so and describe what instrumentation you are adding so the next one is
+answerable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> An integration failed silently overnight.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Alert on <strong>absence</strong>, not just errors: a feed that normally delivers 5,000 records and delivered zero should page
+someone.</p>
+<p>Most monitoring only catches failures, and silence is the more dangerous failure
+mode.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> You need to find which records were affected.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>From your error log's record Ids, or by querying for the state the failure would have left — which is why logging the record Id
+matters.</p>
+<p>A count of failures without record Ids leaves you unable to
+remediate.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">51</span> A production incident needs containment first.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Stop the bleeding before diagnosing: flip the bypass switch, pause the job, open the circuit breaker, freeze the user if it is an access
+issue.</p>
+<p>Diagnosing while data continues to diverge makes the repair
+larger.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> How do you avoid making it worse?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Preserve evidence before changing anything, make one change at a time, and know what each change reverses.</p>
+<p>The classic incident mistake is three simultaneous fixes, after which nobody knows what
+worked.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> A bypass switch would have helped. You do not have one.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Then your options are a deployment under pressure or deactivating metadata by hand — both slow and
+risky.</p>
+<p>Build the switch afterwards: a hierarchy custom setting checked at the top of every handler, flippable per user without a
+deployment.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> How do you write a useful post-incident note?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>What happened, the evidence, the immediate containment, the root cause, what made it hard to detect, and what you changed so it is detectable
+next time.</p>
+<p>The detection gap is the most valuable part and the most commonly
+omitted.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> An error is user-facing and unhelpful.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>An unhandled exception surfaces internal class names — unhelpful and an information leak.</p>
+<p>Catch, log the detail with a correlation id, and show a message written for the user. In Aura/LWC that means
+<code>AuraHandledException</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> You need to replay failed work.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Store enough in the error or dead-letter record to reconstruct the operation, and provide a button or batch to re-submit selected
+rows.</p>
+<p>Replay must be idempotent, because some of what you replay may have partially
+succeeded.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> A cascade of automation ran for hours unnoticed.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Each async hop is its own transaction, so the loop is invisible in any single debug log.</p>
+<p>Add a durable counter and alert on it — a static guard cannot span transactions, and this class of incident is only detectable with
+instrumentation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> How do you debug a flow failure in production?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The error email or your fault-path log record gives you the failing element and <code>$Flow.FaultMessage</code>; then reproduce with that
+record's data as that user.</p>
+<p><code>WORKFLOW=FINER</code> shows element-by-element execution when you can
+reproduce.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> A failure only affects one user.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Their data shape or their permissions: more related records, a larger territory, a record-type-specific path, or missing
+FLS.</p>
+<p>Reproduce as them with their data. "Works for me" is almost always a permissions or data-shape
+difference.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> What is the most under-built debugging capability?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Structured, rollback-surviving error logging with correlation ids — most orgs have none, so every production incident starts from
+zero.</p>
+<p>It is about a day's work and it changes the character of every subsequent
+investigation.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="sandbox">"Works in sandbox" (61–80)</h2>
+
+<details class="acc"><summary><span class="q-num">61</span> A query is fast in sandbox and times out in production.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Data volume changed the query plan: a filter that was selective in the sandbox is not in production, so the optimiser abandoned the
+index.</p>
+<p>Run the Query Plan tool <em>against production</em> — the statistics are per
+tenant.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> Code works in sandbox and fails on a production load.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Data shape: skew, a mega-account with tens of thousands of children, or nulls that do not exist in the sandbox.</p>
+<p>Lock contention and the concurrent long-running request limit also only appear under real
+concurrency.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> A feature deployed fine and does not work.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Missing <strong>data</strong>: custom setting rows, Custom Metadata, queue members, picklist assignments per record type, package
+configuration.</p>
+<p>Metadata deployed; configuration data did not. Seed it with an idempotent post-deployment
+script.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> Production has automation your sandbox does not.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A flow added directly in production, a validation rule, or a package upgraded on one side only — classic config
+drift.</p>
+<p>Drift detection would have told you. Capture the difference into a <code>config/*</code> branch and merge it
+down.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> Tests pass and users get access errors.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Tests run in system mode, so they never exercised sharing or FLS.</p>
+<p>Use <code>System.runAs</code> with a minimum-access profile plus the permission set under test — that is the test that finds this before users
+do.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> An integration works in sandbox and fails in production.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Different endpoint, different credentials, real latency, real rate limits — and sandbox mocks hide all of
+them.</p>
+<p>Also check the API allocation: production has different volume, and a polling integration can exhaust
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> A scheduled job runs in sandbox and not production.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The schedule was never created in production — schedules are not metadata in the way people assume.</p>
+<p>Run an idempotent scheduler setup method as a documented post-deployment step and verify
+<code>CronTrigger</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> A page is slower in production.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>More related records per parent, more components added by other teams, more packages, and unselective reports over larger
+data.</p>
+<p>Measure with EPT and component instrumentation in production rather than extrapolating from a
+sandbox.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> A test passes in sandbox and fails in production deployment.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It depends on org data (<code>SeeAllData</code>), on a profile name that differs, on a Custom Metadata row, or on a picklist
+value.</p>
+<p>Make tests self-sufficient: create what they need and inject configuration rather than relying on deployed
+rows.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> Production has a managed package your sandbox lacks.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Then your CPU and limit measurements are wrong, and its triggers will run on your saves.</p>
+<p>Install packages at matching versions in every environment — otherwise sandbox testing proves something about a different
+org.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">71</span> A sandbox refresh "broke" everything.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The refresh reset config data, schedules, named credentials and integration users — and hard-coded Ids now point at
+nothing.</p>
+<p>A scripted post-refresh checklist fixes this repeatably. See
+<a href="devops.html#advanced">post-refresh</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> You cannot reproduce a production issue at all.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Work through the differences systematically: data volume, data shape, permissions, entry point, concurrency, installed packages, and
+drift.</p>
+<p>One of those seven is nearly always the answer, and the list is faster than
+guessing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> A Full sandbox would have caught it.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>For volume, selectivity and migration behaviour, yes — those only reproduce with production-shaped
+data.</p>
+<p>That is the argument for using the Full sandbox for performance testing and migration rehearsal rather than everyday
+UAT.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> The same code behaves differently for two users.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Sharing, FLS, record type, locale, timezone, or a permission-gated branch.</p>
+<p>Log the running user and the quiddity on every error, and reproduce as the affected
+user.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> A date is wrong for some users only.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Timezone. <code>Datetime</code> is stored in UTC and rendered in the user's zone; <code>Date</code> has none.</p>
+<p>Write down all the relevant zones — user, org, operating hours, remote system — before changing any
+code.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> Behaviour differs between the UI and the API.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Different automation applies (assignment rules, auto-response), different running user, and validation scoped to exclude integration
+users.</p>
+<p>Log the quiddity so this becomes provable rather than
+suspected.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">77</span> It worked yesterday and nothing was deployed.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Something changed that is not a deployment: data volume crossing a threshold, a package upgrade, a config change in production, a certificate
+expiry, or an API version retirement.</p>
+<p>Setup Audit Trail and drift detection answer the configuration half; volume growth answers much of the
+rest.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> A deployment reverted someone's production fix.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Config drift. The fix existed in production and not in your branch, and a full deployment overwrote
+it.</p>
+<p>Add nightly drift detection and a sanctioned fast path. See
+<a href="branching-strategy.html#drift">drift</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">79</span> How do you make sandboxes more representative?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Matching package versions, a seeded config-data script, a sandbox template with realistic data shape, and deployment from the pipeline rather
+than by hand.</p>
+<p>A sandbox nobody deploys to is a snapshot of whenever it was last
+touched.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> What is the honest limit of sandbox testing?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Volume, concurrency, real integrations, real user permissions and drift. Those five cannot be fully reproduced, which is why production
+instrumentation matters.</p>
+<p>Plan for detection in production, not just prevention in a
+sandbox.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="judgement">Method &amp; judgement (81–100)</h2>
+
+<details class="acc"><summary><span class="q-num">81</span> Where do you start on an unfamiliar bug?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Reproduce it — as the right user, with the right data, through the right entry point. Everything else is faster once you
+can.</p>
+<p>If you cannot reproduce, work the seven differences: volume, shape, permissions, entry point, concurrency, packages,
+drift.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> How do you bisect a problem?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Disable automation one layer at a time using bypass switches, or compare against a stripped-down configuration (the diagnostic
+policy idea, applied generally).</p>
+<p>Halving the search space beats inspecting everything, and it is why bypass switches are worth building before you need
+them.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">83</span> Should you optimise before measuring?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No. On this platform the CPU-versus-waiting distinction alone changes the fix entirely, and the slow thing is rarely the suspected
+one.</p>
+<p>Measure, change one thing, re-measure.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> You have a theory and no evidence.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Test the theory cheaply before acting on it — a query, a log, a count. Theories are free and fixes are
+not.</p>
+<p>Acting on an untested theory is also how an incident gains a second
+cause.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> A fix works but you do not know why.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Keep investigating — a fix you cannot explain will recur, and you have no idea what else it affected.</p>
+<p>Write the mechanism down once you have it; that note is what prevents the same investigation in six
+months.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> What do you do after fixing a bug?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Write the failing test first, then confirm it passes — so the defect cannot return silently.</p>
+<p>And note what made it hard to detect, which is usually a more valuable output than the fix
+itself.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> A stakeholder wants an answer before you have one.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Give them the state honestly: what you know, what you are checking, when you will next update, and the containment already in
+place.</p>
+<p>Speculating under pressure produces a wrong answer that then has to be
+retracted.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> Two problems look like one.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Separate the symptoms before diagnosing — reports timing out and batch jobs failing on locks have different causes even when they appear
+together.</p>
+<p>Conflating them is how investigations stall.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> How do you debug something you cannot see into?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Instrument the boundary: log what goes in and what comes out, with a correlation id, and infer from the
+difference.</p>
+<p>That is the only approach for managed packages, external systems and the optimisation
+engine.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> You inherit code with no logging.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Add observability before changing behaviour — you cannot improve what you cannot see, and you will not know whether a change
+helped.</p>
+<p>Structured error logging, limit snapshots and a correlation id
+first.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> How much logging is too much?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>When it costs real CPU and heap, or produces volume nobody can use. Log at thresholds and on errors, with sampling for
+trends.</p>
+<p>Comprehensive logging gives you noise and a storage problem; threshold logging gives you
+signal.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> A bug report says "it's broken".<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Get the specifics: who, when, what record, what they clicked, what they expected, what happened.</p>
+<p>Most "unreproducible" bugs become reproducible with those six answers, and asking is faster than
+guessing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> How do you know when to stop investigating?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>When you can explain the mechanism and the fix addresses it. Stopping at "the symptom went away" leaves you with a recurrence you will not
+connect.</p>
+<p>If time forces you to stop early, say so explicitly and record what is still
+unknown.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> A fix requires a data repair.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Scope it precisely from your error log's record Ids, rehearse it in a sandbox, run it in batches, and verify counts
+afterwards.</p>
+<p>And make the repair idempotent, because you will probably run it
+twice.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> The same bug class keeps recurring.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Fix the pattern, not the instance: a review checklist item, a static analysis rule, or a framework change that makes the mistake
+impossible.</p>
+<p>Recurring bugs are a process signal rather than a coding
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> How do you prioritise multiple live issues?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>By irreversibility and blast radius: security exposure, then data integrity (silent corruption is worse than visible downtime), then blocked
+revenue work, then the rest.</p>
+<p>Not by who escalated most
+loudly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> You are the only person who can debug this.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>That is a risk to fix, not a status to enjoy. Document the mechanism, add the instrumentation that makes it diagnosable, and walk someone
+through it.</p>
+<p>Single points of knowledge fail at exactly the wrong
+moment.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> A vendor says the problem is yours.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Produce evidence: the cumulative limits attributing CPU to their namespace, the request and response, the correlation
+id.</p>
+<p>Evidence moves support cases; assertions do
+not.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> What is the most common debugging mistake?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Testing as a system administrator with developer-shaped data — which hides permissions, sharing, FLS and volume problems
+simultaneously.</p>
+<p>Closely followed by reading the clock instead of the cumulative limits, and by changing three things at
+once.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit that most improves debugging?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Building <strong>rollback-surviving structured logging with correlation ids</strong> before you need it.</p>
+<p>Every other technique depends on having evidence. With it, most incidents become a lookup; without it, every one starts from
+nothing.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="debugging.html">Debugging &amp; Troubleshooting</a>, the
+    <a href="scenarios.html">scenario index</a>, or
+    <a href="governor-limits-scenarios.html">Governor Limits — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Debugging — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

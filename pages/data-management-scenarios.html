@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data Management · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>Data Management</span></div>
+  <h1>Data Management — 100 Scenarios</h1>
+  <p class="lede">Migration that works, skew and selectivity, Bulk API, large data volumes, Big Objects, archiving,
+     backup you have actually tested, and privacy obligations with teeth.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on <a href="data-management.html">Data
+    Management</a> and its <a href="data-management.html#advanced">Advanced</a> section.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="migration">Migration (1–20)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> What is the first step of any migration?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Profile the source data: volumes, quality, duplicates, mandatory gaps, and the keys available for matching.</p>
+<p>Designing the load before you know the data is how timelines slip — the surprises are almost always in the data, not the
+tooling.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> What load order do you use?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Parents before children, and anything self-referential (Account parent, Contact reports-to) needs a <strong>second pass</strong> to populate
+the reference.</p>
+<p>You cannot point at a record that does not exist yet, so plan the passes
+explicitly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> How do you make a load re-runnable?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Upsert on an <strong>External Id</strong> holding the source system's key, marked unique.</p>
+<p>Then a repeat run updates rather than duplicating, which means a failed load can simply be re-run — the single most valuable property of a
+migration.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> A load of 2 million records is extremely slow.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Automation running per row: triggers, flows, validation rules, workflow, roll-ups and sharing recalculation.</p>
+<p>Use a bypass switch for the load user, then run a reconciliation pass afterwards to apply the derived values that were
+skipped.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> The load fails with <code>UNABLE_TO_LOCK_ROW</code>.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Chunks contending on shared parents. <strong>Sort the file by parent Id</strong> so children of the same parent land in the same chunk — the
+cheapest migration optimisation there is.</p>
+<p>Then switch Bulk API from parallel to serial if needed: slower and it finishes, versus faster and it
+fails.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> Should you disable validation rules for the load?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Bypass them for the load user via a custom permission condition — and then run a data-quality report to find records that would have
+failed.</p>
+<p>Bypassing without reconciling imports the bad data permanently, which is a worse outcome than a slow
+load.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> How do you handle record ownership on load?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Set the real owner during the load where possible — assigning everything to one integration user creates <strong>ownership
+skew</strong>, and reassigning later triggers a huge sharing recalculation.</p>
+<p>If you must load as one user, plan the reassignment as a separate controlled
+exercise.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> You need to preserve created dates and owners.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Audit field creation must be enabled (by Salesforce) and then <code>CreatedDate</code>, <code>CreatedById</code> and
+<code>LastModifiedDate</code> can be set on insert.</p>
+<p>Request it early — it is a prerequisite, not something you can add
+mid-migration.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> How do you rehearse a migration?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A Full sandbox with production-shaped data, timed end to end, with row counts and checksums compared before and after — and the rollback
+rehearsed too.</p>
+<p>Unit tests cannot cover this: the risk is volume, duration and data
+shape.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> How do you verify a migration succeeded?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Counts per object, checksums on key numeric fields, spot-checks on relationship integrity, and a reconciliation report against the
+source.</p>
+<p>"The load reported success" is not verification — partial failures and silently dropped rows are the normal failure
+mode.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> Some rows failed and you do not know which.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Bulk API returns per-record results with error messages — keep the success and error files, do not discard them.</p>
+<p>A load without retained result files cannot be reconciled, which means you cannot prove what
+happened.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> How much historical data should you migrate?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>As little as the business genuinely needs. Full history is usually unnecessary, expensive and slows everything
+down.</p>
+<p>Keep the rest in a read-only archive or the legacy system. This single decision saves more migration time than any technical
+optimisation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> Duplicates exist in the source.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Deduplicate <em>before</em> loading, with the survivorship rules agreed and documented — which record wins, which field values survive, what
+happens to children.</p>
+<p>Cleaning after the load means merging in Salesforce, which is irreversible and far more
+work.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> A picklist value in the source does not exist in Salesforce.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Map it explicitly, with an exception path for unmapped values — logged and reviewed rather than silently defaulted or
+dropped.</p>
+<p>Unmapped values are guaranteed; the only question is whether you find out during the load or six months
+later.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> The migration window is four hours and the load takes six.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Reduce the work (less history, fewer objects in the critical path), disable automation for the load, sort by parent Id, and parallelise where
+contention allows.</p>
+<p>Or split the cutover: load static data in advance and only the delta during the
+window.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> How do you handle attachments and files?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Separately and last, as ContentVersion records linked to their parents — and they consume <strong>file storage</strong> rather than data
+storage.</p>
+<p>Files are usually the slowest part of a migration and the part most often
+underestimated.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">17</span> A cutover needs a rollback position.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>For a load into an empty org, deleting what you loaded (by a batch marker field) is feasible. Into a live org it is far
+harder.</p>
+<p>So stamp every migrated record with a batch identifier, and rehearse the reversal — "we will just delete them" needs to be proven, not
+assumed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> Which tool for the load?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Data Loader or the CLI for anything substantial; Import Wizard only for small, simple, one-off loads.</p>
+<p>For millions of rows, Bulk API 2.0 — and for extraction at that scale, PK
+chunking.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">19</span> How do you keep the mapping maintainable?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>In version control, as a documented mapping file per object with transformations stated — not in someone's
+spreadsheet.</p>
+<p>Migrations always run more than once, and an undocumented mapping cannot be reproduced or
+reviewed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> What makes a migration go wrong most often?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Data quality discovered late, and automation nobody thought to disable.</p>
+<p>Both are found by profiling the source early and rehearsing in a Full sandbox — which is why those two steps are
+non-negotiable.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="skew">Skew &amp; selectivity (21–40)</h2>
+
+<details class="acc"><summary><span class="q-num">21</span> What are the three skews?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><strong>Ownership skew</strong> (one user or queue owning a very large share, commonly cited around 10,000+), <strong>account data
+skew</strong> (one parent with very many children), <strong>lookup skew</strong> (thousands of children pointing at one lookup
+parent).</p>
+<p>The first two cause sharing recalculation pain; the third causes DML lock
+contention.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> An integration user owns 2 million records.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Ownership skew. Every role or ownership change involving them triggers a massive recalculation, and record locking becomes
+routine.</p>
+<p>Spread ownership, and keep the skewed owner <strong>out of the role hierarchy</strong> — or at the top with no
+peers.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> A "House Account" has 80,000 contacts.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Account data skew: implicit sharing recalculation on that parent, plus lock contention on any child
+DML.</p>
+<p>Split the mega-account. Dumping-ground accounts are a data-model decision that becomes a performance
+problem.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> Inserts are slow and contend on one record.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Lookup skew — a "Default" or "Unknown" lookup parent referenced by thousands of children.</p>
+<p>Spread the values, or replace the lookup with a picklist or text field if the relationship existed only for reporting
+convenience.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> Which fields are indexed for free?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Id, Name, OwnerId, CreatedDate, SystemModstamp, RecordTypeId, master-detail and lookup fields, and anything marked External Id or
+Unique.</p>
+<p>That last one is the free lever: marking a field External Id gives you an index and
+upsert-by-key.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> What is the selectivity threshold?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A filter is index-eligible only when it returns a small enough fraction of the object — roughly under 30% of the first million rows and under
+~15% beyond, capped at around a million rows, with tighter thresholds for custom indexes.</p>
+<p>The key consequence: the <em>same</em> query changes plan as data grows.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> A query was fast last year and times out now.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Data growth pushed it past the threshold, so the optimiser abandoned the index for a scan.</p>
+<p>Run the Query Plan tool against production and lead with a selective indexed filter, or request a custom
+index.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> Which operators kill an index?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>!=</code>, <code>NOT</code>, leading wildcards (<code>LIKE '%x'</code>), null checks on some field types, and comparisons against
+cross-object formula fields.</p>
+<p>Rewrite as a positive <code>IN</code> list, and add a selective filter to lead the
+query.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> When do you request a custom index?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>When you filter on a field constantly and it is not already indexed — requested from Support, with two-column indexes available for common
+composite filters.</p>
+<p>Check first whether marking it External Id or Unique achieves the same thing for
+free.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> A skinny table is proposed.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A Support-created denormalised copy for heavy read patterns over tens of millions of rows — after indexing alone has not
+worked.</p>
+<p>Caveats: limited field count, no joins, and it does <strong>not</strong> automatically include fields you add later. It is a tuning step, not an
+architecture.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> Filtering on a formula field is slow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Cross-object and non-deterministic formulas cannot be indexed, and they are evaluated per row.</p>
+<p>Materialise the value into a plain indexable field via automation and backfill, then filter on that.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> How do you page through millions of records?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p><strong>Keyset</strong> pagination: <code>WHERE Id &gt; :lastId ORDER BY Id LIMIT n</code>, carrying the last Id
+forward.</p>
+<p><code>OFFSET</code> is capped at 2,000 and degrades badly, so it is not an option at
+volume.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">33</span> What is PK chunking for?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Bulk extraction at scale — it splits the query by Id ranges so each chunk is selective.</p>
+<p>Essential above a few million rows, where a single unselective query times out before returning
+anything.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> Sharing recalculation is taking hours.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Expected at volume after an OWD, hierarchy or ownership change — and it locks group membership while it
+runs.</p>
+<p>Plan such changes in controlled windows, and for a large reorganisation ask Salesforce to enable <strong>deferred sharing
+maintenance</strong>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> A report on 40 million rows times out.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Selectivity. Narrow the date range, filter on indexed fields, and avoid cross-object formula fields in
+filters.</p>
+<p>If the requirement is genuinely analytical over that volume, it belongs in CRM Analytics or a warehouse rather than a
+report.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> How do you find out whether an index is used?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>The Query Plan tool in the Developer Console: it shows cost and which index each plan option uses. Cost above roughly 1 means a
+scan.</p>
+<p>Run it against production, because the statistics are per
+tenant.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> Two batch jobs deadlock on related data.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>They lock the same parents in different orders — deadlock is an ordering problem.</p>
+<p>Sort DML by parent Id so all transactions lock consistently, reduce scope, and consider serialising the jobs
+instead.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> An anti-join is slow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>NOT IN (SELECT ...)</code> is rarely selective and is limited per query.</p>
+<p>At volume, a maintained roll-up count field on the parent outperforms it substantially — and makes the requirement reportable
+too.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">39</span> How do you design for 10× growth?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Selective indexed queries, incremental processing, bounded collections, resumable jobs, and archiving so the working set stays
+bounded.</p>
+<p>Then monitor the trend. Most volume incidents are visible six months ahead if someone is
+looking.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> What four questions start an LDV design?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>How many rows and growing how fast; which queries must stay fast (and are their filters indexable); what the sharing shape is (skew, OWD,
+hierarchy depth); and what the retention rule is.</p>
+<p>Those four determine indexes, skinny tables, archiving — and whether the data belongs in Salesforce at
+all.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="bulk">Bulk operations (41–58)</h2>
+
+<details class="acc"><summary><span class="q-num">41</span> Bulk API 1.0 or 2.0?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>2.0 for new work — you upload the data and Salesforce handles chunking, with a simpler job model.</p>
+<p>1.0 remains where you need explicit batch control or a feature 2.0 lacks, but it is not the
+default.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> Serial or parallel mode?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Parallel is faster; serial avoids lock contention on shared parents.</p>
+<p>Start parallel, switch to serial when you see <code>UNABLE_TO_LOCK_ROW</code> — and sort the file by parent Id first, which often lets you keep
+parallel.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> Delete or hard delete?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Normal delete goes to the recycle bin, still consumes storage and is recoverable. <strong>Hard delete</strong> skips it and frees storage
+immediately — and is irreversible.</p>
+<p>Prove the selection is right before hard deleting, and keep the result
+files.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> A bulk delete of 5 million records.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Bulk API in chunks, in a controlled window, with a verified count first — and expect sharing and roll-up recalculation
+load.</p>
+<p>Also check cascade deletes: a master-detail parent takes its children and runs their delete
+triggers.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> The recycle bin is full.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It is capacity-bounded and purges, so a mass delete is not reliably recoverable from it.</p>
+<p>Which means "we can always restore from the bin" is not a backup strategy — and it is worth saying before someone relies on
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> How do you extract 20 million rows?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Bulk API with <strong>PK chunking</strong>, so each chunk is a selective Id range.</p>
+<p>A single unselective query over that volume times out before returning anything, regardless of the
+tool.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> A bulk job is stuck in a queued state.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Org-wide bulk processing capacity, or other jobs ahead of it. Check the job status and the batch states.</p>
+<p>Staggering large jobs rather than submitting them simultaneously usually resolves
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> Upsert created duplicates.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The External Id was blank on some rows, or the field is not marked unique, so upsert inserted rather than
+matched.</p>
+<p>Make the field unique — the database constraint is the real guarantee — and ensure every incoming row carries
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> How do you load records with a lookup to an unloaded record?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Load the referenced object first, or use the External Id reference syntax so the platform resolves the relationship by
+key.</p>
+<p>That is also what makes the load re-runnable, since you are not depending on Salesforce
+Ids.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> You need to update 50 million records.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Chunk it across multiple runs with a persisted high-water mark, bypass automation, and spread it over a window — it is not a single
+operation.</p>
+<p>And question whether every row needs updating: an incremental filter usually reduces it by an order of
+magnitude.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">51</span> A load triggered 20 million roll-up recalculations.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Each child write recalculates its parent. That is most of your load time and most of your lock
+contention.</p>
+<p>Sort by parent Id to group the work, and consider whether the roll-up is needed during the load at
+all.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> Should you use Apex for a bulk data operation?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Batch Apex when the operation needs logic that must run in Salesforce. Bulk API when it is a straightforward load or
+extract.</p>
+<p>Apex consumes your limits and is slower for raw movement; Bulk API is purpose-built for
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> How do you monitor a long bulk job?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Poll the job status for state and record counts, and keep the result files for reconciliation.</p>
+<p>Alert if it has not completed within the expected window — a stalled job discovered the next morning costs you the
+window.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> A load consumed your daily API allocation.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Per-record REST calls rather than Bulk API. Bulk consumes dramatically fewer API calls per record.</p>
+<p>For a migration, per-record REST is essentially always the wrong
+choice.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> Files need migrating at volume.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>ContentVersion records with the binary payload, loaded separately and usually last — and they consume file storage with their own size
+limits.</p>
+<p>Budget considerably more time than for the equivalent record count; files are routinely the slowest
+phase.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> A bulk operation partially failed.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Normal and expected — read the per-record results, fix the failing rows, and re-run only those (safe because you are upserting on an External
+Id).</p>
+<p>Discarding the error file is what makes a partial failure
+unrecoverable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">57</span> How do you test a bulk operation safely?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A small subset first, verified, then a timed rehearsal at full volume in a Full sandbox.</p>
+<p>And rehearse the reversal. "It worked on 100 rows" tells you the mapping is right, not that the operation is
+viable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> Bulk API is reporting row-level errors you do not understand.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The status code names the cause — a validation rule, a required field, a duplicate rule, a lock, or a trigger
+exception.</p>
+<p>Group the errors by code first; usually two or three causes account for nearly all
+rows.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="archive">Big Objects, archiving &amp; storage (59–78)</h2>
+
+<details class="acc"><summary><span class="q-num">59</span> What are Big Objects for?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Append-oriented storage for very large volumes outside standard storage limits — history, telemetry, archived
+transactions.</p>
+<p>Not a general-purpose object: no triggers, no sharing model, no roll-ups, and limited
+DML.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> What is the critical Big Object design decision?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>The <strong>composite index</strong> — you can only query along it, in order, left to right, and <em>it cannot be changed
+afterwards</em>.</p>
+<p>Get it wrong and the data is effectively unqueryable. Design the query patterns before the
+schema.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> How do you query a Big Object at volume?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Async SOQL, which writes results into another object rather than returning them. Synchronous SOQL works only for narrow, index-aligned
+queries.</p>
+<p>Reporting is also not a standard source — surface it via CRM Analytics or a custom
+component.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> Design an archiving process.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>A scheduled batch copies closed records older than <em>n</em> years into a Big Object or external store, <strong>verifies the copy</strong>,
+then hard-deletes the originals.</p>
+<p>Verify in a separate job run with a reconciliation count — deleting in the same pass as copying is how data is
+lost.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> The business wants to keep everything forever.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>That is itself a compliance position, and usually the wrong one — it costs storage, slows reports and extends breach
+exposure.</p>
+<p>Agree a retention policy per object with legal, then implement it. "Keep everything" is a decision nobody has actually
+made.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> Data storage is nearly full.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Archive closed records, hard-delete what the recycle bin holds, and check for an object nobody expected to grow (log records, integration
+staging).</p>
+<p>Put storage on a monthly health review — it fails silently and then loads start
+failing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> File storage is full but data storage is fine.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>They are separate allocations. File storage is usually consumed by email attachments and old documents.</p>
+<p>Audit the largest files, and move archival content to external storage with links rather than buying
+capacity.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> Should archived data live in Salesforce at all?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Often not. If it is only needed occasionally for reference or audit, an external store or warehouse is cheaper and does not consume your
+limits.</p>
+<p>Big Objects are the on-platform option when it must stay — which is a narrower requirement than people
+assume.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> How do users access archived records?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A custom component querying the Big Object along its index, or an external object via Salesforce Connect if the archive is
+outside.</p>
+<p>Design that access path <em>before</em> archiving, or you will be asked for data you have made
+unreachable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> Can you update a Big Object record?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Not in the usual sense — they are append-oriented, with insert and limited delete.</p>
+<p>So the data model must treat each row as immutable. Trying to use one as a mutable table is a design
+mistake.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> A nightly job writes a log record per transaction.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>That grows without bound and doubles your DML. Consider a Big Object, sampling, or a retention policy that purges
+aggressively.</p>
+<p>Log objects are one of the commonest causes of unexpected storage
+consumption.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> How do you reduce storage without deleting?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Move files out to external storage, archive to a Big Object (which has its own allocation), and delete the recycle bin
+contents.</p>
+<p>Also check whether field history and log objects are consuming more than the business data
+does.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">71</span> Field history is consuming storage.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Tracking many fields on a high-volume object generates a lot of rows, with limited retention anyway.</p>
+<p>Track fewer fields, or move to Field Audit Trail if the requirement is genuinely long
+retention.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> What is the risk of an unowned archive process?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It stops running and nobody notices until storage fills — or it deletes something it should not and nobody checks the
+verification.</p>
+<p>Alert on completion <em>and</em> on absence, and report the counts
+monthly.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> Should you archive or move to a warehouse?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Warehouse if the data's purpose is analysis — it is cheaper, more capable and does not consume platform
+limits.</p>
+<p>Big Object if it must stay on-platform for operational lookup. Data Cloud zero-copy if it already lives in a
+warehouse.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> How do you prove an archive is complete?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Counts and checksums per period, compared between the source and the archive, retained as evidence.</p>
+<p>Without that you cannot safely delete the originals, which makes the archive pointless.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> An auditor asks for a record from 2019.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>You need to know where it is and how to retrieve it — which is a documented access path, not an
+improvisation.</p>
+<p>Retention without a tested retrieval process is not compliance; it is
+storage.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> Data skew appears after archiving.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Plausible — archiving children can leave parents with uneven distributions, and bulk deletes trigger recalculation.</p>
+<p>Re-check the shape after a large archive run, and schedule such runs in controlled
+windows.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">77</span> How often should archiving run?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Frequently enough that each run is small — monthly beats annually, because a year's backlog is a project rather than a
+job.</p>
+<p>Small regular runs also keep the verification
+manageable.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> What is the first archiving decision?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The retention rule per object, agreed with the business and legal — because everything else follows from
+it.</p>
+<p>Starting with the technology and working backwards produces an archive nobody can
+justify.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="backup">Backup, privacy &amp; judgement (79–100)</h2>
+
+<details class="acc"><summary><span class="q-num">79</span> Is the Weekly Export a backup?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No. It is a CSV dump with no relationships preserved, no automation, and a restore measured in weeks of manual
+work.</p>
+<p>Calling it a backup is the most common and most dangerous data-protection assumption in Salesforce
+orgs.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> How do you know your backup works?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Restore it. A backup you have never restored is a hypothesis.</p>
+<p>Restore a subset into a sandbox quarterly, time it, and record the result. That number is what your RTO is actually based
+on.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">81</span> What are RPO and RTO here?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>How much data you can afford to lose, and how long you can be down. They drive the tool choice.</p>
+<p>Working backwards from a product rather than from those two numbers is how orgs end up with a backup that cannot meet the
+requirement.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> A mass delete went wrong. What are your options?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Recycle bin first — it is capacity-bounded and purges, so time matters. Restore in batches and verify
+counts.</p>
+<p>If it was a hard delete or the bin has purged, you are into backup restore, which is where "we have never tested it" becomes
+expensive.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">83</span> Metadata backup — do you need it?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Yes, and that is what version control is for. A data backup with no metadata to restore into is not a recovery
+plan.</p>
+<p>Which makes the baseline retrieval into <code>main</code> a data-protection activity, not just a DevOps
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> A customer invokes the right to be forgotten.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Deletion must cascade further than people expect: the record, history, feeds, files, email logs, Big Objects, backups, sandboxes and downstream
+systems.</p>
+<p>Build it as a documented, repeatable process with verification — and decide between deletion and anonymisation, which often preserves reporting
+integrity.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> Sandboxes contain real customer data.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually a policy breach and always a compliance exposure. Run <strong>Data Mask</strong> as part of the post-refresh checklist, before anyone
+logs in.</p>
+<p>And set email deliverability to System Email Only first, which is the failure people notice
+loudest.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> Legal asks you to encrypt all PII.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Clarify the threat model: Shield Platform Encryption protects data at rest from infrastructure-level access — it does <strong>not</strong> hide
+data from a user with FLS.</p>
+<p>If the requirement is "staff must not see it", that is field-level security. Shield also breaks filtering, sorting and some
+formulas.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> An encrypted field can no longer be filtered.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Expected — that is the main functional cost of Shield.</p>
+<p>Keep a non-sensitive derived field for filtering (a hash, a bucketed value), or reconsider whether that field needs
+encryption.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> Where does consent live?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Nominate <strong>one system of record per channel</strong> and sync outward — Salesforce's <code>Individual</code> and consent objects, plus
+whatever the marketing platforms hold.</p>
+<p>And record proof: timestamp, source, and the exact wording shown. See
+<a href="marketing.html#advanced">consent architecture</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> How do you handle data residency?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>It can override architecture: a regional org (Hyperforce) or a separate org for the regulated population.</p>
+<p>Get the requirement precisely from legal first — "residency" sometimes means storage, sometimes processing, sometimes only certain field
+categories.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> Data quality is poor and nobody owns it.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Measure, prevent, remediate, then keep measuring: a completeness dashboard by field and owner, validation to stop new gaps, and a backfill for
+history.</p>
+<p>Making a field required without a backfill plan means users cannot save legacy records — which is how quality initiatives die in week
+two.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> How do you dedupe 200,000 existing accounts?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Not with duplicate rules — those prevent new duplicates. You need extraction, matching, a <strong>human review step</strong>, then merges in
+batches with a verified rollback position.</p>
+<p>And survivorship rules agreed in advance: which record wins, which values survive, what happens to
+children.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> A merge lost data the business needed.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Merging keeps the master's values, reparents most children and deletes the losers — and some related records do not survive as
+expected.</p>
+<p>Merge is effectively irreversible, so test it on a sample in a sandbox with real automation active
+first.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> Who should own data management?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A named owner with a monthly review: storage, quality metrics, archive runs, backup restore tests, and limit
+headroom.</p>
+<p>Unowned data management is why orgs discover storage problems and untested backups
+simultaneously.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> How do you justify data work to the business?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>In outcomes they feel: report performance, failed loads, duplicate customers in a mailing, the time to answer an audit
+request.</p>
+<p>"Data hygiene" loses the argument; "we sent three letters to the same customer" wins
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> Should this data be in Salesforce at all?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Only if a decision or process in Salesforce depends on it. Otherwise link to it, virtualise it, or report on it where it
+lives.</p>
+<p>Every imported field is permanent cost: mapping, sync, storage, reconciliation and support. "No" is frequently the right
+answer.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> A stakeholder wants all 15 years of history migrated.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Ask what they will do with year 12. Usually the answer is "look at it occasionally", which is an archive rather than a
+migration.</p>
+<p>Offer a read-only archive with a documented retrieval path, and migrate the operationally relevant
+window.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> How do you handle a data incident?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Contain (stop the job, restrict access), assess scope from your logs and reconciliation, preserve evidence, then repair in batches with
+verification.</p>
+<p>Repairing before scoping makes the damage harder to
+quantify.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> A load is scheduled for 2am and you are not there.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It needs to be re-runnable, idempotent, monitored and alerted — and it needs a documented abort procedure for whoever
+is.</p>
+<p>An unattended load with no alerting is a load whose failure you discover from the
+business.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> What is the most common data-management mistake?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Treating the Weekly Export as a backup, closely followed by migrating everything because deciding what to leave was harder than loading
+it.</p>
+<p>Then ownership skew from loading everything as one user, and no retention policy at
+all.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit that most improves data work?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Making every data operation <strong>re-runnable and verifiable</strong>: upsert on a unique External Id, retained result files, and a
+reconciliation count.</p>
+<p>That one property turns a failed load from an incident into a retry, and it is what makes everything else — archiving, migration, integration —
+safe to operate.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="data-management.html">Data Management</a>, the <a href="scenarios.html">scenario index</a>, or
+    <a href="apex-core-scenarios.html">Apex Core — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Data Management — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reports &amp; Dashboards · 100 Scenarios | Salesforce Mastery Notes</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%98%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script>document.documentElement.dataset.theme=localStorage.getItem('sfTheme')||'dark';</script>
+</head>
+<body data-base="../">
+
+<header class="site-header">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <a class="brand" href="../index.html"><span class="brand-mark">☁</span><span>Salesforce Mastery<small>A to Z Notes</small></span></a>
+  <div class="header-spacer"></div>
+  <div class="search-wrap"><span class="s-icon">🔍</span><input id="navSearch" type="search" placeholder="Search topics…" aria-label="Search"><kbd>Ctrl K</kbd></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">☀️</button>
+</header>
+<div class="progress-bar" id="progress"></div>
+
+<div class="layout has-toc">
+<aside class="sidebar" id="sidebar"></aside>
+<main class="main">
+<article class="content">
+
+<header class="page-head">
+  <div class="crumb"><a href="../index.html">Home</a> › <a href="scenarios.html">Scenarios</a> › <span>Reports</span></div>
+  <h1>Reports &amp; Dashboards — 100 Scenarios</h1>
+  <p class="lede">Report type design, formulas that are statistically honest, filters and cross filters, historical
+     trending, dashboard running users, performance at volume, and sharing.</p>
+</header>
+
+<div class="callout note">
+  <span class="c-ico">📚</span>
+  <div class="c-body"><span class="c-title">How to use this</span>
+    Answer out loud in ninety seconds, then open the answer. Concepts on <a href="reports.html">Reports &amp;
+    Dashboards</a> and its <a href="reports.html#advanced">Advanced</a> section.</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="types">Report types (1–18)</h2>
+
+<details class="acc"><summary><span class="q-num">1</span> You need "Accounts with no Opportunities".<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A report type using <strong>"with or without"</strong> (an outer join), or a <strong>cross filter</strong> on a standard
+type.</p>
+<p>"A with B" is an inner join and will only ever show accounts that <em>have</em> opportunities — which is the most commonly missed report-type
+option.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">2</span> A custom report type shows no records.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Almost certainly an inner join where you wanted an outer one, or the type is in development status rather than
+deployed.</p>
+<p>Check the A/B relationship setting first — it accounts for the large majority of these
+cases.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">3</span> How many objects can a report type chain?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Up to four, A→B→C→D — but each level narrows what you can do and makes the type slower and more confusing.</p>
+<p>Before adding a fourth, check whether lookup "related fields" on an existing type already give you what you
+need.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">4</span> Users cannot find the fields they need.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The report type's field layout — you control which fields are available and how they are grouped in the picker.</p>
+<p>A technically correct type with 400 ungrouped fields is unusable, and users will build the wrong report rather than hunt for the right
+field.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">5</span> You need fields from a lookup's parent.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>The "related fields" sections on the existing report type frequently provide them without a deeper
+chain.</p>
+<p>That avoids creating a new four-object type for what is really one extra column.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">6</span> Should you create a new report type or reuse one?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Reuse where the objects and join semantics match — each type is maintenance, and a proliferation of near-identical types confuses
+users.</p>
+<p>Create a new one when the join (inner versus outer) or the object chain genuinely
+differs.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">7</span> Do report types deploy?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Yes — custom report types are metadata and deploy normally. Reports and dashboards are metadata too.</p>
+<p>The fiddly part is folders and folder sharing, which is where "it deployed but nobody can see it" comes
+from.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">8</span> A standard report type does not include a custom object.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Standard types are fixed. For a custom object relationship you need a custom report type — and the object must allow reports in the first
+place.</p>
+<p>Check the "Allow Reports" setting on the custom object; it is off by default in some
+cases.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">9</span> How do you report across two unrelated objects?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>You generally cannot in a single report — report types require a relationship.</p>
+<p>Options: add a lookup, use a joined report with separate blocks, or move the analysis to CRM Analytics where you can blend
+datasets.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">10</span> A joined report is the proposed solution.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Joined reports put several blocks side by side with a common grouping — useful for comparing related metrics from different report
+types.</p>
+<p>They are limited in formatting and charting, so check the output is genuinely what the business wanted before building
+on them.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">11</span> Users want a report on records they cannot see.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Reports respect sharing and FLS, so the report cannot reveal more than the user's access.</p>
+<p>If they legitimately need the data, that is a sharing change — not a reporting one. A dashboard with a running user is the other
+option.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">12</span> A field is missing from the report but visible on the record.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It is not in the report type's field layout, or it is a field type that cannot be reported on (some long text, encrypted fields in certain
+configurations).</p>
+<p>Check the report type first, then FLS, then the field
+type.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">13</span> You need to report on history.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Field history report types exist for tracked fields, but they are a poor shape for trend analysis.</p>
+<p>For trends use Historical Trending (built-in, limited) or Reporting Snapshots (you own the schema and the
+volume).</p></div></details>
+
+<details class="acc"><summary><span class="q-num">14</span> Should a report type include every field?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>No — curate it. Fewer, well-grouped, correctly-labelled fields produce better reports than an exhaustive
+list.</p>
+<p>The field picker is a user interface, and it deserves the same design attention as a page
+layout.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">15</span> A report type's name means nothing to users.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Name it for the question it answers ("Cases with Milestones and SLA") rather than the object chain.</p>
+<p>And put the join semantics in the description, since "with" versus "with or without" is invisible in the
+name.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">16</span> Row-level formulas are not available.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>There is a small limit per report, and they are not supported in every report format or context.</p>
+<p>If you need the value repeatedly across many reports, a formula field on the object is the better place for
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">17</span> A report needs data from a Big Object.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Big Objects are not a standard reporting source. Surface them via CRM Analytics or a custom component
+instead.</p>
+<p>Which is part of why the Big Object index design matters so much up
+front.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">18</span> How do you decide report type versus CRM Analytics?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Reports for operational, live, single-object-with-children analysis. CRM Analytics when you must blend sources, trend beyond snapshots, or handle
+multi-million-row datasets.</p>
+<p>The honest test: "do I need to join data Salesforce reporting cannot join?" If not, a report is far cheaper to
+maintain.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="formulas">Formulas &amp; statistics (19–38)</h2>
+
+<details class="acc"><summary><span class="q-num">19</span> A win rate is wrong when averaged by rep.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>You averaged an average. The mean of each rep's win rate weights a rep with 3 deals the same as one with
+300.</p>
+<p>Compute ratios from summed numerators and denominators at the level you display:
+<code>SUM(Won)/SUM(Total)</code>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">20</span> Row-level or summary formula?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Row-level for per-record arithmetic; summary for values that only make sense at group or grand-total level — ratios, percentages,
+margins.</p>
+<p>Trying to compute a win rate per row and then summarise it is the commonest cause of wrong
+numbers.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">21</span> You need "this region as a percentage of total".<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>PARENTGROUPVAL</code> — it gives you a value from a higher grouping, which is the standard contribution
+calculation.</p>
+<p>Specify the grouping level explicitly; getting the level wrong produces plausible-looking but incorrect
+percentages.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">22</span> You need period-over-period change.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p><code>PREVGROUPVAL</code> against the previous grouping — provided the groupings are ordered sensibly (by period
+ascending).</p>
+<p>If the grouping order changes, the comparison silently becomes
+meaningless.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">23</span> A summary formula divides by zero.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Guard it: check the denominator with <code>RowCount</code> or the summed value before dividing.</p>
+<p>An unguarded division produces an error or a blank where the business expects
+zero.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">24</span> How do you count distinct values?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Reports count rows, not distinct entities — so a report grouped by account counting opportunities does not give you distinct
+accounts.</p>
+<p>Use a grouping (the group count is the distinct count), a unique-count feature where available, or move to CRM Analytics for genuine distinct
+aggregation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">25</span> A currency total is wrong in a multi-currency org.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Conversion: reports convert to the user's or corporate currency, and with Advanced Currency Management the rate depends on the record's
+date.</p>
+<p>Agree with finance which currency and which rate the report should use, and state it in the report
+description.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">26</span> Two reports on the same data disagree.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Different filters, different report types (inner versus outer join), different date fields, or different sharing for the running
+user.</p>
+<p>Compare the filter sets and the join semantics first — those two account for nearly every
+discrepancy.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">27</span> A bucket field is not grouping as expected.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Values not explicitly bucketed fall into the "other" catch-all — including new picklist values added after you built
+it.</p>
+<p>Review buckets when picklists change; they are not self-maintaining.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">28</span> You need a calculation reused across many reports.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A formula field on the object, so every report and list view shares the same definition.</p>
+<p>Report-level formulas duplicated across fifteen reports will drift apart, and nobody will know which is
+authoritative.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">29</span> A metric needs a definition everyone agrees on.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Write it down — the numerator, the denominator, the date basis, the exclusions — and put it in the report
+description.</p>
+<p>Undefined metrics produce meetings about the number rather than decisions from
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">30</span> Percentages do not sum to 100.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Rounding, or records excluded by a filter that the denominator does not account for.</p>
+<p>Decide whether the denominator is "all records" or "records in scope", and make it explicit in the
+label.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">31</span> A conversion rate looks implausibly high.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Check the date basis: counting conversions this month against leads created this month compares two different
+cohorts.</p>
+<p>Cohort analysis needs the denominator fixed to the creation period, which reports handle poorly — a snapshot or CRM Analytics is usually
+required.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">32</span> Averages are being skewed by outliers.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Median is usually the honest statistic for durations and deal sizes, and reports offer limited support for
+it.</p>
+<p>Show both, or bucket the distribution. An average handle time with one 40-day case in it tells nobody
+anything.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">33</span> A report shows a total users cannot reconcile.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Likely row duplication from a one-to-many join — each parent appears once per child, so parent-level sums are
+inflated.</p>
+<p>Group by the parent and use a summary formula, or report from the parent object with a roll-up
+instead.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">34</span> You need a running total.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Reports have limited support; <code>PREVGROUPVAL</code> can accumulate across ordered groupings for simple
+cases.</p>
+<p>For genuine windowing functions, CRM Analytics with SAQL is the right
+tool.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">35</span> A formula references a field the user cannot see.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>FLS applies, so the formula may fail or the field may be unavailable for that user.</p>
+<p>Which means a report that works for you can break for others — test as a restricted
+user.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">36</span> How do you show a target versus actual?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The target must be data: a quota record, a custom object, or a field — reports cannot invent it.</p>
+<p>Then a summary formula computes attainment. Hard-coding a target in a formula guarantees it is wrong next
+quarter.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">37</span> A report's numbers change between runs.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Live data, relative date filters, or records moving in and out of scope. That is usually correct
+behaviour.</p>
+<p>If the business needs a stable number, they need a snapshot — a point-in-time copy, not a live
+report.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">38</span> The business asks for a statistically significant comparison.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Reports do not do significance testing. Be honest about that rather than presenting a difference as meaningful.</p>
+<p>Provide the counts alongside the rates so someone can judge, and escalate genuine statistical questions to a tool built for
+them.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="filters">Filters &amp; data selection (39–56)</h2>
+
+<details class="acc"><summary><span class="q-num">39</span> You need "Accounts without open cases".<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A <strong>cross filter</strong>: Accounts <em>without</em> Cases, with a sub-filter on status.</p>
+<p>It is the declarative equivalent of a SOQL anti-join, and the answer to most "records missing something"
+requests.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">40</span> Mixed AND/OR conditions behave unexpectedly.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Without explicit filter logic, conditions AND together and the report quietly excludes rows.</p>
+<p>Set the filter logic with parentheses. Silent exclusion is worse than an error because nobody notices the missing
+records.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">41</span> A date filter should follow the fiscal year.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Use relative fiscal periods (<code>THIS FISCAL QUARTER</code>) rather than hard-coded dates, so subscriptions and dashboards stay
+correct.</p>
+<p>Hard-coded dates are the most common reason a scheduled report becomes wrong without anyone
+noticing.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">42</span> You need to compare two fields on the same record.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A field-to-field filter — "Close Date before Created Date", "Actual before Estimated".</p>
+<p>Invaluable for data-quality reports, and frequently overlooked because people assume filters only compare to
+literals.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">43</span> A report should show only the top 10.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A row limit with an explicit sort on a tabular report — which is also what makes a tabular report usable in a
+dashboard.</p>
+<p>Without the sort, "top 10" is whatever the database returned
+first.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">44</span> Users need to change the filter themselves.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Filter panel options on the report, or dashboard filters at dashboard level.</p>
+<p>That beats cloning the report five times for five variations, which is how report folders reach three hundred
+items.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">45</span> A cross filter is slow.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It is effectively a subquery, and like an anti-join it is rarely selective at volume.</p>
+<p>Narrow the main report's filters first, or maintain a roll-up count field on the parent and filter on that
+instead.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">46</span> The report returns too many rows to display.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Reports cap the rows shown in the UI, and a report that silently truncates is more dangerous than one that
+fails.</p>
+<p>Filter it down, summarise rather than listing, or export via the API if the full set is genuinely
+needed.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">47</span> How many bucket fields can a report have?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A small limit per report, and they are not reusable across reports.</p>
+<p>If the same bucketing appears in several reports, it belongs in a formula field on the
+object.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">48</span> A filter on a picklist misses records.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Inactive or renamed values, or values available only for certain record types.</p>
+<p>Filter on a stable field where possible, and review filters when picklist values
+change.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">49</span> You need "created in the last 7 days excluding weekends".<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Reports cannot do business-day arithmetic. You need a formula field on the object computing the business-day value, then filter on
+it.</p>
+<p>Same principle as SLA calculations: Business Hours live in the data, not in the
+report.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">50</span> A filter on a formula field is slow at volume.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Cross-object formulas cannot be indexed and are evaluated per row.</p>
+<p>Materialise the value into a plain indexable field via automation, backfill it, and filter on
+that.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">51</span> You need to exclude test records.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A flag field on the records, filtered out — not a name-based filter, which breaks the moment someone names a real record
+"Test Account Ltd".</p>
+<p>And set the flag at creation, so the exclusion is reliable rather than
+retrospective.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">52</span> A scheduled report stopped being relevant.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Hard-coded dates, or a filter referencing something that changed. Relative dates prevent the first
+case.</p>
+<p>Also review subscriptions periodically — scheduled reports nobody reads are a common form of organisational
+noise.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">53</span> How do you report on records a user owns or shares?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Scope filters ("My records", "My team's records") handle the common cases without custom
+filtering.</p>
+<p>For more complex definitions you need a field on the record expressing the relationship, since reports cannot traverse sharing
+logic.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">54</span> A filter needs to be dynamic per viewer.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Scope filters, or a dynamic dashboard that runs as the viewer.</p>
+<p>Standard dashboards show one running user's view to everyone, which is the most common cause of a manager seeing the wrong
+numbers.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">55</span> Two filters that should overlap return nothing.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>They are ANDed, so mutually exclusive conditions return an empty set.</p>
+<p>Set explicit filter logic with OR where that is the intent — this is the single most common filter
+mistake.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">56</span> How do you build a data-quality report?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Filter for the <em>bad</em> state: blank required-ish fields, field-to-field contradictions, records without expected children (cross
+filter).</p>
+<p>Then group by owner, so the output is actionable rather than a
+number.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="dashboards">Dashboards &amp; trending (57–78)</h2>
+
+<details class="acc"><summary><span class="q-num">57</span> A manager sees the VP's numbers on a dashboard.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A standard dashboard runs as <strong>one user</strong> and shows that user's data view to everyone. This is the number-one dashboard
+misunderstanding.</p>
+<p>Use a <strong>dynamic dashboard</strong> so it runs as the viewer — noting they are limited in number by edition and cannot be subscribed to
+in the same way.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">58</span> How many dashboard filters can you have?<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>A small number per dashboard, each with a limited set of options.</p>
+<p>Which means the dashboard should be designed around the two or three distinctions that matter, not every possible
+slice.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">59</span> One dashboard must show "my team" and "everyone".<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Component-level filters let two components use the same report with different scopes, side by side.</p>
+<p>That is cleaner than two dashboards that then drift
+apart.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">60</span> A dashboard shows 20 metrics.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Nobody acts on 20 numbers. Ask which three decisions it supports and build for those.</p>
+<p>Also pair every throughput metric with a quality metric, or the dashboard drives the wrong behaviour — see
+<a href="sales-service.html#advanced">paired metrics</a>.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">61</span> Users want the dashboard to refresh continuously.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Dashboards run their reports on refresh, so continuous refresh means continuous query load — and there are concurrency limits
+org-wide.</p>
+<p>Ask what decision depends on sub-hourly freshness; usually a scheduled refresh plus a "last refreshed" timestamp
+suffices.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">62</span> A dashboard is slow to load.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It runs every component's report. One unselective report over a large object makes the whole dashboard
+slow.</p>
+<p>Fix the underlying reports' selectivity, reduce the component count, and avoid putting heavy dashboards on a record or home
+page.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">63</span> How do you alert someone when a metric crosses a threshold?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A report subscription with a <strong>conditional alert</strong> — it only emails when the condition is
+met.</p>
+<p>Far more useful than a daily email nobody opens, and it is the cheapest monitoring available for business
+metrics.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">64</span> The business wants last quarter's pipeline as it stood then.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Live reports cannot do that — the records have changed. You need <strong>Historical Trending</strong> (built-in, limited objects and
+retention) or <strong>Reporting Snapshots</strong>.</p>
+<p>Snapshots mean you design the schema and own the volume, which is the trade for full
+flexibility.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">65</span> Which trending tool should you use?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Historical Trending for a few objects and fields with zero setup and a bounded retention window. Reporting Snapshots when you need custom
+fields, longer history or a different grain.</p>
+<p>Beyond either — multi-year, large volumes, blended sources — it is CRM Analytics or a
+warehouse.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">66</span> A snapshot object is growing fast.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>You own the volume: a daily snapshot of 100,000 records is 36 million rows a year.</p>
+<p>Snapshot at the grain you actually report on (weekly summaries rather than daily rows), and set a retention
+policy.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">67</span> A snapshot stopped running.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It is a scheduled job and fails quietly — a source report that changed, a field mapping that broke, or a limit.</p>
+<p>Monitor for the expected row count each period and alert on absence, because a gap in trend data cannot be
+backfilled.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">68</span> You need a chart on a record page.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Embed a report chart filtered by the record — usually better than a custom component.</p>
+<p>But it runs the report on page load, so the report's selectivity directly affects page
+performance.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">69</span> Users cannot see a dashboard you built.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Folder sharing — report and dashboard visibility comes from folder access, not record sharing.</p>
+<p>And the data they see still obeys the running user's record access, which is a separate
+question.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">70</span> How should report folders be organised?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>By audience and purpose, with sharing set per folder — and a convention for naming so people can find things.</p>
+<p>A flat "Public Reports" folder with 400 items is where reports go to be rebuilt by the next person who needs
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">71</span> A dashboard needs to be emailed weekly.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Dashboard subscriptions handle it, with the running-user caveat: recipients see the running user's data
+view.</p>
+<p>For per-recipient data you need dynamic dashboards, which have different subscription
+behaviour.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">72</span> How do you show a trend without snapshots?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Group by a date field on the existing records — which shows when things were <em>created or closed</em>, not what the state was at each
+point.</p>
+<p>That distinction matters: "opportunities created per month" is not "pipeline as it stood each
+month".</p></div></details>
+
+<details class="acc"><summary><span class="q-num">73</span> A dashboard component shows the wrong chart type.<span class="q-diff easy">Easy</span></summary>
+<div class="acc-body"><p>Chart types depend on the report's groupings and summaries — a chart needs the right grouping structure to be
+available.</p>
+<p>Fix the report's groupings rather than fighting the component.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">74</span> Two dashboards claim different revenue.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Different running users, different filters, different date basis, or different currency conversion.</p>
+<p>Agree one authoritative definition per metric, document it, and point other dashboards at the same report rather than reimplementing
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">75</span> How do you make a dashboard trustworthy?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A documented definition per metric, a visible last-refreshed timestamp, a stated running user, and consistency with the source
+reports.</p>
+<p>Trust comes from provenance, not from
+polish.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">76</span> Dashboards deploy but look wrong.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Running user, folder, and the underlying reports must all exist in the target org — and the running user may not be the same
+person.</p>
+<p>Verify the running user and folder assignments after every
+deployment.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">77</span> A dashboard is on the home page for 500 users.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>That is 500 report runs per load cycle. Make absolutely sure those reports are selective.</p>
+<p>A heavy dashboard on a widely-used home page is one of the easiest ways to make an org feel
+slow.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">78</span> Nobody uses the dashboard you built.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually it does not answer a question they have, or it is not where they work.</p>
+<p>Ask which decision it should support, and put it in their path — a dashboard nobody opens is a reporting requirement nobody actually
+had.</p></div></details>
+
+<!-- ============================================ -->
+<h2 id="judgement">Performance, API &amp; judgement (79–100)</h2>
+
+<details class="acc"><summary><span class="q-num">79</span> A report times out.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Selectivity. Filter on indexed fields, narrow the date range, and remove cross-object formula fields from
+filters.</p>
+<p>Run the Query Plan tool on the equivalent SOQL: cost above roughly 1 means a table
+scan.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">80</span> A report returns 400,000 rows to show 12 numbers.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>It is doing all the work to display almost none. Reduce the row count with filters before
+grouping.</p>
+<p>Summary reports still process the underlying rows, so the filter — not the format — is what makes it
+fast.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">81</span> Users export huge reports regularly.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Ask what they do with it — usually it is a report that should exist, or an integration that should.</p>
+<p>Also note exports are a security surface: Event Monitoring tracks them, and a Transaction Security policy can alert on large
+ones.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">82</span> You need report data in an LWC.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The Analytics (Reports) REST API runs a report and returns results as JSON, with filters applied at
+runtime.</p>
+<p>That is better than re-implementing the query, because the definition stays in one place that admins can
+maintain.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">83</span> An external dashboard needs Salesforce data.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>The Analytics API for report results, or a direct query via the REST API — and respect the daily API
+allocation.</p>
+<p>A tool polling twenty reports every five minutes will consume a noticeable share of
+it.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">84</span> Report concurrency limits are being hit.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>There are org-wide limits on concurrent report and dashboard runs. Heavy scheduled refreshes plus many users is the usual
+combination.</p>
+<p>Stagger schedules, reduce dashboard component counts, and move genuinely analytical workloads off
+reports.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">85</span> A report is the only documentation of a business rule.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>That happens, and it is fragile — the logic lives in filters nobody reviews.</p>
+<p>Document the definition in the report description, and consider whether the rule belongs in a field or automation
+instead.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">86</span> How do you stop report proliferation?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Filter panels and dashboard filters instead of cloning, folder conventions with ownership, and a periodic review that deletes unused
+reports.</p>
+<p>Usage data makes the deletion defensible; without it nobody dares remove
+anything.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">87</span> Who should be able to create reports?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Most users, in their own folders — restricting creation produces a queue and shadow spreadsheets.</p>
+<p>Control the <em>shared</em> folders and the export permission instead, which is where the real risk
+is.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">88</span> A report exposes data a user should not see.<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Reports respect sharing and FLS, so either the sharing model grants it or a dashboard's running user is wider than
+intended.</p>
+<p>Check the running user first — that is the usual cause, and it looks like a reporting bug rather than a sharing
+one.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">89</span> Report performance degrades as the org grows.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Expected: filters that were selective stop being selective. The same report changes plan as data
+grows.</p>
+<p>Review the heaviest reports periodically, and consider archiving so the working set stays
+bounded.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">90</span> The business wants a report Salesforce cannot produce.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Establish whether it is a join reports cannot do, a trend snapshots cannot hold, or a statistic reports do not
+compute.</p>
+<p>Each has a different answer: a schema change, a snapshot, or CRM Analytics. Saying "not possible" without identifying which is
+unhelpful.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">91</span> How do you migrate reports between orgs?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>They are metadata and deploy — but folders, folder sharing, running users and the underlying report types must exist in the
+target.</p>
+<p>Verify after deployment. "Deployed but invisible" is the standard outcome of forgetting the
+folder.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">92</span> A report needs to drive an action, not just inform.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A conditional alert subscription, or a scheduled flow acting on the same criteria.</p>
+<p>A report nobody acts on is a cost. Pair the metric with the decision it supports, or question why it
+exists.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">93</span> Stakeholders disagree about a number.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usually a definition disagreement, not a data one. Compare the filters, date basis and denominators
+side by side.</p>
+<p>Then agree one definition, document it, and make the other reports reference the same source — otherwise the meeting
+recurs.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">94</span> How do you measure whether reporting is working?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Usage data (which reports are actually run), the number of exports to spreadsheets, and how often the same question is asked in different
+forms.</p>
+<p>Heavy spreadsheet export is the clearest signal that reporting is not meeting the
+need.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">95</span> A manager wants a report built for every request.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Teach the filter panel and give them a good report type — self-service scales and a build queue does
+not.</p>
+<p>Reserve your effort for the report types, the metric definitions and the heavy
+reports.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">96</span> Reports or CRM Analytics for this requirement?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Reports unless you need to blend sources Salesforce cannot join, trend beyond what snapshots can hold, or handle multi-million-row
+datasets.</p>
+<p>Reports are free, live, and buildable by anyone — which also makes them far cheaper to
+maintain.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">97</span> A report is business-critical and undocumented.<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>Document the definition in its description, note its owner, and make sure it is in version control via its
+metadata.</p>
+<p>Critical reports built by someone who left, with filters nobody understands, are a common and avoidable
+risk.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">98</span> How do you design a report someone will trust?<span class="q-diff med">Medium</span></summary>
+<div class="acc-body"><p>A clear name stating the question, a documented definition, honest statistics (no averaged averages), relative dates, and a stated
+scope.</p>
+<p>Trust is mostly about provenance and consistency, not
+presentation.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">99</span> What is the most common reporting mistake?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Averaging averages — followed by the dashboard running-user misunderstanding, and inner joins where an outer join was
+wanted.</p>
+<p>All three produce confidently wrong numbers that nobody questions, which is the worst category of
+error.</p></div></details>
+
+<details class="acc"><summary><span class="q-num">100</span> One habit that most improves reporting?<span class="q-diff hard">Hard</span></summary>
+<div class="acc-body"><p>Writing the <strong>metric definition</strong> — numerator, denominator, date basis, exclusions — in the report description before building
+it.</p>
+<p>It prevents averaged averages, settles disagreements before they happen, and makes the report maintainable by someone who was not in the
+original conversation.</p></div></details>
+
+<div class="callout tip">
+  <span class="c-ico">🔁</span>
+  <div class="c-body"><span class="c-title">Next</span>
+    Back to <a href="reports.html">Reports &amp; Dashboards</a>, the <a href="scenarios.html">scenario index</a>, or
+    <a href="data-management-scenarios.html">Data Management — 100 Scenarios</a>.</div>
+</div>
+
+</article>
+<footer class="site-footer">Salesforce Mastery Notes · Reports — 100 Scenarios</footer>
+</main>
+<nav class="toc" id="toc"></nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>
